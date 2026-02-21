@@ -18,24 +18,30 @@ export async function GET() {
     } : null;
 
     // Memory Usage
-    const { stdout: memRaw } = await execAsync("vm_stat");
-    const pageSize = 4096; // typical macOS page size
-    const freePagesMatch = memRaw.match(/Pages free:\s+(\d+)/);
-    const activePagesMatch = memRaw.match(/Pages active:\s+(\d+)/);
-    const inactivePagesMatch = memRaw.match(/Pages inactive:\s+(\d+)/);
+    const { stdout: physMemRaw } = await execAsync("sysctl -n hw.memsize");
+    const totalBytes = parseInt(physMemRaw.trim());
+    let memory = { freeMB: 0, usedMB: 0, totalMB: Math.round(totalBytes / 1024 / 1024) };
+    try {
+      const { stdout: topMemRaw } = await execAsync("top -l 1 -n 0 | grep PhysMem");
+      // Format example: PhysMem: 7372M used (2062M wired, 3258M compressor), 135M unused.
+      const usedMatch = topMemRaw.match(/(\d+)([MG]) used/);
+      const unusedMatch = topMemRaw.match(/(\d+)([MG]) unused/);
 
-    let memory = {};
-    if (freePagesMatch && activePagesMatch && inactivePagesMatch) {
-      const free = parseInt(freePagesMatch[1]) * pageSize;
-      const active = parseInt(activePagesMatch[1]) * pageSize;
-      const inactive = parseInt(inactivePagesMatch[1]) * pageSize;
-      const used = active + inactive;
+      if (usedMatch) {
+        let usedMB = parseInt(usedMatch[1]);
+        if (usedMatch[2] === 'G') usedMB *= 1024;
 
-      memory = {
-        freeMB: Math.round(free / 1024 / 1024),
-        usedMB: Math.round(used / 1024 / 1024),
-        totalMB: Math.round((free + used) / 1024 / 1024)
-      };
+        let unusedMB = 0;
+        if (unusedMatch) {
+          unusedMB = parseInt(unusedMatch[1]);
+          if (unusedMatch[2] === 'G') unusedMB *= 1024;
+        }
+
+        memory.usedMB = usedMB;
+        memory.freeMB = unusedMB;
+      }
+    } catch (e) {
+      console.error('Memory parse error:', e);
     }
 
     // Disk Usage

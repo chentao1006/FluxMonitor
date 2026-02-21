@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { XSquare } from 'lucide-react';
+import { XSquare, Camera, X, Maximize2, Download } from 'lucide-react';
 
 export default function DashboardOverview() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +16,27 @@ export default function DashboardOverview() {
   const [history, setHistory] = useState<any[]>([]);
   const [prevNetBytes, setPrevNetBytes] = useState<{ in: number, out: number } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [screenshotLoading, setScreenshotLoading] = useState(false);
+  const [showScreenshot, setShowScreenshot] = useState(false);
+
+  const takeScreenshot = async () => {
+    setScreenshotLoading(true);
+    try {
+      const res = await fetch('/api/system/screenshot', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setScreenshot(data.data);
+        setShowScreenshot(true);
+      } else {
+        alert(`截图失败: ${data.error || data.details}`);
+      }
+    } catch (e) {
+      alert('网络请求失败');
+    } finally {
+      setScreenshotLoading(false);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -35,6 +56,9 @@ export default function DashboardOverview() {
             }
 
             const memUsed = dataStats.data.memory?.usedMB || 0;
+            const memTotal = dataStats.data.memory?.totalMB || 0;
+            // Robust calculation: only compute if we have a realistic total memory
+            const memPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
 
             let netInSpeed = 0;
             let netOutSpeed = 0;
@@ -48,7 +72,7 @@ export default function DashboardOverview() {
             const newPoint = {
               time: timeStr,
               cpu: Number(cpuUsage.toFixed(1)),
-              memory: memUsed,
+              memory: Number(memPercent.toFixed(1)),
               netIn: Number(netInSpeed.toFixed(1)),
               netOut: Number(netOutSpeed.toFixed(1))
             };
@@ -149,7 +173,102 @@ export default function DashboardOverview() {
 
   return (
     <div className="grid">
-      <h1 className="card-title" style={{ fontSize: '1.75rem', marginBottom: '0' }}>系统监控 🖥️</h1>
+      <div className="flex-between" style={{ marginBottom: '1.5rem', alignItems: 'center' }}>
+        <h1 className="card-title" style={{ fontSize: '1.75rem', marginBottom: '0' }}>系统监控 🖥️</h1>
+        <button
+          className="btn btn-primary"
+          onClick={takeScreenshot}
+          disabled={screenshotLoading}
+          style={{ gap: '0.75rem', padding: '0.6rem 1.25rem' }}
+        >
+          <Camera size={20} className={screenshotLoading ? 'animate-pulse' : ''} />
+          {screenshotLoading ? '正在截图...' : '屏幕截图'}
+        </button>
+      </div>
+
+      {/* Screenshot Modal Overlay */}
+      {showScreenshot && screenshot && (
+        <div
+          className="screenshot-modal-overlay"
+          onClick={() => setShowScreenshot(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem',
+            animation: 'fadeIn 0.3s ease'
+          }}
+        >
+          <div
+            className="screenshot-card glass-panel"
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '90%',
+              maxHeight: '90%',
+              background: 'var(--color-bg)',
+              padding: '1rem',
+              borderRadius: 'var(--radius-lg)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            <div className="flex-between" style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Maximize2 size={18} color="var(--color-primary)" />
+                <span style={{ fontWeight: 600 }}>系统实时截图</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <a
+                  href={screenshot}
+                  download={`screenshot_${new Date().getTime()}.png`}
+                  className="btn btn-ghost"
+                  style={{ padding: '0.4rem' }}
+                  title="下载图片"
+                >
+                  <Download size={20} />
+                </a>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setShowScreenshot(false)}
+                  style={{ padding: '0.4rem' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              overflow: 'auto',
+              borderRadius: 'var(--radius-md)',
+              background: '#000',
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              <img
+                src={screenshot}
+                alt="System Screenshot"
+                style={{
+                  maxWidth: '100%',
+                  height: 'auto',
+                  borderRadius: 'var(--radius-sm)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}
+              />
+            </div>
+
+            <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+              截图时间: {new Date().toLocaleString()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Section */}
       <div className="responsive-grid responsive-grid-2">
@@ -190,12 +309,12 @@ export default function DashboardOverview() {
         {/* Memory Chart */}
         <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', flexDirection: 'column', minHeight: '300px' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>内存使用估算动态 (MB)</h3>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>内存使用率动态 (%)</h3>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
-              {history.length > 0 ? `${history[history.length - 1].memory} MB` : 'N/A'}
+              {history.length > 0 ? `${history[history.length - 1].memory}%` : 'N/A'}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-              空闲 {stats?.memory?.freeMB || '0'} MB | 总计 {stats?.memory?.totalMB || '0'} MB
+              已用 {stats?.memory?.usedMB || '0'} MB | 总计 {stats?.memory?.totalMB || '0'} MB
             </div>
           </div>
           <div style={{ width: '100%', height: '180px', marginTop: 'auto' }}>
@@ -209,13 +328,13 @@ export default function DashboardOverview() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="time" hide />
-                <YAxis domain={['auto', 'auto']} stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${(val / 1024).toFixed(1)}G`} />
+                <YAxis domain={[0, 100]} stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
                   contentStyle={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', borderRadius: '8px', border: '1px solid var(--color-surface-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                   itemStyle={{ color: '#f59e0b', fontWeight: 600, fontSize: '0.9rem' }}
                   labelStyle={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}
                 />
-                <Area type="monotone" dataKey="memory" name="内存 (MB)" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorMem)" isAnimationActive={false} />
+                <Area type="monotone" dataKey="memory" name="内存 (%)" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorMem)" isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
