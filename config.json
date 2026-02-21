@@ -1,0 +1,9 @@
+{
+  "users": [
+    {
+      "username": "chentao1006",
+      "password": ""
+    }
+  ],
+  "jwtSecret": "3f9e8d7c6b5a4938271605f4e3d2c1b0"
+}
