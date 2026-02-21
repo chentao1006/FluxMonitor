@@ -134,13 +134,30 @@ export async function POST(request: Request) {
     }
 
     if (action === 'delete') {
-      await fs.unlink(filePath);
+      // Delete the main file if it exists
+      if (existsSync(filePath)) {
+        await fs.unlink(filePath);
+      }
+
+      // Also delete the .disabled version if it exists
+      const disabledPath = filePath + '.disabled';
+      if (existsSync(disabledPath)) {
+        await fs.unlink(disabledPath);
+      }
 
       if (enabledDir) {
         const enabledFile = path.join(enabledDir, filename);
         if (existsSync(enabledFile)) {
           try {
             await fs.unlink(enabledFile);
+          } catch (e) { }
+        }
+
+        // Also check if there's a enabledFile with .disabled suffix (though unlikely in enabledDir)
+        const enabledDisabledFile = enabledFile + '.disabled';
+        if (existsSync(enabledDisabledFile)) {
+          try {
+            await fs.unlink(enabledDisabledFile);
           } catch (e) { }
         }
       }

@@ -20,19 +20,43 @@ export async function GET() {
       // Ignore
     }
 
-    const enhancedImages = images.map((img: Record<string, string>) => {
-      const imgName = `${img.Repository}:${img.Tag}`;
-      const imgID = img.ID;
-      const inUse = usedImages.has(imgName) || usedImages.has(img.Repository) || usedImages.has(imgID) || Array.from(usedImages).some(u => u.startsWith(imgID));
-      return {
-        ...img,
-        InUse: inUse
-      };
+    // Group images by ID to avoid duplicates (same image with multiple tags)
+    const groupedImages: Record<string, any> = {};
+
+    images.forEach((img: any) => {
+      const id = img.ID;
+      if (!groupedImages[id]) {
+        const inUse = usedImages.has(img.Repository + ':' + img.Tag) ||
+          usedImages.has(img.Repository) ||
+          usedImages.has(id) ||
+          Array.from(usedImages).some(u => u.startsWith(id));
+
+        groupedImages[id] = {
+          ...img,
+          Tags: [img.Tag],
+          Repositories: [img.Repository],
+          InUse: inUse
+        };
+      } else {
+        if (!groupedImages[id].Tags.includes(img.Tag)) {
+          groupedImages[id].Tags.push(img.Tag);
+        }
+        if (!groupedImages[id].Repositories.includes(img.Repository)) {
+          groupedImages[id].Repositories.push(img.Repository);
+        }
+      }
     });
+
+    const finalImages = Object.values(groupedImages).map(img => ({
+      ...img,
+      // Create a display string for multiple tags/repos if needed
+      Tag: img.Tags.join(', '),
+      Repository: img.Repositories.join(', ')
+    }));
 
     return NextResponse.json({
       success: true,
-      data: enhancedImages,
+      data: finalImages,
     });
   } catch (error: unknown) {
     const err = error as Error;

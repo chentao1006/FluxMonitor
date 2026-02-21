@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
-import { RefreshCw, Trash2, FileText, ChevronRight, Search, Eraser } from 'lucide-react';
+import { RefreshCw, Trash2, FileText, ChevronRight, Search, Eraser, ArrowLeft } from 'lucide-react';
 
 export default function LogsPage() {
   const [files, setFiles] = useState<any[]>([]);
@@ -20,7 +20,7 @@ export default function LogsPage() {
       const data = await res.json();
       if (data.success) {
         setFiles(data.data);
-        if (data.data.length > 0 && !activeFile) {
+        if (data.data.length > 0 && !activeFile && typeof window !== 'undefined' && window.innerWidth > 768) {
           setActiveFile(data.data[0].path);
         }
       }
@@ -121,8 +121,8 @@ export default function LogsPage() {
 
   return (
     <div className="grid animate-fade-in">
-      <div className="flex-between" style={{ marginBottom: '1rem' }}>
-        <h1 className="card-title" style={{ fontSize: '1.75rem', marginBottom: '0' }}>日志浏览 📜</h1>
+      <div className="flex-between logs-header" style={{ marginBottom: '1rem' }}>
+        <h1 className="card-title log-title">日志浏览 📜</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-ghost" onClick={fetchFiles} title="刷新列表">
             <RefreshCw size={18} />
@@ -130,9 +130,9 @@ export default function LogsPage() {
         </div>
       </div>
 
-      <div className="responsive-grid" style={{ gridTemplateColumns: 'minmax(300px, 1fr) 3fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div className={`logs-layout ${activeFile ? 'showing-content' : 'showing-list'}`}>
         {/* Left Side: Tabs / File List */}
-        <div className="card glass-panel" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
+        <div className="logs-sidebar card glass-panel" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
           <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)' }}>
             <div style={{ position: 'relative' }}>
               <input
@@ -190,10 +190,18 @@ export default function LogsPage() {
         </div>
 
         {/* Right Side: Content Area */}
-        <div className="card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
-          <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="logs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
+          <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)', flexWrap: 'nowrap' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+              <button
+                className="btn btn-ghost mobile-back-btn"
+                onClick={() => setActiveFile(null)}
+                style={{ padding: '0.4rem', borderRadius: 'var(--radius-sm)' }}
+                title="返回列表"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <span>{activeFile ? activeFile.split('/').pop() : '未选择文件'}</span>
                 {activeFile && (
                   <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
@@ -269,12 +277,68 @@ export default function LogsPage() {
       </div>
 
       <style jsx>{`
+        .logs-layout {
+          display: grid;
+          grid-template-columns: minmax(300px, 1fr) 3fr;
+          gap: 1.5rem;
+          align-items: start;
+        }
+
+        .log-title {
+          font-size: 1.75rem;
+          margin-bottom: 0;
+        }
+
+        .logs-header {
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .mobile-back-btn {
+          display: none;
+        }
+
         .log-tab:hover {
           background: rgba(59, 130, 246, 0.05) !important;
         }
         .log-tab.active:hover {
           background: var(--color-primary-light) !important;
         }
+        
+        @media (max-width: 1024px) {
+          .logs-layout {
+            grid-template-columns: 300px 1fr;
+            gap: 1rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .logs-layout {
+            grid-template-columns: 1fr;
+            gap: 0;
+          }
+
+          .log-title {
+            font-size: 1.25rem;
+          }
+
+          .logs-sidebar, .logs-content {
+            height: calc(100vh - 160px) !important;
+          }
+
+          .showing-content .logs-sidebar {
+            display: none !important;
+          }
+          
+          .showing-list .logs-content {
+            display: none !important;
+          }
+
+          .mobile-back-btn {
+            display: flex;
+          }
+        }
+
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
