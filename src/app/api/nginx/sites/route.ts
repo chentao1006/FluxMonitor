@@ -71,9 +71,10 @@ export async function GET() {
         const enabledFile = path.join(enabledDir, filename);
         status = existsSync(enabledFile) ? 'enabled' : 'disabled';
       } else {
-        // If there's no sites-enabled dir, assume .conf files are enabled and others are not,
-        // or just assume all are enabled if it's the `servers` directory.
-        if (filename.endsWith('.conf') || availableDir.includes('servers')) {
+        // If there's no sites-enabled dir, check extension
+        if (filename.endsWith('.disabled')) {
+          status = 'disabled';
+        } else if (filename.endsWith('.conf') || availableDir.includes('servers')) {
           status = 'enabled';
         } else {
           status = 'disabled';
@@ -125,7 +126,6 @@ export async function POST(request: Request) {
             await fs.symlink(filePath, enabledFile);
           } catch (e) {
             // Ignore if already linked or permission denied
-            // Could also use executeNginxCmd style for symlink if sudo is needed, but typically these dirs are user-owned for homebrew
           }
         }
       }
@@ -145,6 +145,33 @@ export async function POST(request: Request) {
         }
       }
 
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'enable') {
+      if (enabledDir) {
+        const enabledFile = path.join(enabledDir, filename);
+        if (!existsSync(enabledFile)) {
+          await fs.symlink(filePath, enabledFile);
+        }
+      } else if (filename.endsWith('.disabled')) {
+        const newFilename = filename.replace('.disabled', '');
+        const newPath = path.join(availableDir, newFilename);
+        await fs.rename(filePath, newPath);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'disable') {
+      if (enabledDir) {
+        const enabledFile = path.join(enabledDir, filename);
+        if (existsSync(enabledFile)) {
+          await fs.unlink(enabledFile);
+        }
+      } else if (!filename.endsWith('.disabled')) {
+        const newPath = filePath + '.disabled';
+        await fs.rename(filePath, newPath);
+      }
       return NextResponse.json({ success: true });
     }
 

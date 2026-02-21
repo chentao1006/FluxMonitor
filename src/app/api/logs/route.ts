@@ -41,9 +41,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // Find all .log files in ~/Applications, up to 5 levels deep to avoid scanning too much
+    // Find all .log and nohup.out files in ~/Applications, up to 5 levels deep to avoid scanning too much
     // Sorting by modification time (most recent first)
-    const { stdout } = await execAsync(`find "${appsDir}" -maxdepth 5 -name "*.log" -type f -exec stat -f "%m %z %N" {} + | sort -rn | head -n 50`);
+    const { stdout } = await execAsync(`find "${appsDir}" -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" \\) -type f -exec stat -f "%m %z %N" {} + | sort -rn | head -n 50`);
 
     const files = stdout.trim().split('\n').filter(Boolean).map(line => {
       const parts = line.split(' ');

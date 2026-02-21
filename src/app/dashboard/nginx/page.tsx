@@ -170,6 +170,28 @@ export default function NginxDashboard() {
     }
   };
 
+  const handleToggleStatus = async (filename: string, currentStatus: 'enabled' | 'disabled') => {
+    const action = currentStatus === 'enabled' ? 'disable' : 'enable';
+    setSiteLoading(true);
+    try {
+      const res = await fetch('/api/nginx/sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, filename }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchSites();
+      } else {
+        alert(`${action === 'enable' ? '启用' : '禁用'}失败: ${data.details || data.error}`);
+      }
+    } catch (e) {
+      alert('网络请求失败');
+    } finally {
+      setSiteLoading(false);
+    }
+  };
+
   const handleDeleteSite = async (filename: string) => {
     if (!window.confirm(`确定要删除站点配置 ${filename} 吗？`)) return;
     setSiteLoading(true);
@@ -304,6 +326,19 @@ export default function NginxDashboard() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    className="btn btn-ghost"
+                    style={{
+                      padding: '0.2rem 0.5rem',
+                      fontSize: '0.8rem',
+                      color: site.status === 'enabled' ? '#f59e0b' : '#10b981',
+                      border: `1px solid ${site.status === 'enabled' ? '#f59e0b' : '#10b981'}`
+                    }}
+                    onClick={() => handleToggleStatus(site.name, site.status)}
+                    disabled={siteLoading}
+                  >
+                    {site.status === 'enabled' ? '禁用' : '启用'}
+                  </button>
                   <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#3b82f6', border: '1px solid #3b82f6' }} onClick={() => handleEditSite(site.name)}>编辑</button>
                   <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#ef4444', border: '1px solid #ef4444' }} onClick={() => handleDeleteSite(site.name)} disabled={siteLoading}>删除</button>
                 </div>

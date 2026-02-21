@@ -18,30 +18,42 @@ export async function GET() {
     } : null;
 
     // Memory Usage
+    // Memory Usage - Use vm_stat for more accurate macOS memory reporting
     const { stdout: physMemRaw } = await execAsync("sysctl -n hw.memsize");
     const totalBytes = parseInt(physMemRaw.trim());
-    let memory = { freeMB: 0, usedMB: 0, totalMB: Math.round(totalBytes / 1024 / 1024) };
+    const totalMB = Math.round(totalBytes / 1024 / 1024);
+    let memory = { freeMB: 0, usedMB: 0, totalMB };
+
     try {
-      const { stdout: topMemRaw } = await execAsync("top -l 1 -n 0 | grep PhysMem");
-      // Format example: PhysMem: 7372M used (2062M wired, 3258M compressor), 135M unused.
-      const usedMatch = topMemRaw.match(/(\d+)([MG]) used/);
-      const unusedMatch = topMemRaw.match(/(\d+)([MG]) unused/);
+      const [{ stdout: vmStatRaw }, { stdout: pageSizeRaw }] = await Promise.all([
+        execAsync("vm_stat"),
+        execAsync("sysctl -n vm.pagesize")
+      ]);
 
-      if (usedMatch) {
-        let usedMB = parseInt(usedMatch[1]);
-        if (usedMatch[2] === 'G') usedMB *= 1024;
+      const pageSize = parseInt(pageSizeRaw.trim());
+      const vmStatLines = vmStatRaw.split('\n');
 
-        let unusedMB = 0;
-        if (unusedMatch) {
-          unusedMB = parseInt(unusedMatch[1]);
-          if (unusedMatch[2] === 'G') unusedMB *= 1024;
-        }
+      const getPages = (key: string) => {
+        const line = vmStatLines.find(l => l.includes(key));
+        if (!line) return 0;
+        const match = line.match(/(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      };
 
-        memory.usedMB = usedMB;
-        memory.freeMB = unusedMB;
-      }
+      const freePages = getPages('Pages free');
+      const inactivePages = getPages('Pages inactive');
+      const speculativePages = getPages('Pages speculative');
+      // On macOS, inactive and speculative memory can be reclaimed, so they are effectively "available"
+      const availableBytes = (freePages + inactivePages + speculativePages) * pageSize;
+      const availableMB = Math.round(availableBytes / 1024 / 1024);
+
+      memory.freeMB = availableMB;
+      memory.usedMB = Math.max(0, totalMB - availableMB);
     } catch (e) {
       console.error('Memory parse error:', e);
+      // Fallback to basic calculation if vm_stat fails
+      memory.usedMB = Math.round(totalMB * 0.8); // Generic fallback
+      memory.freeMB = totalMB - memory.usedMB;
     }
 
     // Disk Usage
