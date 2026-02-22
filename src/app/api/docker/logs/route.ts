@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { stdout, stderr } = await execAsync(`docker logs --tail 100 ${id}`);
+    const { stdout, stderr } = await execAsync(`docker logs --tail 100 ${id}`, { maxBuffer: 100 * 1024 * 1024 });
     return NextResponse.json({
       success: true,
       logs: stdout || stderr

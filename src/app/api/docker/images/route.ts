@@ -6,7 +6,7 @@ const execAsync = promisify(exec);
 
 export async function GET() {
   try {
-    const { stdout: imagesOutput } = await execAsync('docker images --format \'{{json .}}\'');
+    const { stdout: imagesOutput } = await execAsync('docker images --format \'{{json .}}\'', { maxBuffer: 100 * 1024 * 1024 });
     const images = imagesOutput
       .split('\n')
       .filter((line: string) => line.trim())
@@ -14,7 +14,7 @@ export async function GET() {
 
     let usedImages = new Set<string>();
     try {
-      const { stdout: containersOutput } = await execAsync("docker ps -a --format '{{.Image}}'");
+      const { stdout: containersOutput } = await execAsync("docker ps -a --format '{{.Image}}'", { maxBuffer: 100 * 1024 * 1024 });
       usedImages = new Set(containersOutput.split('\n').map(l => l.trim()).filter(Boolean));
     } catch {
       // Ignore

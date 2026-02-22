@@ -21,6 +21,8 @@ export default function LaunchAgentDashboard() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
+  const isExistingContent = !!(fileContent && fileContent.trim() !== '' && !fileContent.startsWith('读取中') && !fileContent.startsWith('读取失败'));
+
   const fetchPlists = async () => {
     try {
       const res = await fetch('/api/launchagent/list');
@@ -197,13 +199,15 @@ export default function LaunchAgentDashboard() {
     setAiLoading(true);
     setSaveStatus('AI 魔法生成中... 🪄');
 
+    const prompt = isExistingContent
+      ? `请参考以下已有的 macOS LaunchAgent plist 内容，并根据新的需求进行修改：\n\n---当前内容---\n${fileContent}\n---当前内容---\n\n新的修改需求: ${aiPrompt}\n\n注意：必须仅返回修改后的纯 plist XML 代码文本，不要包含任何 markdown 语法（如 \`\`\`xml）和多余对话，直接以 <?xml 打头。`
+      : `请根据以下需求，为我生成一份 macOS LaunchAgent 的 plist 配置文件，你可以自由推测其命令逻辑。\n需求: ${aiPrompt}\n注意：必须仅返回纯 plist XML 代码文本，不要包含任何 markdown 语法（如 \`\`\`xml）和多余对话，直接以 <?xml 打头。`;
+
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `请根据以下需求，为我生成一份 macOS LaunchAgent 的 plist 配置文件，你可以自由推测其命令逻辑。\n需求: ${aiPrompt}\n注意：必须仅返回纯 plist XML 代码文本，不要包含任何 markdown 语法（如 \`\`\`xml）和多余对话，直接以 <?xml 打头。`
-        })
+        body: JSON.stringify({ prompt })
       });
       const data = await res.json();
       if (data.success) {
@@ -330,13 +334,13 @@ export default function LaunchAgentDashboard() {
                 type="text"
                 className="input"
                 style={{ flex: 1, border: 'none', background: 'transparent' }}
-                placeholder="想要系统替你写什么？例如：每天凌晨两点运行清理脚本"
+                placeholder={isExistingContent ? "描述你想要如何修改这段配置..." : "想要系统替你写什么？例如：每天凌晨两点运行清理脚本"}
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && generateAIPlist()}
               />
               <button className="btn btn-primary" style={{ background: 'linear-gradient(to right, #38bdf8, #a855f7)', border: 'none' }} onClick={generateAIPlist} disabled={aiLoading}>
-                {aiLoading ? '生成...' : '🪄 AI 生成'}
+                {aiLoading ? (isExistingContent ? '修改中...' : '生成...') : '🪄 AI ' + (isExistingContent ? '修改' : '生成')}
               </button>
             </div>
 

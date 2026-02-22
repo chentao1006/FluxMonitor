@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
@@ -21,8 +21,31 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: '文件不存在' }, { status: 404 });
       }
 
-      // Get last 2000 lines
-      const { stdout } = await execAsync(`tail -n 2000 "${filePath}"`);
+      // Use spawn instead of exec to avoid maxBuffer issues with large files
+      const stdout = await new Promise<string>((resolve, reject) => {
+        const child = spawn('tail', ['-n', '2000', filePath]);
+        let data = '';
+        const limit = 50 * 1024 * 1024; // 50MB safe limit
+
+        child.stdout.on('data', (chunk: Buffer) => {
+          data += chunk.toString();
+          if (data.length > limit) {
+            child.kill();
+          }
+        });
+
+        child.on('close', (code: number) => {
+          if (code === 0 || data.length > 0) {
+            resolve(data);
+          } else {
+            reject(new Error(`tail 命令退出，错误代码: ${code}`));
+          }
+        });
+
+        child.on('error', reject);
+
+      });
+
       return NextResponse.json({ success: true, data: stdout });
     } catch (error: any) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -43,7 +66,8 @@ export async function GET(request: Request) {
 
     // Find all .log and nohup.out files in ~/Applications, up to 5 levels deep to avoid scanning too much
     // Sorting by modification time (most recent first)
-    const { stdout } = await execAsync(`find "${appsDir}" -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" \\) -type f -exec stat -f "%m %z %N" {} + | sort -rn | head -n 50`);
+    // Redirect stderr to /dev/null to avoid permission errors filling up the buffer
+    const { stdout } = await execAsync(`find "${appsDir}" -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" \\) -type f -exec stat -f "%m %z %N" {} + 2>/dev/null | sort -rn | head -n 50`, { maxBuffer: 100 * 1024 * 1024 });
 
     const files = stdout.trim().split('\n').filter(Boolean).map(line => {
       const parts = line.split(' ');

@@ -23,7 +23,7 @@ export async function GET() {
     }));
 
     // Get loaded services
-    const { stdout } = await execAsync('launchctl list');
+    const { stdout } = await execAsync('launchctl list', { maxBuffer: 100 * 1024 * 1024 });
     const loadedList = stdout.split('\n');
 
     const enrichedPlists = plists.map(p => {
