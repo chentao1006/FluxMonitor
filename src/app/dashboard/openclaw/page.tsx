@@ -28,6 +28,8 @@ export default function OpenClawMain() {
   const [statusDetail, setStatusDetail] = useState('');
   const [memoryFiles, setMemoryFiles] = useState<any[]>([]);
   const [recentLogs, setRecentLogs] = useState<string>('');
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [lastLogTime, setLastLogTime] = useState<string>('');
   const [history, setHistory] = useState<any[]>([]);
   const [systemStats, setSystemStats] = useState<any>(null);
 
@@ -173,42 +175,62 @@ export default function OpenClawMain() {
 
   // Fetch logic helpers
   const fetchAll = async () => {
+    // 1. Status
     try {
-      const [statusRes, memoryRes, logsRes, statsRes, configRes] = await Promise.all([
-        fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status' }) }),
-        fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list_memory' }) }),
-        fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logs' }) }),
-        fetch('/api/system/stats'),
-        fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_config' }) })
-      ]);
-
-      const [statusData, memoryData, logsData, statsData, configData] = await Promise.all([
-        statusRes.json(), memoryRes.json(), logsRes.json(), statsRes.json(), configRes.json()
-      ]);
-
-      if (statusData.success) {
-        setIsRunning(statusData.running);
-        setStatusDetail(statusData.detail || '');
+      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status' }) });
+      const data = await res.json();
+      if (data.success) {
+        setIsRunning(data.running);
+        setStatusDetail(data.detail || '');
       }
-      if (memoryData.success) {
-        setMemoryFiles(memoryData.files);
+    } catch (e) { console.error('Status fetch failed:', e); }
+
+    // 2. Memory list
+    try {
+      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list_memory' }) });
+      const data = await res.json();
+      if (data.success) {
+        setMemoryFiles(data.files);
         const now = new Date();
         const mockHistory = Array.from({ length: 10 }).map((_, i) => ({
           time: new Date(now.getTime() - (9 - i) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          count: Math.floor(memoryData.files.length * (0.8 + Math.random() * 0.4))
+          count: Math.floor(data.files.length * (0.8 + Math.random() * 0.4))
         }));
         setHistory(mockHistory);
       }
-      if (logsData.success) {
-        setRecentLogs(logsData.data.split('\n').slice(-15).join('\n'));
+    } catch (e) { console.error('Memory fetch failed:', e); }
+
+    // 3. Logs
+    try {
+      setLoadingLogs(true);
+      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logs' }) });
+      const data = await res.json();
+      if (data.success) {
+        setRecentLogs(data.data || '');
+        setLastLogTime(new Date().toLocaleTimeString());
+      } else {
+        setRecentLogs(`Error: ${data.error || 'Failed to fetch logs'}`);
       }
-      if (statsData.success) {
-        setSystemStats(statsData.data);
-      }
-      if (configData.success) {
-        setConfigContent(configData.content);
-      }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error('Logs fetch failed:', e);
+      setRecentLogs('Network error while fetching logs');
+    } finally {
+      setLoadingLogs(false);
+    }
+
+    // 4. Stats
+    try {
+      const res = await fetch('/api/system/stats');
+      const data = await res.json();
+      if (data.success) setSystemStats(data.data);
+    } catch (e) { console.error('Stats fetch failed:', e); }
+
+    // 5. Config
+    try {
+      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_config' }) });
+      const data = await res.json();
+      if (data.success) setConfigContent(data.content);
+    } catch (e) { console.error('Config fetch failed:', e); }
   };
 
   useEffect(() => {
@@ -278,9 +300,9 @@ export default function OpenClawMain() {
   };
 
   return (
-    <div className="grid animate-fade-in" style={{ gap: '1.25rem' }}>
+    <div className="grid animate-fade-in openclaw-root" style={{ gap: '1.25rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Standard Header Section */}
-      <div className="flex-between" style={{ marginBottom: '0.5rem' }}>
+      <div className="flex-between flex-column-mobile" style={{ marginBottom: '0.75rem', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{
             background: 'var(--color-primary-light)',
@@ -290,20 +312,18 @@ export default function OpenClawMain() {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <LobsterIcon size={28} color="var(--color-primary)" />
+            <LobsterIcon size={24} color="var(--color-primary)" />
           </div>
-          <div>
-            <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>OpenClaw 控制中心</h1>
-          </div>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>OpenClaw 控制中心</h1>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={fetchAll} title="刷新数据">
-          <RefreshCw size={16} />
+        <button className="btn btn-ghost btn-sm mobile-full-width" onClick={fetchAll} title="刷新数据" style={{ gap: '0.5rem', height: '36px' }}>
+          <RefreshCw size={16} /> 刷新数据
         </button>
       </div>
 
       {/* Tab Navigation - Integrated Header */}
-      <div className="card glass-panel" style={{ padding: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+      <div className="card glass-panel tab-nav-card sticky-tabs" style={{ padding: '0.4rem', zIndex: 10, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+        <div className="tab-scroll-container no-scrollbar" style={{ display: 'flex', gap: '0.25rem', overflowX: 'auto', paddingBottom: '2px' }}>
           {[
             { id: 'overview', icon: LayoutGrid, label: '总览' },
             { id: 'monitor', icon: List, label: '运行日志' },
@@ -315,14 +335,18 @@ export default function OpenClawMain() {
               key={t.id}
               onClick={() => setActiveTab(t.id as Tab)}
               className={`btn ${activeTab === t.id ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ padding: '0.6rem 1rem', fontSize: '0.85rem', gap: '0.5rem' }}
+              style={{
+                padding: '0.5rem 0.85rem',
+                fontSize: '0.8rem',
+                gap: '0.4rem',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                height: '36px'
+              }}
             >
-              <t.icon size={16} /> {t.label}
+              <t.icon size={14} /> {t.label}
             </button>
           ))}
-        </div>
-        <div className={`badge ${isRunning ? 'badge-success' : 'badge-danger'}`} style={{ marginRight: '0.5rem' }}>
-          {isRunning ? '● ONLINE' : '○ OFFLINE'}
         </div>
       </div>
 
@@ -330,7 +354,7 @@ export default function OpenClawMain() {
       <div className="animate-fade-in">
         {/* OVERVIEW TAB - Many small modules */}
         {activeTab === 'overview' && (
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div className="overview-grid">
 
             {/* Module 1: Status */}
             <div className="card glass-panel small-module">
@@ -394,8 +418,8 @@ export default function OpenClawMain() {
               <div className="module-footer">{isRunning ? '生产环境稳定版' : '安装后查看版本'}</div>
             </div>
 
-            {/* Module 9: Chart (Spans 2 columns) */}
-            <div className="card glass-panel" style={{ gridColumn: 'span 2', padding: '1rem', minHeight: '120px' }}>
+            {/* Module 9: Chart (Spans 2 columns on desktop) */}
+            <div className="card glass-panel span-2" style={{ padding: '1rem', minHeight: '120px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>记忆增长趋势</div>
               <div style={{ height: '80px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -406,23 +430,24 @@ export default function OpenClawMain() {
               </div>
             </div>
 
-            {/* Module 10: Recent Active List (Spun 2 columns) */}
-            <div className="card glass-panel" style={{ gridColumn: 'span 2', padding: '1rem' }}>
+            {/* Module 10: Recent Active List (Spans 2 columns on desktop) */}
+            <div className="card glass-panel span-2" style={{ padding: '1rem' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>最近活跃记忆</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', width: '100%' }}>
                 {memoryFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 4).map(f => (
-                  <div key={f.path} style={{ fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div key={f.path} style={{ fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                     {f.name}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Module 12: Real-time Log Preview (Medium Module - Spans 2 columns) */}
-            <div className="card glass-panel" style={{ gridColumn: 'span 2', padding: 0, overflow: 'hidden' }}>
+            {/* Module 12: Real-time Log Preview (Medium Module - Spans 2 columns on desktop) */}
+            <div className="card glass-panel span-2" style={{ padding: 0, overflow: 'hidden' }}>
               <div className="flex-between" style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(0,0,0,0.01)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <FileText size={14} color="var(--color-primary)" /> 最新运行日志 (Live)
+                  {lastLogTime && <span style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>最后更新: {lastLogTime}</span>}
                 </div>
                 <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.65rem', height: '24px' }} onClick={() => setActiveTab('monitor')}>详情</button>
               </div>
@@ -437,7 +462,7 @@ export default function OpenClawMain() {
                 lineHeight: 1.4,
                 background: 'rgba(255,255,255,0.4)'
               }}>
-                {recentLogs ? recentLogs : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>暂无实时日志输出</div>}
+                {loadingLogs && !recentLogs ? '正在加载日志...' : (recentLogs || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>暂无实时日志输出</div>)}
               </div>
             </div>
 
@@ -458,11 +483,16 @@ export default function OpenClawMain() {
         {activeTab === 'monitor' && (
           <div className="card glass-panel" style={{ padding: 0 }}>
             <div className="flex-between" style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--color-surface-border)' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>运行流水日志</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => fetchAll()}>刷新</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>运行流水日志</span>
+                {lastLogTime && <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>同步时间: {lastLogTime}</span>}
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => fetchAll()} disabled={loadingLogs}>
+                {loadingLogs ? '加载中...' : '立即同步'}
+              </button>
             </div>
             <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', minHeight: '400px', fontSize: '0.85rem', fontFamily: 'monospace', color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-              {recentLogs || '等待数据流入...'}
+              {loadingLogs && !recentLogs ? '正在同步数据...' : (recentLogs || '等待数据流入...')}
             </div>
           </div>
         )}
@@ -618,6 +648,18 @@ export default function OpenClawMain() {
       </div>
 
       <style jsx>{`
+        .sticky-tabs {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+        @media (max-width: 768px) {
+          .sticky-tabs {
+            top: 80px; /* Below mobile header */
+            margin: 0;
+            border-radius: var(--radius-sm);
+          }
+        }
         .openclaw-dashboard-container {
           display: flex;
           gap: 1.5rem;
@@ -653,7 +695,7 @@ export default function OpenClawMain() {
           align-items: stretch;
         }
         .memory-sidebar {
-          width: 280px;
+          width: 250px;
           flex-shrink: 0;
           height: 600px;
           overflow-y: auto;
@@ -662,13 +704,30 @@ export default function OpenClawMain() {
           flex: 1;
           min-width: 0;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .memory-container {
             flex-direction: column;
+            gap: 1rem;
           }
           .memory-sidebar {
             width: 100%;
-            height: 250px;
+            height: 200px;
+          }
+          .memory-content textarea {
+            min-height: 400px !important;
+          }
+        }
+        .overview-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        @media (min-width: 640px) {
+          .overview-grid {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          }
+          .span-2 {
+            grid-column: span 2;
           }
         }
         .small-module {
@@ -677,6 +736,7 @@ export default function OpenClawMain() {
           flex-direction: column;
           justify-content: space-between;
           min-height: 110px;
+          width: 100%;
         }
         .module-header {
           font-size: 0.7rem;
@@ -707,6 +767,6 @@ export default function OpenClawMain() {
           opacity: 0.8;
         }
       `}</style>
-    </div >
+    </div>
   );
 }

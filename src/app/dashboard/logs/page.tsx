@@ -139,10 +139,12 @@ export default function LogsPage() {
 
   return (
     <div className="grid animate-fade-in">
-      <div className="flex-between logs-header" style={{ marginBottom: '1rem' }}>
+      <div className="flex-between logs-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <FileText size={28} color="var(--color-primary)" />
-          <h1 className="card-title log-title" style={{ margin: 0 }}>日志浏览</h1>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+            <FileText size={24} color="var(--color-primary)" />
+          </div>
+          <h1 className="card-title log-title" style={{ margin: 0, fontSize: '1.5rem' }}>日志浏览</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-ghost" onClick={fetchFiles} title="刷新列表">

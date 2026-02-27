@@ -144,14 +144,16 @@ export default function DashboardOverview() {
   if (loading && !stats) return <div className="flex-center" style={{ height: '70vh' }}>加载中...</div>;
 
   return (
-    <div className="grid" style={{ gap: '1rem' }}>
-      <div className="flex-between" style={{ marginBottom: '0.5rem', alignItems: 'center' }}>
+    <div className="grid animate-fade-in dashboard-page" style={{ gap: '1rem' }}>
+      <div className="flex-between page-header" style={{ marginBottom: '0.5rem', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Activity size={28} color="var(--color-primary)" />
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+            <Activity size={24} color="var(--color-primary)" />
+          </div>
           <h1 className="card-title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>系统监控</h1>
         </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary mobile-full-width"
           onClick={takeScreenshot}
           disabled={screenshotLoading}
           style={{ gap: '0.75rem', padding: '0.6rem 1.25rem' }}
@@ -175,7 +177,7 @@ export default function DashboardOverview() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '2rem',
+            padding: '1rem',
             animation: 'fadeIn 0.3s ease'
           }}
         >
@@ -184,8 +186,9 @@ export default function DashboardOverview() {
             onClick={e => e.stopPropagation()}
             style={{
               position: 'relative',
-              maxWidth: '90%',
-              maxHeight: '90%',
+              width: '100%',
+              maxWidth: '1200px',
+              maxHeight: '90vh',
               background: 'var(--color-bg)',
               padding: '1rem',
               borderRadius: 'var(--radius-lg)',
@@ -224,7 +227,8 @@ export default function DashboardOverview() {
               borderRadius: 'var(--radius-md)',
               background: '#f1f5f9',
               display: 'flex',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              flex: 1
             }}>
               <img
                 src={screenshot}
@@ -232,6 +236,7 @@ export default function DashboardOverview() {
                 style={{
                   maxWidth: '100%',
                   height: 'auto',
+                  objectFit: 'contain',
                   borderRadius: 'var(--radius-sm)',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                 }}
@@ -246,16 +251,16 @@ export default function DashboardOverview() {
       )}
 
       {/* Charts Section */}
-      <div className="responsive-grid responsive-grid-2" style={{ gap: '1rem' }}>
+      <div className="responsive-grid responsive-grid-2">
         {/* CPU Chart */}
-        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', minHeight: '240px' }}>
+        <div className="card glass-panel chart-card" style={{ padding: '1.25rem', minHeight: '260px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>CPU 综合使用率动态 (%)</h3>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
               {history.length > 0 ? `${history[history.length - 1].cpu}%` : 'N/A'}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-              User: {stats?.cpu?.user || 0}% | Sys: {stats?.cpu?.sys || 0}% | Idle: {stats?.cpu?.idle || 0}%
+              User: {stats?.cpu?.user || 0}% | Sys: {stats?.cpu?.sys || 0}%
             </div>
           </div>
           <div style={{ width: '100%', height: '180px', marginTop: 'auto' }}>
@@ -282,19 +287,19 @@ export default function DashboardOverview() {
         </div>
 
         {/* Memory Chart */}
-        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', minHeight: '240px' }}>
+        <div className="card glass-panel chart-card" style={{ padding: '1.25rem', minHeight: '260px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>内存使用率动态 (%)</h3>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
               {history.length > 0 ? `${history[history.length - 1].memory}%` : 'N/A'}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
-              已用 {stats?.memory?.usedMB || '0'} MB | 总计 {stats?.memory?.totalMB || '0'} MB
+              已用 {stats?.memory?.usedMB || '0'} MB / {stats?.memory?.totalMB || '0'} MB
             </div>
           </div>
           <div style={{ width: '100%', height: '180px', marginTop: 'auto' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history} margin={{ top: 10, right: 0, left: -10, bottom: 0 }}>
+              <AreaChart data={history} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
@@ -316,17 +321,16 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="responsive-grid responsive-grid-2" style={{ marginTop: '0rem', gap: '1rem' }}>
+      <div className="responsive-grid responsive-grid-2">
         {/* Network Chart */}
-        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', minHeight: '240px' }}>
+        <div className="card glass-panel chart-card" style={{ padding: '1.25rem', minHeight: '260px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>网络流量动态 (KB/s)</h3>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', gap: '0.5rem' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ color: '#10b981' }}>↓ {history.length > 0 ? history[history.length - 1].netIn : '0'}</span>
-              <span style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}>|</span>
               <span style={{ color: '#8b5cf6' }}>↑ {history.length > 0 ? history[history.length - 1].netOut : '0'}</span>
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {stats?.network?.split(',').slice(0, 2).join(',') || 'N/A'} (累计)
             </div>
           </div>
@@ -358,65 +362,67 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', gap: '1rem', justifyContent: 'center' }}>
-          <div style={{ width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>系统负载 (1m, 5m, 15m)</h3>
-            <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-primary)' }}>
-              {stats?.loadAvg || 'N/A'}
-            </div>
+        <div className="card glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'center' }}>
+          <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.75rem' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>系统负载</h3>
+            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-primary)' }}>{stats?.loadAvg || 'N/A'}</div>
           </div>
 
-          <div style={{ width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>系统版本</h3>
-            <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>
-              {stats?.osVersion || 'N/A'}
-            </div>
+          <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.75rem' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>系统版本</h3>
+            <div style={{ fontSize: '1rem', fontWeight: 600, textAlign: 'right' }}>{stats?.osVersion || 'N/A'}</div>
           </div>
 
-          <div style={{ width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>电池状态</h3>
-            <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#10b981' }}>
-              {stats?.battery || 'N/A'}
-            </div>
+          <div className="flex-between">
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>电池状态</h3>
+            <div style={{ fontSize: '1rem', fontWeight: 600, color: '#10b981' }}>{stats?.battery || 'N/A'}</div>
           </div>
         </div>
       </div>
 
       <div className="grid">
         {/* Command Execution */}
-        <div className="card glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
-          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            终端命令执行
+        <div className="card glass-panel terminal-section" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
+          <div className="flex-between" style={{ marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <h2 className="card-title" style={{ margin: 0 }}>终端命令执行</h2>
             <button
               type="button"
               className="btn btn-ghost"
-              style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', height: 'auto', background: 'linear-gradient(135deg, rgba(56,189,248,0.1), rgba(168,85,247,0.1))', color: '#8b5cf6', borderColor: 'rgba(168,85,247,0.3)' }}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.4rem 0.75rem',
+                height: 'auto',
+                background: 'rgba(139, 92, 246, 0.05)',
+                color: '#8b5cf6',
+                border: '1px solid rgba(139, 92, 246, 0.1)',
+                borderRadius: 'var(--radius-sm)'
+              }}
               onClick={translateAICommand}
               disabled={aiLoading || !cmd}
-              title="输入自然语言需求，让 AI 帮你写出正确的命令"
             >
               {aiLoading ? '翻译中...' : '🪄 自然语言转命令'}
             </button>
-          </h2>
-          <form onSubmit={executeCommand} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          </div>
+          <form onSubmit={executeCommand} className="command-form" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <input
               type="text"
-              className="input"
-              placeholder="输入 bash 命令 或 自然语言提示..."
+              className="input terminal-input"
+              placeholder="输入命令 或 需求..."
               value={cmd}
               onChange={e => setCmd(e.target.value)}
               style={{ flex: 1, fontFamily: 'monospace' }}
             />
             <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>执行</button>
           </form>
-          <div style={{
-            flex: 1, background: '#f1f5f9', borderRadius: 'var(--radius-sm)',
-            padding: '1rem', overflowY: 'auto', fontFamily: 'monospace',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem'
+          <div className="terminal-output" style={{
+            flex: 1, background: '#1e293b', color: '#f8fafc', borderRadius: 'var(--radius-sm)',
+            padding: '1rem', overflowY: 'auto', fontFamily: '"JetBrains Mono", monospace',
+            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
+            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)', minHeight: '150px'
           }}>
             {cmdResult || (
-              <span style={{ color: 'var(--color-text-muted)' }}>
-                结果将在此处显示... (请注意: 执行系统命令风险自担)
+              <span style={{ color: '#94a3b8' }}>
+                结果将在此处显示...
               </span>
             )}
           </div>

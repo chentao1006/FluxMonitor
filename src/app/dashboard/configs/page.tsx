@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Settings, FileText } from 'lucide-react';
+import { Settings, FileText, ChevronLeft, RefreshCw } from 'lucide-react';
 
 interface ConfigItem {
   id: string;
@@ -83,22 +83,29 @@ export default function ConfigsDashboard() {
   if (loading) return <div className="flex-center" style={{ height: '70vh' }}>加载中...</div>;
 
   return (
-    <div className="grid">
-      <div className="flex-between" style={{ marginBottom: '1rem', alignItems: 'center' }}>
+    <div className="grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Settings size={28} color="var(--color-primary)" />
-          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>配置管理</h1>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+            <Settings size={24} color="var(--color-primary)" />
+          </div>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>配置管理</h1>
         </div>
-        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }} className="desktop-only">
           快速修改系统和终端配置文件
         </div>
       </div>
 
-      <div className="responsive-grid responsive-grid-2" style={{ marginTop: '1rem', alignItems: 'stretch' }}>
+      <div className={`configs-layout ${editingId ? 'showing-content' : 'showing-list'}`} style={{ marginTop: '0.5rem', alignItems: 'stretch' }}>
         {/* Left Column: Config List */}
-        <div className="card glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>可用配置文件</h3>
-          <div style={{ flex: 1, overflowY: 'auto', maxHeight: '600px' }}>
+        <div className="configs-sidebar card glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="flex-between" style={{ marginBottom: '1rem' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>可用配置文件</h3>
+            <button className="btn btn-ghost btn-sm" onClick={fetchConfigs} disabled={loading} style={{ height: '24px', padding: '0 0.4rem' }}>
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {configs.map(config => (
                 <li key={config.id}
@@ -140,19 +147,24 @@ export default function ConfigsDashboard() {
         </div>
 
         {/* Right Column: Editor */}
-        <div className="card glass-panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
+        <div className="configs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
           {editingId ? (
             <>
-              <div className="flex-between" style={{ marginBottom: '1rem' }}>
+              <div className="flex-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <FileText size={28} color="var(--color-primary)" />
-                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>
-                    正在编辑: {configs.find(c => c.id === editingId)?.name}
+                  <button className="btn btn-ghost mobile-back-btn" onClick={() => setEditingId(null)} style={{ padding: '0.4rem' }}>
+                    <ChevronLeft size={20} />
+                  </button>
+                  <FileText size={24} color="var(--color-primary)" className="desktop-only" />
+                  <h3 style={{ margin: 0, fontSize: '1rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {configs.find(c => c.id === editingId)?.name}
                   </h3>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  {readLoading && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>正在读取...</span>}
-                  <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem' }} onClick={() => setEditingId(null)}>重置</button>
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  {readLoading && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>读取中...</span>}
+                  <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId); setSaveStatus(''); }} title="重新读取">
+                    <RefreshCw size={14} className={readLoading ? 'animate-spin' : ''} />
+                  </button>
                 </div>
               </div>
 
@@ -212,6 +224,67 @@ export default function ConfigsDashboard() {
           )}
         </div>
       </div>
+
+      <style jsx>{`
+        .configs-layout {
+          display: grid;
+          grid-template-columns: 1fr 2fr;
+          gap: 1.5rem;
+          align-items: stretch;
+          width: 100%;
+        }
+
+        .configs-sidebar, .configs-content {
+          height: calc(100vh - 200px);
+        }
+
+        .mobile-back-btn {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .configs-layout {
+            grid-template-columns: 280px 1fr;
+            gap: 1rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .configs-layout {
+            grid-template-columns: 1fr;
+            gap: 0;
+            height: auto;
+          }
+
+          .configs-sidebar, .configs-content {
+            height: calc(100vh - 140px);
+            border-radius: var(--radius-md);
+          }
+
+          .showing-content .configs-sidebar {
+            display: none !important;
+          }
+          
+          .showing-list .configs-content {
+            display: none !important;
+          }
+
+          .mobile-back-btn {
+            display: flex;
+          }
+           .dashboard-page-header {
+             display: ${editingId ? 'none' : 'flex'} !important;
+           }
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }

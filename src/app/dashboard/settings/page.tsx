@@ -71,13 +71,15 @@ export default function SettingsPage() {
   if (loading || !config) return <div className="flex-center" style={{ height: '70vh' }}>加载中...</div>;
 
   return (
-    <div className="grid no-scrollbar" style={{ gap: '1.5rem', maxHeight: '100%', overflowY: 'auto', paddingBottom: '2rem' }}>
-      <div className="flex-between">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Sliders size={28} color="var(--color-primary)" />
-          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>系统设置</h1>
+    <div className="grid no-scrollbar animate-fade-in" style={{ gap: '1.25rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+      <div className="flex-between flex-column-mobile" style={{ gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+            <Sliders size={24} color="var(--color-primary)" />
+          </div>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>系统设置</h1>
         </div>
-        <button className="btn btn-primary" onClick={handleSave} style={{ gap: '0.5rem' }}>
+        <button className="btn btn-primary mobile-full-width" onClick={handleSave} style={{ gap: '0.5rem', padding: '0.6rem 1.5rem' }}>
           <Save size={18} />
           保存更改
         </button>
@@ -89,10 +91,10 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="responsive-grid responsive-grid-2" style={{ gap: '1.5rem' }}>
+      <div className="responsive-grid responsive-grid-2" style={{ gap: '1.25rem', width: '100%' }}>
         {/* Feature Toggles */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', gridColumn: 'span 2' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <section className="card glass-panel span-2" style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <Power size={20} color="var(--color-primary)" />
             <h2 style={{ fontSize: '1.1rem', margin: 0 }}>功能版块开关</h2>
           </div>
@@ -125,8 +127,8 @@ export default function SettingsPage() {
         </section>
 
         {/* Account Management */}
-        <section className="card glass-panel" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <section className="card glass-panel" style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <User size={20} color="var(--color-primary)" />
             <h2 style={{ fontSize: '1.1rem', margin: 0 }}>账户管理</h2>
           </div>
@@ -161,8 +163,8 @@ export default function SettingsPage() {
         </section>
 
         {/* AI Configuration */}
-        <section className="card glass-panel" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <section className="card glass-panel" style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <Cpu size={20} color="var(--color-primary)" />
             <h2 style={{ fontSize: '1.1rem', margin: 0 }}>AI 引擎配置 (OpenAI)</h2>
           </div>
@@ -200,28 +202,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Deployment Configuration */}
-        <section className="card glass-panel" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <Rocket size={20} color="var(--color-primary)" />
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>部署配置</h2>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>部署目标路径 (deploy.sh 使用)</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="~/Applications/monitor"
-                value={config.deployPath || ''}
-                onChange={e => setConfig({ ...config, deployPath: e.target.value })}
-              />
-              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-                deploy.sh 脚本会将构建后的文件拷贝到此路径。支持 ~ 符号。
-              </p>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );

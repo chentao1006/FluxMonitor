@@ -34,51 +34,68 @@ export default function DashboardLayout({
       .catch(err => console.error('Load features failed', err));
   }, []);
 
+  // Close menu on escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
+  // Prevent scrolling when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [isMenuOpen]);
+
   if (!mounted) {
     return <div className="app-layout" style={{ opacity: 0 }}></div>;
   }
 
   return (
-    <div className="app-layout">
-      {/* Sidebar Navigation */}
-      <aside className="glass-panel app-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div className="flex-between">
+    <div className={`app-layout ${isMenuOpen ? 'menu-open' : ''}`}>
+      {/* Mobile Top Header */}
+      <header className="mobile-header glass-panel">
+        <div className="flex-center" style={{ gap: '0.75rem' }}>
+          <div className="logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <h2 style={{ fontSize: '1.1rem', margin: 0 }}>监控面板</h2>
+        </div>
+        <button
+          className="mobile-menu-btn"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          <div className={`hamburger ${isMenuOpen ? 'open' : ''}`}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </button>
+      </header>
+
+      {/* Sidebar Navigation (Desktop) / Drawer (Mobile) */}
+      <aside className={`app-sidebar glass-panel ${isMenuOpen ? 'open' : ''}`}>
+        <div className="sidebar-header flex-between desktop-only">
           <div className="flex-center" style={{ gap: '0.75rem' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '10px',
-              background: 'linear-gradient(135deg, var(--color-primary), #60a5fa)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" suppressHydrationWarning>
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" suppressHydrationWarning></polyline>
+            <div className="logo-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
               </svg>
             </div>
-            <h2 style={{ fontSize: '1.25rem', margin: 0 }} suppressHydrationWarning>监控面板</h2>
+            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>监控面板</h2>
           </div>
-          <button
-            className="mobile-menu-btn"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" suppressHydrationWarning>
-              {isMenuOpen ? (
-                <>
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </>
-              ) : (
-                <>
-                  <line x1="3" y1="12" x2="21" y2="12"></line>
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="3" y1="18" x2="21" y2="18"></line>
-                </>
-              )}
-            </svg>
-          </button>
         </div>
 
-        <div className={`app-sidebar-content ${isMenuOpen ? 'open' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto', paddingRight: '4px' }} className="no-scrollbar">
+        <div className="app-sidebar-content">
+          <nav className="nav-list no-scrollbar">
             {features.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>系统监控</NavLink>}
             {features.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>进程管理</NavLink>}
             {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>日志浏览</NavLink>}
@@ -89,11 +106,10 @@ export default function DashboardLayout({
             {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>OpenClaw 控制</NavLink>}
           </nav>
 
-          <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--color-surface-border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div className="sidebar-footer">
             <NavLink href="/dashboard/settings" icon="sliders" onClick={() => setIsMenuOpen(false)}>系统设置</NavLink>
             <button
-              className="btn btn-ghost"
-              style={{ width: '100%', justifyContent: 'flex-start', gap: '0.75rem', padding: '0.85rem 1rem' }}
+              className="btn btn-ghost logout-btn"
               onClick={async () => {
                 await fetch('/api/auth/logout', { method: 'POST' });
                 window.location.href = '/login';
@@ -102,14 +118,17 @@ export default function DashboardLayout({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
               </svg>
-              退出登录
+              <span>退出登录</span>
             </button>
           </div>
         </div>
       </aside>
 
+      {/* Mobile Menu Backdrop */}
+      {isMenuOpen && <div className="menu-backdrop" onClick={() => setIsMenuOpen(false)}></div>}
+
       {/* Main Content Area */}
-      <main className="animate-fade-in app-main">
+      <main className="app-main animate-fade-in">
         {children}
       </main>
     </div>
