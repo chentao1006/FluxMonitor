@@ -40,21 +40,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex-center" style={{ minHeight: '100vh', padding: '1rem' }}>
-      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+    <div className="flex-center" style={{ minHeight: '100vh', padding: '1rem' }} suppressHydrationWarning>
+      <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }} suppressHydrationWarning>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }} suppressHydrationWarning>
           <div style={{
             width: '64px', height: '64px', borderRadius: '16px',
             background: 'linear-gradient(135deg, var(--color-primary), #60a5fa)',
             margin: '0 auto 1.5rem', display: 'flex', alignItems: 'center',
             justifyContent: 'center', boxShadow: '0 8px 16px rgba(59, 130, 246, 0.3)'
-          }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          }} suppressHydrationWarning>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" suppressHydrationWarning>
+              <circle cx="12" cy="12" r="3" fill="white" />
+              <circle cx="12" cy="12" r="7" stroke="white" strokeOpacity="0.4" />
+              <circle cx="12" cy="12" r="11" stroke="white" strokeOpacity="0.1" />
+              <path d="M15 9l2-2M7 15l2-2" stroke="white" strokeOpacity="0.5" strokeWidth="1.5" />
             </svg>
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>macOS 监控中心</h1>
-          <p>请输入您的管理员凭证</p>
+          <h1 className="card-title" style={{ fontSize: '2.5rem', marginBottom: '0.25rem', fontWeight: 900, letterSpacing: '0.1em' }} suppressHydrationWarning>FLUX</h1>
+          <div style={{ fontSize: '1rem', color: 'var(--color-primary)', fontWeight: 600, letterSpacing: '0.6em', textIndent: '0.6em', marginBottom: '1.5rem', opacity: 0.8 }} suppressHydrationWarning>浮光</div>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }} suppressHydrationWarning>极简且强大的 macOS 管理面板</p>
         </div>
 
         {error && (
