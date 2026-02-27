@@ -86,7 +86,7 @@ export default function DashboardLayout({
             {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>LaunchAgent 配置</NavLink>}
             {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>Docker 管理</NavLink>}
             {features.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>Nginx 监控</NavLink>}
-            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="terminal" onClick={() => setIsMenuOpen(false)}>OpenClaw 控制</NavLink>}
+            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>OpenClaw 控制</NavLink>}
           </nav>
 
           <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--color-surface-border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -134,10 +134,12 @@ function NavLink({ href, children, icon, onClick }: { href: string; children: Re
       case 'lobster': return (
         <>
           <path d="M12 3c-1.5 0-3 1-3 3 0 2 1.5 2.5 3 3.5 1.5-1 3-1.5 3-3.5 0-2-1.5-3-3-3z" />
-          <path d="M10 9c-2 .5-4 1.5-5 3.5-.5 1 0 2.5 1 3.5 1 .5 2 0 3-1" />
-          <path d="M14 9c2 .5 4 1.5 5 3.5.5 1 0 2.5-1 3.5-1 .5-2 0-3-1" />
+          <path d="M18 10c1 0 3 .5 3 2.5s-2 2.5-3 2.5c-.5 0-1 0-1.5-.5" />
+          <path d="M6 10c-1 0-3 .5-3 2.5s2 2.5 3 2.5c.5 0 1 0 1.5-.5" />
           <path d="M12 9v11a2 2 0 0 1-4 0M12 12v8a2 2 0 0 0 4 0" />
           <path d="M12 7c-1-2-2-3-4-3M12 7c1-2 2-3 4-3" />
+          <circle cx="9" cy="5" r="0.5" fill="currentColor" />
+          <circle cx="15" cy="5" r="0.5" fill="currentColor" />
         </>
       );
 
