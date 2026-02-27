@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Settings, Save, User, Cpu, Power, Info, AlertTriangle } from 'lucide-react';
+import { Sliders, Save, User, Cpu, Power, Info, AlertTriangle, Rocket } from 'lucide-react';
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<any>(null);
@@ -74,7 +74,7 @@ export default function SettingsPage() {
     <div className="grid no-scrollbar" style={{ gap: '1.5rem', maxHeight: '100%', overflowY: 'auto', paddingBottom: '2rem' }}>
       <div className="flex-between">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Settings size={28} color="var(--color-primary)" />
+          <Sliders size={28} color="var(--color-primary)" />
           <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>系统设置</h1>
         </div>
         <button className="btn btn-primary" onClick={handleSave} style={{ gap: '0.5rem' }}>
@@ -90,6 +90,40 @@ export default function SettingsPage() {
       )}
 
       <div className="responsive-grid responsive-grid-2" style={{ gap: '1.5rem' }}>
+        {/* Feature Toggles */}
+        <section className="card glass-panel" style={{ padding: '1.5rem', gridColumn: 'span 2' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <Power size={20} color="var(--color-primary)" />
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>功能版块开关</h2>
+          </div>
+          <div className="responsive-grid responsive-grid-auto" style={{ gap: '1rem' }}>
+            {Object.entries(config.features || {}).map(([key, enabled]: [string, any]) => (
+              <div key={key} className="flex-between glass-panel" style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)' }}>
+                <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>
+                  {key === 'monitor' ? '系统监控' :
+                    key === 'processes' ? '进程管理' :
+                      key === 'logs' ? '日志浏览' :
+                        key === 'configs' ? '配置管理' :
+                          key === 'launchagent' ? 'LaunchAgent' :
+                            key === 'docker' ? 'Docker' :
+                              key === 'nginx' ? 'Nginx' :
+                                key === 'openclaw' ? 'OpenClaw' : key}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={e => updateFeature(key, e.target.checked)}
+                  style={{ width: '18px', height: '18px' }}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+            <Info size={14} />
+            <span>关闭某个版块将隐藏侧边栏中的对应入口。</span>
+          </div>
+        </section>
+
         {/* Account Management */}
         <section className="card glass-panel" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -166,37 +200,26 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Feature Toggles */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', gridColumn: 'span 2' }}>
+        {/* Deployment Configuration */}
+        <section className="card glass-panel" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <Power size={20} color="var(--color-primary)" />
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>功能版块开关</h2>
+            <Rocket size={20} color="var(--color-primary)" />
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>部署配置</h2>
           </div>
-          <div className="responsive-grid responsive-grid-auto" style={{ gap: '1rem' }}>
-            {Object.entries(config.features || {}).map(([key, enabled]: [string, any]) => (
-              <div key={key} className="flex-between glass-panel" style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>
-                  {key === 'monitor' ? '系统监控' :
-                    key === 'processes' ? '进程管理' :
-                      key === 'logs' ? '日志浏览' :
-                        key === 'configs' ? '配置管理' :
-                          key === 'launchagent' ? 'LaunchAgent' :
-                            key === 'docker' ? 'Docker' :
-                              key === 'nginx' ? 'Nginx' :
-                                key === 'openclaw' ? 'OpenClaw' : key}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={e => updateFeature(key, e.target.checked)}
-                  style={{ width: '18px', height: '18px' }}
-                />
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-            <Info size={14} />
-            <span>关闭某个版块将隐藏侧边栏中的对应入口。</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>部署目标路径 (deploy.sh 使用)</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="~/Applications/monitor"
+                value={config.deployPath || ''}
+                onChange={e => setConfig({ ...config, deployPath: e.target.value })}
+              />
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+                deploy.sh 脚本会将构建后的文件拷贝到此路径。支持 ~ 符号。
+              </p>
+            </div>
           </div>
         </section>
       </div>

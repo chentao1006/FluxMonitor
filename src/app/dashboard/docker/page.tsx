@@ -281,9 +281,10 @@ export default function DockerDashboard() {
               <button className="btn btn-ghost" onClick={() => setIsLogsOpen(false)}>关闭</button>
             </div>
             <div style={{
-              flex: 1, backgroundColor: '#1e293b', color: '#10b981',
+              flex: 1, backgroundColor: '#f1f5f9', color: 'var(--color-text)',
               fontFamily: 'monospace', padding: '1rem', overflowY: 'auto',
-              borderRadius: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-all'
+              borderRadius: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+              border: '1px solid var(--color-surface-border)'
             }}>
               {logsLoading ? '加载日志中...' : currentLogs}
             </div>

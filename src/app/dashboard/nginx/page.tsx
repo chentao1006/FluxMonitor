@@ -373,9 +373,10 @@ export default function NginxDashboard() {
         <div className="card glass-panel" style={{ marginTop: '0.5rem' }}>
           <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>配置文件测试结果</h3>
           <div style={{
-            background: '#1e293b', padding: '1rem', borderRadius: 'var(--radius-sm)',
-            fontFamily: 'monospace', color: testResult.includes('failed') ? '#ef4444' : '#10b981',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem'
+            background: '#f1f5f9', padding: '1rem', borderRadius: 'var(--radius-sm)',
+            fontFamily: 'monospace', color: testResult.includes('failed') ? 'var(--color-danger)' : 'var(--color-success)',
+            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
+            border: '1px solid var(--color-surface-border)'
           }}>
             {testResult}
           </div>

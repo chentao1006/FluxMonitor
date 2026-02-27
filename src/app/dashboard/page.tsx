@@ -222,7 +222,7 @@ export default function DashboardOverview() {
             <div style={{
               overflow: 'auto',
               borderRadius: 'var(--radius-md)',
-              background: '#000',
+              background: '#f1f5f9',
               display: 'flex',
               justifyContent: 'center'
             }}>

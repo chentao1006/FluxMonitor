@@ -7,7 +7,18 @@
 
 set -e
 
+# Default deployment directory
 APP_DIR="$HOME/Applications/monitor"
+
+# Try to read from config.json
+if [ -f "config.json" ]; then
+    # Extract deployPath value from JSON
+    CONFIG_PATH=$(grep '"deployPath":' config.json | sed -E 's/.*"deployPath": "(.*)".*/\1/' || echo "")
+    if [ ! -z "$CONFIG_PATH" ]; then
+        # Expand ~ to $HOME if present
+        APP_DIR="${CONFIG_PATH/#\~/$HOME}"
+    fi
+fi
 
 echo "================================================="
 echo "  Deploying macOS Integrated Monitor "

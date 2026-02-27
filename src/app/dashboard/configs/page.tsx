@@ -164,11 +164,11 @@ export default function ConfigsDashboard() {
                   fontSize: '0.9rem',
                   padding: '1rem',
                   resize: 'none',
-                  background: '#1e293b',
-                  color: '#e2e8f0',
+                  background: '#f1f5f9',
+                  color: 'var(--color-text)',
                   lineHeight: '1.5',
                   borderRadius: 'var(--radius-sm)',
-                  border: 'none',
+                  border: '1px solid var(--color-surface-border)',
                   outline: 'none'
                 }}
                 spellCheck={false}

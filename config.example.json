@@ -20,5 +20,6 @@
     "docker": true,
     "nginx": true,
     "openclaw": true
-  }
+  },
+  "deployPath": "~/Applications/monitor"
 }

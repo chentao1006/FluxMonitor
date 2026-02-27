@@ -150,12 +150,13 @@ export default function OpenClawDashboard() {
           <div
             ref={logsRef}
             style={{
-              height: '400px', background: '#1e293b', color: '#10b981', borderRadius: 'var(--radius-sm)',
+              height: '400px', background: '#f1f5f9', color: 'var(--color-text)', borderRadius: 'var(--radius-sm)',
               padding: '1rem', overflowY: 'auto', fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.8rem', lineHeight: 1.4
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.8rem', lineHeight: 1.4,
+              border: '1px solid var(--color-surface-border)'
             }}>
             {logs || (
-              <span style={{ color: '#64748b' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>
                 等待日志输出...
               </span>
             )}
@@ -198,12 +199,13 @@ export default function OpenClawDashboard() {
             <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>执行</button>
           </form>
           <div style={{
-            flex: 1, background: '#1e293b', color: '#f8fafc', borderRadius: 'var(--radius-sm)',
+            flex: 1, background: '#f1f5f9', color: 'var(--color-text)', borderRadius: 'var(--radius-sm)',
             padding: '1rem', overflowY: 'auto', fontFamily: 'monospace', minHeight: '200px',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem'
+            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
+            border: '1px solid var(--color-surface-border)'
           }}>
             {cmdResult || (
-              <span style={{ color: '#64748b' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>
                 等待执行...
               </span>
             )}
