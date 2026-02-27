@@ -230,12 +230,14 @@ export default function NginxDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between" style={{ marginBottom: '1rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Server size={28} color="var(--color-primary)" />
-          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>Nginx 管理</h1>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+            <Server size={24} color="var(--color-primary)" />
+          </div>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>Nginx</h1>
         </div>
-        <div className={`badge ${isRunning ? 'badge-success' : 'badge-danger'}`}>
+        <div className={`badge ${isRunning ? 'badge-success' : 'badge-danger'}`} style={{ height: 'fit-content' }}>
           {isRunning ? '运行中' : '已停止'}
         </div>
       </div>

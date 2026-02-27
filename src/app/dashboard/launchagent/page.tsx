@@ -232,14 +232,16 @@ export default function LaunchAgentDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between" style={{ marginBottom: '1rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Rocket size={28} color="var(--color-primary)" />
-          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>LaunchAgent 配置</h1>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+            <Rocket size={24} color="var(--color-primary)" />
+          </div>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>LaunchAgent</h1>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-primary" onClick={handleAddNew}>添加配置</button>
-          <button className="btn btn-ghost" style={{ border: '1px solid currentColor' }} onClick={fetchPlists}>刷新列表</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }} className="mobile-full-width">
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddNew}>添加配置</button>
+          <button className="btn btn-ghost" style={{ flex: 1, border: '1px solid var(--color-surface-border)' }} onClick={fetchPlists}>刷新列表</button>
         </div>
       </div>
 

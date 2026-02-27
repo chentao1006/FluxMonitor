@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import {
   Terminal, Brain, Activity, Settings, Zap, ArrowRight, ShieldCheck,
   Database, Clock, RefreshCw, Save, FileText, ChevronRight,
-  Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power
+  Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus
 } from 'lucide-react';
 
 type Tab = 'overview' | 'monitor' | 'config' | 'memory' | 'command';
@@ -42,6 +42,25 @@ export default function OpenClawMain() {
   const [memoryContent, setMemoryContent] = useState('');
   const [isSavingMemory, setIsSavingMemory] = useState(false);
   const [configMode, setConfigMode] = useState<'visual' | 'source'>('visual');
+  const [newConfigKey, setNewConfigKey] = useState('');
+  const [newConfigValue, setNewConfigValue] = useState('');
+
+  const previewLogRef = useRef<HTMLDivElement>(null);
+  const monitorLogRef = useRef<HTMLDivElement>(null);
+  const cmdResultRef = useRef<HTMLDivElement>(null);
+
+  // Auto scroll logs to bottom
+  useEffect(() => {
+    if (previewLogRef.current) {
+      previewLogRef.current.scrollTop = previewLogRef.current.scrollHeight;
+    }
+    if (monitorLogRef.current) {
+      monitorLogRef.current.scrollTop = monitorLogRef.current.scrollHeight;
+    }
+    if (cmdResultRef.current) {
+      cmdResultRef.current.scrollTop = cmdResultRef.current.scrollHeight;
+    }
+  }, [recentLogs, activeTab, cmdResult]);
 
   // Config helpers
   const parseConfig = () => {
@@ -173,6 +192,13 @@ export default function OpenClawMain() {
     );
   };
 
+  const addConfigField = () => {
+    if (!newConfigKey.trim()) return;
+    updateConfigField(newConfigKey, newConfigValue);
+    setNewConfigKey('');
+    setNewConfigValue('');
+  };
+
   // Fetch logic helpers
   const fetchAll = async () => {
     // 1. Status
@@ -302,22 +328,15 @@ export default function OpenClawMain() {
   return (
     <div className="grid animate-fade-in openclaw-root" style={{ gap: '1.25rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Standard Header Section */}
-      <div className="flex-between flex-column-mobile" style={{ marginBottom: '0.75rem', gap: '1rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div className="icon-container" style={{
-            background: 'var(--color-primary-light)',
-            padding: '0.5rem',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <LobsterIcon size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>OpenClaw 控制中心</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>OpenClaw</h1>
         </div>
-        <button className="btn btn-ghost btn-sm mobile-full-width" onClick={fetchAll} title="刷新数据" style={{ gap: '0.5rem', height: '36px' }}>
-          <RefreshCw size={16} /> 刷新数据
+        <button className="btn btn-ghost mobile-full-width" onClick={fetchAll} disabled={loadingLogs} style={{ gap: '0.5rem', height: '36px' }}>
+          <RefreshCw size={18} className={loadingLogs ? 'animate-spin' : ''} /> 刷新数据
         </button>
       </div>
 
@@ -451,17 +470,20 @@ export default function OpenClawMain() {
                 </div>
                 <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.65rem', height: '24px' }} onClick={() => setActiveTab('monitor')}>详情</button>
               </div>
-              <div style={{
-                height: '110px',
-                padding: '0.75rem 1rem',
-                fontFamily: '"JetBrains Mono", monospace',
-                fontSize: '0.75rem',
-                color: '#64748b',
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.4,
-                background: 'rgba(255,255,255,0.4)'
-              }}>
+              <div
+                ref={previewLogRef}
+                style={{
+                  height: '110px',
+                  padding: '0.75rem 1rem',
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontSize: '0.75rem',
+                  color: '#64748b',
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.4,
+                  background: 'rgba(255,255,255,0.4)'
+                }}
+              >
                 {loadingLogs && !recentLogs ? '正在加载日志...' : (recentLogs || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>暂无实时日志输出</div>)}
               </div>
             </div>
@@ -491,7 +513,10 @@ export default function OpenClawMain() {
                 {loadingLogs ? '加载中...' : '立即同步'}
               </button>
             </div>
-            <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', minHeight: '400px', fontSize: '0.85rem', fontFamily: 'monospace', color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+            <div
+              ref={monitorLogRef}
+              style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', height: '500px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
+            >
               {loadingLogs && !recentLogs ? '正在同步数据...' : (recentLogs || '等待数据流入...')}
             </div>
           </div>
@@ -583,6 +608,43 @@ export default function OpenClawMain() {
             ) : (
               <div style={{ padding: '1.5rem', maxHeight: '520px', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Add New Field UI */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    marginBottom: '1rem',
+                    padding: '0.75rem',
+                    background: 'rgba(59, 130, 246, 0.05)',
+                    borderRadius: '8px',
+                    border: '1px dashed var(--color-primary)',
+                    alignItems: 'center'
+                  }}>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="新 Key (支持多级，如 api.key)"
+                      value={newConfigKey}
+                      onChange={e => setNewConfigKey(e.target.value)}
+                      style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
+                    />
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="值 (自动识别数字/布尔)"
+                      value={newConfigValue}
+                      onChange={e => setNewConfigValue(e.target.value)}
+                      style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
+                    />
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={addConfigField}
+                      style={{ height: '32px', padding: '0 0.75rem' }}
+                      title="添加配置项"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+
                   {Object.keys(parseConfig()).length > 0 ? (
                     Object.entries(parseConfig()).map(([key, value]) =>
                       renderConfigField(value, key)
@@ -640,7 +702,10 @@ export default function OpenClawMain() {
               />
               <button type="submit" className="btn btn-primary">执行指令</button>
             </form>
-            <div style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--color-surface-border)', minHeight: '300px', fontSize: '0.85rem', fontFamily: 'monospace', color: 'var(--color-primary)', whiteSpace: 'pre-wrap' }}>
+            <div
+              ref={cmdResultRef}
+              style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--color-surface-border)', height: '400px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: 'var(--color-primary)', whiteSpace: 'pre-wrap' }}
+            >
               {cmdResult || '等待指令输入...'}
             </div>
           </div>

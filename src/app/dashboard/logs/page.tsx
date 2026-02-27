@@ -125,6 +125,13 @@ export default function LogsPage() {
     }
   }, [activeFile]);
 
+  // Ensure scrolling to bottom when content changes
+  useEffect(() => {
+    if (content && contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    }
+  }, [content]);
+
   useEffect(() => {
     const filtered = files.filter(f => {
       const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

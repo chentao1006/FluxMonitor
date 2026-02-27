@@ -59,7 +59,11 @@ export default function DashboardLayout({
   return (
     <div className={`app-layout ${isMenuOpen ? 'menu-open' : ''}`}>
       {/* Mobile Top Header */}
-      <header className="mobile-header glass-panel">
+      <header
+        className="mobile-header glass-panel"
+        onClick={() => setIsMenuOpen(!isMenuOpen)}
+        style={{ cursor: 'pointer' }}
+      >
         <div className="flex-center" style={{ gap: '0.75rem' }}>
           <div className="logo-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -68,17 +72,13 @@ export default function DashboardLayout({
           </div>
           <h2 style={{ fontSize: '1.1rem', margin: 0 }}>监控面板</h2>
         </div>
-        <button
-          className="mobile-menu-btn"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Toggle menu"
-        >
+        <div className="mobile-menu-btn" aria-label="Toggle menu">
           <div className={`hamburger ${isMenuOpen ? 'open' : ''}`}>
             <span></span>
             <span></span>
             <span></span>
           </div>
-        </button>
+        </div>
       </header>
 
       {/* Sidebar Navigation (Desktop) / Drawer (Mobile) */}
@@ -100,26 +100,30 @@ export default function DashboardLayout({
             {features.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>进程管理</NavLink>}
             {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>日志浏览</NavLink>}
             {features.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>配置管理</NavLink>}
-            {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>LaunchAgent 配置</NavLink>}
-            {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>Docker 管理</NavLink>}
-            {features.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>Nginx 监控</NavLink>}
-            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>OpenClaw 控制</NavLink>}
+            {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>LaunchAgent</NavLink>}
+            {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>Docker</NavLink>}
+            {features.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>Nginx</NavLink>}
+            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>OpenClaw</NavLink>}
           </nav>
 
           <div className="sidebar-footer">
-            <NavLink href="/dashboard/settings" icon="sliders" onClick={() => setIsMenuOpen(false)}>系统设置</NavLink>
-            <button
-              className="btn btn-ghost logout-btn"
-              onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                window.location.href = '/login';
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-              </svg>
-              <span>退出登录</span>
-            </button>
+            <div className="footer-icons-row">
+              <NavLink href="/dashboard/settings" icon="sliders" onClick={() => setIsMenuOpen(false)} isIconOnly={true} title="系统设置">系统设置</NavLink>
+              <button
+                className="btn btn-ghost icon-only-btn"
+                title="退出登录"
+                onClick={async () => {
+                  if (confirm('确定要退出登录吗？')) {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                  }
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -135,7 +139,7 @@ export default function DashboardLayout({
   );
 }
 
-function NavLink({ href, children, icon, onClick }: { href: string; children: React.ReactNode; icon: string; onClick?: () => void }) {
+function NavLink({ href, children, icon, onClick, isIconOnly, title }: { href: string; children: React.ReactNode; icon: string; onClick?: () => void; isIconOnly?: boolean; title?: string }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
@@ -184,17 +188,20 @@ function NavLink({ href, children, icon, onClick }: { href: string; children: Re
   // If not mounted, render a placeholder or the same structure but without children/logic that triggers extensions
   if (!mounted) {
     return (
-      <div className="btn btn-ghost" style={{ width: '100%', padding: '0.85rem 1rem', opacity: 0 }}>
+      <div className="btn btn-ghost" style={{ width: isIconOnly ? '42px' : '100%', padding: isIconOnly ? '0.5rem' : '0.85rem 1rem', opacity: 0 }}>
         <div style={{ width: '20px', height: '20px' }} />
-        <span>{children}</span>
+        {!isIconOnly && <span>{children}</span>}
       </div>
     );
   }
 
   return (
-    <Link href={href} style={{ textDecoration: 'none' }} onClick={onClick}>
+    <Link href={href} style={{ textDecoration: 'none' }} onClick={onClick} title={title}>
       <div className={`btn ${isActive ? '' : 'btn-ghost'}`} style={{
-        width: '100%', justifyContent: 'flex-start', padding: '0.85rem 1rem',
+        width: isIconOnly ? '42px' : '100%',
+        height: isIconOnly ? '42px' : 'auto',
+        justifyContent: isIconOnly ? 'center' : 'flex-start',
+        padding: isIconOnly ? '0' : '0.85rem 1rem',
         borderRadius: 'var(--radius-sm)', gap: '0.75rem', fontWeight: 500,
         background: isActive ? 'var(--color-primary-light)' : '',
         color: isActive ? 'var(--color-primary)' : ''
@@ -202,7 +209,7 @@ function NavLink({ href, children, icon, onClick }: { href: string; children: Re
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <g>{getIcon(icon)}</g>
         </svg>
-        <span>{children}</span>
+        {!isIconOnly && <span>{children}</span>}
       </div>
     </Link>
   )

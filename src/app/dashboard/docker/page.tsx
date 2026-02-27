@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box } from 'lucide-react';
 
 interface Container {
@@ -33,6 +33,14 @@ export default function DockerDashboard() {
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [currentLogs, setCurrentLogs] = useState('');
   const [logsLoading, setLogsLoading] = useState(false);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  // Auto scroll logs to bottom
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [currentLogs, isLogsOpen]);
 
   const fetchData = async () => {
     try {
@@ -111,12 +119,12 @@ export default function DockerDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between flex-column-mobile" style={{ marginBottom: '1rem', gap: '1rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Box size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>Docker 管理</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>Docker</h1>
         </div>
         <button className="btn btn-ghost mobile-full-width" onClick={fetchData} disabled={loading} style={{ gap: '0.5rem', height: '36px' }}>
           <RotateCw size={18} className={loading ? 'animate-spin' : ''} /> 刷新数据
@@ -293,12 +301,15 @@ export default function DockerDashboard() {
               <h2 style={{ margin: 0, fontSize: '1.1rem' }}>容器日志</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setIsLogsOpen(false)}>关闭</button>
             </div>
-            <div style={{
-              flex: 1, backgroundColor: '#0f172a', color: '#e2e8f0',
-              fontFamily: 'monospace', padding: '1rem', overflowY: 'auto',
-              whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
-              lineHeight: '1.6'
-            }}>
+            <div
+              ref={logRef}
+              style={{
+                flex: 1, backgroundColor: '#0f172a', color: '#e2e8f0',
+                fontFamily: 'monospace', padding: '1rem', overflowY: 'auto',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
+                lineHeight: '1.6'
+              }}
+            >
               {logsLoading ? (
                 <div className="flex-center" style={{ height: '100%', gap: '0.5rem' }}>
                   <RotateCw className="animate-spin" size={20} />
