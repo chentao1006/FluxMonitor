@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 
 const execAsync = promisify(exec);
+const COMMON_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
 
 export async function POST(request: Request) {
   try {
@@ -183,10 +184,16 @@ export async function POST(request: Request) {
       try {
         // Try the command first
         try {
-          const { stdout } = await execAsync('openclaw status', { timeout: 3000 });
+          const { stdout } = await execAsync('openclaw status', { timeout: 3000, env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` } });
           return NextResponse.json({ success: true, running: stdout.toLowerCase().includes('running'), detail: stdout });
         } catch (e: any) {
-          const detail = e.stdout || e.message || '';
+          let detail = e.stdout || e.message || '';
+
+          // If status fails, try to get version info separately to enrich the detail
+          try {
+            const { stdout: versionOut } = await execAsync('openclaw -V', { timeout: 2000, env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` } });
+            if (versionOut) detail += `\nVersion: ${versionOut}`;
+          } catch (ve) { /* ignore version fetch error */ }
 
           // Fallback: check the port
           let port = 18789; // Default
@@ -231,11 +238,37 @@ export async function POST(request: Request) {
       }
 
       try {
-        const { stdout, stderr } = await execAsync(command, { timeout: 15000 });
+        const { stdout, stderr } = await execAsync(command, {
+          timeout: 15000,
+          env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+        });
         return NextResponse.json({ success: true, stdout, stderr });
       } catch (e: any) {
         return NextResponse.json({ success: false, error: e.message, stdout: e.stdout, stderr: e.stderr });
       }
+    }
+
+    if (action === 'get_cron') {
+      const CRON_PATH = path.join(OPENCLAW_DIR, 'cron', 'jobs.json');
+      if (!fs.existsSync(CRON_PATH)) {
+        return NextResponse.json({ success: true, data: { version: 1, jobs: [] } });
+      }
+      try {
+        const data = fs.readFileSync(CRON_PATH, 'utf-8');
+        return NextResponse.json({ success: true, data: JSON.parse(data) });
+      } catch (e) {
+        return NextResponse.json({ success: true, data: { version: 1, jobs: [] } });
+      }
+    }
+
+    if (action === 'save_cron') {
+      const CRON_DIR = path.join(OPENCLAW_DIR, 'cron');
+      const CRON_PATH = path.join(CRON_DIR, 'jobs.json');
+      if (!fs.existsSync(CRON_DIR)) {
+        fs.mkdirSync(CRON_DIR, { recursive: true });
+      }
+      fs.writeFileSync(CRON_PATH, JSON.stringify(content, null, 2), 'utf-8');
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: '无效的操作' }, { status: 400 });

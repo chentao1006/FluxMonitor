@@ -8,7 +8,7 @@ import {
   Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus
 } from 'lucide-react';
 
-type Tab = 'overview' | 'monitor' | 'config' | 'memory' | 'command';
+type Tab = 'overview' | 'monitor' | 'config' | 'memory' | 'command' | 'cron';
 
 const LobsterIcon = ({ size = 24, color = "currentColor" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,6 +48,10 @@ export default function OpenClawMain() {
   const previewLogRef = useRef<HTMLDivElement>(null);
   const monitorLogRef = useRef<HTMLDivElement>(null);
   const cmdResultRef = useRef<HTMLDivElement>(null);
+  const [cronTasks, setCronTasks] = useState<any[]>([]);
+  const [isEditingCron, setIsEditingCron] = useState(false);
+  const [editingCronTask, setEditingCronTask] = useState<any>(null);
+  const [isSavingCron, setIsSavingCron] = useState(false);
 
   // Auto scroll logs to bottom
   useEffect(() => {
@@ -257,6 +261,13 @@ export default function OpenClawMain() {
       const data = await res.json();
       if (data.success) setConfigContent(data.content);
     } catch (e) { console.error('Config fetch failed:', e); }
+
+    // 6. Cron
+    try {
+      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_cron' }) });
+      const data = await res.json();
+      if (data.success) setCronTasks(data.data?.jobs || []);
+    } catch (e) { console.error('Cron fetch failed:', e); }
   };
 
   useEffect(() => {
@@ -325,6 +336,99 @@ export default function OpenClawMain() {
     finally { setIsSavingMemory(false); }
   };
 
+  const saveCronTasks = async (tasks: any[]) => {
+    setIsSavingCron(true);
+    try {
+      const res = await fetch('/api/openclaw/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_cron',
+          content: { version: 1, jobs: tasks }
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCronTasks(tasks);
+        setIsEditingCron(false);
+      } else {
+        alert('保存失败: ' + data.error);
+      }
+    } catch (e) {
+      alert('网络请求失败');
+    } finally {
+      setIsSavingCron(false);
+    }
+  };
+
+  const handleAddCron = () => {
+    setEditingCronTask({
+      id: crypto.randomUUID(),
+      name: '',
+      enabled: true,
+      createdAtMs: Date.now(),
+      updatedAtMs: Date.now(),
+      schedule: {
+        kind: 'cron',
+        expr: '0 10 * * *',
+        tz: 'Asia/Shanghai'
+      },
+      sessionTarget: 'isolated',
+      wakeMode: 'now',
+      payload: {
+        kind: 'agentTurn',
+        message: 'openclaw '
+      },
+      delivery: {
+        mode: 'announce',
+        channel: 'telegram',
+        to: ''
+      },
+      state: {
+        nextRunAtMs: 0
+      }
+    });
+    setIsEditingCron(true);
+  };
+
+  const handleEditCron = (task: any) => {
+    setEditingCronTask({ ...task });
+    setIsEditingCron(true);
+  };
+
+  const handleDeleteCron = (id: string) => {
+    if (confirm('确定要删除这个定时任务吗？')) {
+      const newTasks = cronTasks.filter(t => t.id !== id);
+      saveCronTasks(newTasks);
+    }
+  };
+
+  const handleToggleCron = (id: string) => {
+    const newTasks = cronTasks.map(t =>
+      t.id === id ? { ...t, enabled: !t.enabled } : t
+    );
+    saveCronTasks(newTasks);
+  };
+
+  const handleSaveCronEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const now = Date.now();
+    const updatedTask = {
+      ...editingCronTask,
+      updatedAtMs: now,
+      createdAtMs: editingCronTask.createdAtMs || now
+    };
+
+    const exists = cronTasks.find(t => t.id === updatedTask.id);
+    let newTasks;
+    if (exists) {
+      newTasks = cronTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
+    } else {
+      newTasks = [...cronTasks, updatedTask];
+    }
+    saveCronTasks(newTasks);
+  };
+
   return (
     <div className="grid animate-fade-in openclaw-root" style={{ gap: '1.25rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Standard Header Section */}
@@ -348,6 +452,7 @@ export default function OpenClawMain() {
             { id: 'monitor', icon: List, label: '运行日志' },
             { id: 'memory', icon: Brain, label: '知识库' },
             { id: 'config', icon: Settings, label: '参数配置' },
+            { id: 'cron', icon: Clock, label: '定时任务' },
             { id: 'command', icon: Terminal, label: '命令执行' },
           ].map(t => (
             <button
@@ -431,10 +536,10 @@ export default function OpenClawMain() {
             {/* Module 8: Version Info */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Settings size={14} /> 系统版本</div>
-              <div className="module-value" style={{ fontSize: '0.9rem', color: isRunning ? 'inherit' : 'var(--color-text-muted)' }}>
-                {statusDetail.match(/v\d+\.\d+\.\d+/)?.[0] || 'Unknown'}
+              <div className="module-value" style={{ fontSize: '0.9rem', color: 'inherit' }}>
+                {statusDetail.match(/[vV]?\d+\.\d+\.\d+/)?.[0] || statusDetail.match(/\d+\.\d+\.\d+/)?.[0] || 'Unknown'}
               </div>
-              <div className="module-footer">{isRunning ? '生产环境稳定版' : '安装后查看版本'}</div>
+              <div className="module-footer">当前系统版本号</div>
             </div>
 
             {/* Module 9: Chart (Spans 2 columns on desktop) */}
@@ -674,10 +779,10 @@ export default function OpenClawMain() {
                 { label: '版本检查', cmd: 'openclaw -V' },
                 { label: '显示帮助', cmd: 'openclaw --help' },
                 { label: '搜索记忆', cmd: 'openclaw memory search ""' },
-                { label: '记忆同步', cmd: 'openclaw memory sync' },
+                { label: '索引记忆', cmd: 'openclaw memory index' },
                 { label: '清空缓存', cmd: 'openclaw cache clear' },
-                { label: '代理列表', cmd: 'openclaw agent list' },
-                { label: '插件列表', cmd: 'openclaw plugin list' },
+                { label: '代理列表', cmd: 'openclaw agents list' },
+                { label: '插件列表', cmd: 'openclaw plugins list' },
                 { label: '日志跟随', cmd: 'openclaw logs --follow' },
                 { label: '配置验证', cmd: 'openclaw config check' },
               ].map(item => (
@@ -707,6 +812,166 @@ export default function OpenClawMain() {
               style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--color-surface-border)', height: '400px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: 'var(--color-primary)', whiteSpace: 'pre-wrap' }}
             >
               {cmdResult || '等待指令输入...'}
+            </div>
+          </div>
+        )}
+
+        {/* CRON TAB */}
+        {activeTab === 'cron' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="flex-between">
+              <h2 className="card-title" style={{ margin: 0 }}>定时任务管理</h2>
+              <button className="btn btn-primary btn-sm" onClick={handleAddCron}>
+                <Plus size={14} style={{ marginRight: '0.4rem' }} /> 新增任务
+              </button>
+            </div>
+
+            {isEditingCron && (
+              <div className="card glass-panel animate-fade-in" style={{ padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid var(--color-primary)' }}>
+                <form onSubmit={handleSaveCronEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>任务名称</label>
+                    <input
+                      required
+                      type="text"
+                      className="input"
+                      style={{ fontSize: '0.85rem' }}
+                      placeholder="例如: 每日状态检查"
+                      value={editingCronTask.name}
+                      onChange={e => setEditingCronTask({ ...editingCronTask, name: e.target.value })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Cron 表达式</label>
+                    <input
+                      required
+                      type="text"
+                      className="input"
+                      style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}
+                      placeholder="0 10 * * *"
+                      value={editingCronTask.schedule.expr}
+                      onChange={e => setEditingCronTask({
+                        ...editingCronTask,
+                        schedule: { ...editingCronTask.schedule, expr: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>通知渠道</label>
+                    <select
+                      className="input"
+                      style={{ fontSize: '0.85rem' }}
+                      value={editingCronTask.delivery.channel}
+                      onChange={e => setEditingCronTask({
+                        ...editingCronTask,
+                        delivery: { ...editingCronTask.delivery, channel: e.target.value }
+                      })}
+                    >
+                      <option value="telegram">Telegram</option>
+                      <option value="email">Email</option>
+                      <option value="none">无</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>目标 ID (To)</label>
+                    <input
+                      type="text"
+                      className="input"
+                      style={{ fontSize: '0.85rem' }}
+                      placeholder="331608740"
+                      value={editingCronTask.delivery.to}
+                      onChange={e => setEditingCronTask({
+                        ...editingCronTask,
+                        delivery: { ...editingCronTask.delivery, to: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>执行消息 (Prompt/Command)</label>
+                    <textarea
+                      required
+                      className="input"
+                      style={{ fontSize: '0.85rem', fontFamily: 'monospace', minHeight: '80px', resize: 'vertical' }}
+                      placeholder="请输入任务执行的消息内容..."
+                      value={editingCronTask.payload.message}
+                      onChange={e => setEditingCronTask({
+                        ...editingCronTask,
+                        payload: { ...editingCronTask.payload, message: e.target.value }
+                      })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', gridColumn: '1 / -1', marginTop: '0.5rem' }}>
+                    <button type="submit" className="btn btn-primary" disabled={isSavingCron}>
+                      {isSavingCron ? '正在保存...' : '保存任务'}
+                    </button>
+                    <button type="button" className="btn btn-ghost" onClick={() => setIsEditingCron(false)}>
+                      取消
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {cronTasks.length > 0 ? (
+                cronTasks.map(task => (
+                  <div key={task.id} className="card glass-panel flex-between" style={{ padding: '1rem', opacity: task.enabled ? 1 : 0.6, border: task.enabled ? '1px solid var(--color-surface-border)' : '1px solid transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', flex: 1, minWidth: 0 }}>
+                      <div style={{ padding: '0.6rem', borderRadius: '10px', background: task.enabled ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)', color: task.enabled ? 'var(--color-primary)' : 'var(--color-text-muted)', flexShrink: 0 }}>
+                        <Clock size={20} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</span>
+                          {!task.enabled && <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b', fontSize: '0.65rem' }}>已禁用</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Clock size={10} /> {task.schedule?.expr || '--'}
+                          </div>
+                          {task.delivery?.channel !== 'none' && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <MessageSquare size={10} /> {task.delivery?.channel} ({task.delivery?.to || '未指定'})
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', marginTop: '0.5rem', background: 'var(--color-primary-light)', padding: '0.25rem 0.6rem', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%', fontFamily: 'monospace' }}>
+                          {task.payload?.message || '--'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '0.4rem', color: task.enabled ? 'var(--color-danger)' : 'var(--color-success)' }}
+                        onClick={() => handleToggleCron(task.id)}
+                        title={task.enabled ? '禁用' : '启用'}
+                      >
+                        <Power size={16} />
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleEditCron(task)} style={{ fontSize: '0.8rem' }}>
+                        修改
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteCron(task.id)} style={{ fontSize: '0.8rem', color: 'var(--color-danger)' }}>
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', padding: '3rem', background: 'rgba(0,0,0,0.01)', borderRadius: '1rem', border: '1px dashed var(--color-surface-border)' }}>
+                  <Clock size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>暂无定时任务</p>
+                  <button className="btn btn-primary btn-sm" style={{ marginTop: '1rem' }} onClick={handleAddCron}>立即添加</button>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.1)', fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+              <div style={{ fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Zap size={14} /> 系统说明
+              </div>
+              定时任务需要系统中存在对应的 Cron 执行器或 OpenClaw 守护进程支持。此处提供任务配置的可视化管理（CRUD）。
             </div>
           </div>
         )}
