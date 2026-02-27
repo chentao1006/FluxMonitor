@@ -181,10 +181,43 @@ export async function POST(request: Request) {
 
     if (action === 'status') {
       try {
-        const { stdout } = await execAsync('openclaw status', { timeout: 5000 });
-        return NextResponse.json({ success: true, running: true, detail: stdout });
+        // Try the command first
+        try {
+          const { stdout } = await execAsync('openclaw status', { timeout: 3000 });
+          return NextResponse.json({ success: true, running: stdout.toLowerCase().includes('running'), detail: stdout });
+        } catch (e: any) {
+          const detail = e.stdout || e.message || '';
+
+          // Fallback: check the port
+          let port = 18789; // Default
+          try {
+            if (fs.existsSync(CONFIG_PATH)) {
+              const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+              if (config?.gateway?.port) port = config.gateway.port;
+            }
+          } catch (pe) { /* ignore config parse error */ }
+
+          try {
+            const { stdout: portCheck } = await execAsync(`lsof -i :${port} -t`, { timeout: 2000 });
+            if (portCheck.trim()) {
+              return NextResponse.json({
+                success: true,
+                running: true,
+                detail: `Detected running process on port ${port} (PID: ${portCheck.trim()}).\nNote: 'openclaw' command not in PATH.`
+              });
+            }
+          } catch (pe) {
+            // Port not occupied
+          }
+
+          return NextResponse.json({
+            success: true,
+            running: false,
+            detail: detail.includes('command not found') || detail.includes('not found') ? 'OpenClaw command line tool not found in PATH' : detail
+          });
+        }
       } catch (e: any) {
-        return NextResponse.json({ success: true, running: false, detail: e.stdout || e.message });
+        return NextResponse.json({ success: true, running: false, detail: e.message });
       }
     }
 

@@ -357,19 +357,19 @@ export default function OpenClawMain() {
           <div className="overview-grid">
 
             {/* Module 1: Status */}
-            <div className="card glass-panel small-module">
+            <div className="card glass-panel small-module" title={statusDetail}>
               <div className="module-header"><LobsterIcon size={14} /> 服务运行状态</div>
-              <div className="module-value" style={{ color: isRunning ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                {isRunning ? 'Running' : statusDetail.includes('not installed') ? 'Not Found' : 'Stopped'}
+              <div className="module-value" style={{ color: isRunning ? 'var(--color-success)' : statusDetail.includes('not found') ? 'var(--color-warning)' : 'var(--color-danger)' }}>
+                {isRunning ? 'Running' : statusDetail.includes('not found') ? 'Not Found' : 'Stopped'}
               </div>
-              <div className="module-footer">{statusDetail.includes('not installed') ? '服务未安装' : `PID: ${statusDetail.match(/pid: (\d+)/)?.[1] || '--'}`}</div>
+              <div className="module-footer">{statusDetail.includes('not found') ? '环境未检测到命令' : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : '服务已离线')}</div>
             </div>
 
             {/* Module 2: Fragments */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Brain size={14} /> 知识储存量</div>
-              <div className="module-value">{isRunning ? memoryFiles.length : 0} <span className="unit">FILES</span></div>
-              <div className="module-footer">{isRunning ? '最近 24h 活跃' : '等待服务启动'}</div>
+              <div className="module-value">{memoryFiles.length} <span className="unit">FILES</span></div>
+              <div className="module-footer">{isRunning ? '最近 24h 活跃' : '离线数据预览'}</div>
             </div>
 
             {/* Module 3: CPU Usage */}
@@ -382,14 +382,14 @@ export default function OpenClawMain() {
             {/* Module 4: Memory Usage */}
             <div className="card glass-panel small-module">
               <div className="module-header"><HardDrive size={14} /> 资源占用</div>
-              <div className="module-value">{isRunning ? (systemStats?.memory?.usedMB || 0) : 0}<span className="unit">MB</span></div>
+              <div className="module-value">{isRunning ? (systemStats?.memory?.usedMB || 0) : '--'}<span className="unit">MB</span></div>
               <div className="module-footer">{isRunning ? '分配内运行' : '无数据'}</div>
             </div>
 
             {/* Module 5: Storage Size */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Database size={14} /> 存储占用</div>
-              <div className="module-value">{isRunning ? (memoryFiles.reduce((acc, f) => acc + (f.size || 0), 0) / 1024).toFixed(1) : '0.0'}<span className="unit">KB</span></div>
+              <div className="module-value">{(memoryFiles.reduce((acc, f) => acc + (f.size || 0), 0) / 1024).toFixed(1)}<span className="unit">KB</span></div>
               <div className="module-footer">本地知识库大小</div>
             </div>
 
