@@ -15,7 +15,7 @@ export default function LogsPage() {
 
   const [activeCategory, setActiveCategory] = useState<string>('全部');
 
-  const categories = ['全部', '系统', '应用', '服务', '其他'];
+  const categories = ['全部', '系统', '服务', '应用', '其他'];
 
   const fetchFiles = async () => {
     setLoading(true);

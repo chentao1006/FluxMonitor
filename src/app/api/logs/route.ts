@@ -94,8 +94,8 @@ export async function GET(request: Request) {
 
       let category = '其他';
       if (fullPath.startsWith('/var/log')) category = '系统';
-      else if (fullPath.includes('Library/Logs') || fullPath.includes('Applications')) category = '应用';
-      else if (fullPath.includes('var/log') || fullPath.includes('.pm2')) category = '服务';
+      else if (fullPath.includes('Library/Logs')) category = '应用';
+      else if (fullPath.includes('var/log') || fullPath.includes('.pm2') || fullPath.includes('Applications')) category = '服务';
 
       return {
         path: fullPath,
