@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive } from 'lucide-react';
+import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box } from 'lucide-react';
 
 interface Container {
   ID: string;
@@ -111,8 +111,11 @@ export default function DockerDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between">
-        <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>Docker 管理 🐳</h1>
+      <div className="flex-between" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Box size={28} color="var(--color-primary)" />
+          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>Docker 管理</h1>
+        </div>
         <button className="btn btn-primary" onClick={fetchData}>刷新</button>
       </div>
 

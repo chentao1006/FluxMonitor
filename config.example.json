@@ -1,0 +1,24 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password": "password123"
+    }
+  ],
+  "jwtSecret": "CHANGE_ME_TO_A_LONG_RANDOM_STRING",
+  "ai": {
+    "url": "https://api.openai.com/v1",
+    "key": "",
+    "model": "gpt-4o-mini"
+  },
+  "features": {
+    "monitor": true,
+    "processes": true,
+    "logs": true,
+    "configs": true,
+    "launchagent": true,
+    "docker": true,
+    "nginx": true,
+    "openclaw": true
+  }
+}

@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { XSquare, Camera, X, Maximize2, Download } from 'lucide-react';
+import { XSquare, Camera, X, Maximize2, Download, Activity } from 'lucide-react';
 
 export default function DashboardOverview() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stats, setStats] = useState<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [processes, setProcesses] = useState<any[]>([]);
   const [cmd, setCmd] = useState('');
   const [cmdResult, setCmdResult] = useState('');
   const [loading, setLoading] = useState(true);
@@ -83,10 +81,6 @@ export default function DashboardOverview() {
           return dataStats.data.netBytes || currentPrevNet;
         });
       }
-
-      const resProc = await fetch('/api/system/processes');
-      const dataProc = await resProc.json();
-      if (dataProc.success) setProcesses(dataProc.data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -146,35 +140,16 @@ export default function DashboardOverview() {
     }
   };
 
-  const killProcess = async (pid: string, name: string) => {
-    if (!window.confirm(`⚠️ 高危操作：\n\n确定要强行终止进程 [${name}] (PID: ${pid}) 吗？\n如果这是系统关键服务可能会导致死机或重启，请确认你的操作！`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/system/processes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'kill', pid }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('终止成功');
-        fetchStats();
-      } else {
-        alert(`终止失败: ${data.error || data.details}`);
-      }
-    } catch {
-      alert('网络请求失败');
-    }
-  };
 
   if (loading && !stats) return <div className="flex-center" style={{ height: '70vh' }}>加载中...</div>;
 
   return (
-    <div className="grid">
-      <div className="flex-between" style={{ marginBottom: '1.5rem', alignItems: 'center' }}>
-        <h1 className="card-title" style={{ fontSize: '1.75rem', marginBottom: '0' }}>系统监控 🖥️</h1>
+    <div className="grid" style={{ gap: '1rem' }}>
+      <div className="flex-between" style={{ marginBottom: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Activity size={28} color="var(--color-primary)" />
+          <h1 className="card-title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>系统监控</h1>
+        </div>
         <button
           className="btn btn-primary"
           onClick={takeScreenshot}
@@ -271,9 +246,9 @@ export default function DashboardOverview() {
       )}
 
       {/* Charts Section */}
-      <div className="responsive-grid responsive-grid-2">
+      <div className="responsive-grid responsive-grid-2" style={{ gap: '1rem' }}>
         {/* CPU Chart */}
-        <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', flexDirection: 'column', minHeight: '300px' }}>
+        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', minHeight: '240px' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>CPU 综合使用率动态 (%)</h3>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
@@ -307,7 +282,7 @@ export default function DashboardOverview() {
         </div>
 
         {/* Memory Chart */}
-        <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', flexDirection: 'column', minHeight: '300px' }}>
+        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', minHeight: '240px' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>内存使用率动态 (%)</h3>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
@@ -341,13 +316,15 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="responsive-grid responsive-grid-2" style={{ marginTop: '1rem' }}>
+      <div className="responsive-grid responsive-grid-2" style={{ marginTop: '0rem', gap: '1rem' }}>
         {/* Network Chart */}
-        <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', flexDirection: 'column', minHeight: '300px' }}>
+        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', minHeight: '240px' }}>
           <div style={{ marginBottom: '1rem', width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>网络流量动态 (KB/s)</h3>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
-              ↓ {history.length > 0 ? history[history.length - 1].netIn : '0'} | ↑ {history.length > 0 ? history[history.length - 1].netOut : '0'}
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', gap: '0.5rem' }}>
+              <span style={{ color: '#10b981' }}>↓ {history.length > 0 ? history[history.length - 1].netIn : '0'}</span>
+              <span style={{ color: 'var(--color-text-muted)', opacity: 0.5 }}>|</span>
+              <span style={{ color: '#8b5cf6' }}>↑ {history.length > 0 ? history[history.length - 1].netOut : '0'}</span>
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
               {stats?.network?.split(',').slice(0, 2).join(',') || 'N/A'} (累计)
@@ -381,7 +358,7 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: '1.5rem', justifyContent: 'center' }}>
+        <div className="card glass-panel flex-between" style={{ padding: '1.25rem', alignItems: 'flex-start', flexDirection: 'column', gap: '1rem', justifyContent: 'center' }}>
           <div style={{ width: '100%' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>系统负载 (1m, 5m, 15m)</h3>
             <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--color-primary)' }}>
@@ -405,49 +382,9 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="responsive-grid responsive-grid-2">
-        {/* Process List */}
-        <div className="card glass-panel" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <h2 className="card-title">系统进程 (Top 20)</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-surface-border)' }}>
-                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>PID</th>
-                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>名称</th>
-                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>CPU %</th>
-                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>MEM %</th>
-                <th style={{ padding: '0.75rem', color: 'var(--color-text-muted)' }}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {processes.map((p, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                  <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>{p.pid}</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.9rem', fontWeight: 500 }}>{p.command.substring(0, 20)}</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>
-                    <span className={`badge ${parseFloat(p.cpu) > 50 ? 'badge-danger' : parseFloat(p.cpu) > 10 ? 'badge-warning' : 'badge-success'}`}>
-                      {p.cpu}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>{p.mem}</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>
-                    <button
-                      className="btn btn-ghost"
-                      style={{ padding: '0.3rem', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      onClick={() => killProcess(p.pid, p.command.substring(0, 20))}
-                      title="强行终止该进程"
-                    >
-                      <XSquare size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
+      <div className="grid">
         {/* Command Execution */}
-        <div className="card glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="card glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
           <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             终端命令执行
             <button

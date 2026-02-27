@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 export async function POST(request: Request) {
   try {
@@ -8,13 +10,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '缺少 Prompt' }, { status: 400 });
     }
 
-    const res = await fetch('https://api.openai.com/v1/v1/chat/completions', {
+    const configPath = path.join(process.cwd(), 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const aiConfig = config.ai || { url: 'https://api.openai.com/v1/v1', key: '', model: 'gpt-4o-mini' };
+
+    // Support both base URL (without /chat/completions) and full URL
+    let apiUrl = aiConfig.url;
+    if (apiUrl && !apiUrl.endsWith('/chat/completions')) {
+      apiUrl = apiUrl.replace(/\/$/, '') + '/chat/completions';
+    }
+
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(aiConfig.key ? { 'Authorization': `Bearer ${aiConfig.key}` } : {})
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // or gpt-3.5-turbo if the compatible format uses standard models
+        model: aiConfig.model || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt || 'You are an expert system administrator.' },
           { role: 'user', content: prompt }

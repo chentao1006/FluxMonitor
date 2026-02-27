@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { Server } from 'lucide-react';
 
 interface NginxSite {
   name: string;
@@ -229,8 +230,11 @@ export default function NginxDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between">
-        <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>Nginx 管理 🌐</h1>
+      <div className="flex-between" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Server size={28} color="var(--color-primary)" />
+          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>Nginx 管理</h1>
+        </div>
         <div className={`badge ${isRunning ? 'badge-success' : 'badge-danger'}`}>
           {isRunning ? '运行中' : '已停止'}
         </div>
@@ -256,32 +260,20 @@ export default function NginxDashboard() {
           <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>控制面板</h3>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {isRunning ? (
-              <>
-                <button
-                  className="btn" style={{ background: '#ef4444', color: 'white', flex: 1 }}
-                  onClick={() => handleAction('stop')}
-                  disabled={actionLoading === 'stop'}
-                >
-                  停止服务
-                </button>
-                <button
-                  className="btn" style={{ background: '#f59e0b', color: 'white', flex: 1 }}
-                  onClick={() => handleAction('reload')}
-                  disabled={actionLoading === 'reload'}
-                >
-                  重载配置 (Reload)
-                </button>
-              </>
-            ) : (
-              <button
-                className="btn" style={{ background: '#10b981', color: 'white', flex: 1 }}
-                onClick={() => handleAction('start')}
-                disabled={actionLoading === 'start'}
-              >
-                启动服务
-              </button>
-            )}
+            <button
+              className={`btn ${isRunning ? 'btn-warning' : 'btn-success'}`}
+              onClick={() => isRunning ? handleAction('restart') : handleAction('start')}
+              disabled={actionLoading === 'restart' || actionLoading === 'start'}
+            >
+              {isRunning ? '重启 Nginx' : '启动 Nginx'}
+            </button>
+            <button
+              className="btn" style={{ background: '#f59e0b', color: 'white', flex: 1 }}
+              onClick={() => handleAction('reload')}
+              disabled={actionLoading === 'reload'}
+            >
+              重载配置 (Reload)
+            </button>
           </div>
 
           <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-surface-border)' }}>

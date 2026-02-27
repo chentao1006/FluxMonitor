@@ -55,30 +55,55 @@ export async function GET(request: Request) {
   // List log files
   try {
     const homeDir = os.homedir();
-    const appsDir = path.join(homeDir, 'Applications');
+    const logPaths = [
+      path.join(homeDir, 'Applications'),
+      path.join(homeDir, 'Library/Logs'),
+      '/opt/homebrew/var/log',
+      '/usr/local/var/log',
+      '/var/log',
+      path.join(homeDir, '.pm2/logs')
+    ];
 
-    // Check if Applications exists
-    try {
-      await fs.access(appsDir);
-    } catch {
+    // Filter existing paths
+    const existingPaths = [];
+    for (const p of logPaths) {
+      try {
+        await fs.access(p);
+        existingPaths.push(p);
+      } catch { }
+    }
+
+    if (existingPaths.length === 0) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // Find all .log and nohup.out files in ~/Applications, up to 5 levels deep to avoid scanning too much
+    // Join paths for find command
+    const pathsStr = existingPaths.map(p => `"${p}"`).join(' ');
+
+    // Find all .log and nohup.out files in specified directories, up to 5 levels deep
     // Sorting by modification time (most recent first)
-    // Redirect stderr to /dev/null to avoid permission errors filling up the buffer
-    const { stdout } = await execAsync(`find "${appsDir}" -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" \\) -type f -exec stat -f "%m %z %N" {} + 2>/dev/null | sort -rn | head -n 50`, { maxBuffer: 100 * 1024 * 1024 });
+    // Redirect stderr to /dev/null to avoid permission errors
+    const { stdout } = await execAsync(`find ${pathsStr} -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" -o -name "system.log" \\) -type f -exec stat -f "%m %z %N" {} + 2>/dev/null | sort -rn | head -n 100`, { maxBuffer: 100 * 1024 * 1024 });
 
     const files = stdout.trim().split('\n').filter(Boolean).map(line => {
       const parts = line.split(' ');
       const mtime = parts[0];
       const size = parts[1];
       const fullPath = parts.slice(2).join(' ');
+      const dirname = path.dirname(fullPath);
+
+      let category = '其他';
+      if (fullPath.startsWith('/var/log')) category = '系统';
+      else if (fullPath.includes('Library/Logs') || fullPath.includes('Applications')) category = '应用';
+      else if (fullPath.includes('var/log') || fullPath.includes('.pm2')) category = '服务';
+
       return {
         path: fullPath,
         name: path.basename(fullPath),
+        dir: dirname.replace(homeDir, '~'),
+        category,
         size: parseInt(size),
-        mtime: parseInt(mtime) * 1000, // to ms
+        mtime: parseInt(mtime) * 1000,
       };
     });
 
@@ -91,23 +116,60 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { file, action } = await request.json();
+    const { file, action, password } = await request.json();
     if (!file) {
       return NextResponse.json({ success: false, error: '未指定文件' }, { status: 400 });
     }
 
-    if (action === 'clear') {
-      await fs.writeFile(file, '');
-      return NextResponse.json({ success: true });
-    }
+    const executeWithSudo = async (cmd: string) => {
+      if (!password) {
+        throw new Error('REQUIRES_SUDO_PASSWORD');
+      }
+      try {
+        await execAsync(`echo "${password}" | sudo -S ${cmd}`);
+      } catch (err: any) {
+        if (err.message.includes('incorrect password') || err.message.includes('Sorry, try again')) {
+          throw new Error('SUDO_AUTH_FAILED');
+        }
+        throw err;
+      }
+    };
 
-    if (action === 'delete') {
-      await fs.unlink(file);
-      return NextResponse.json({ success: true });
+    try {
+      if (action === 'clear') {
+        try {
+          await fs.writeFile(file, '');
+        } catch (e: any) {
+          if (e.code === 'EACCES' || e.code === 'EPERM') {
+            await executeWithSudo(`truncate -s 0 "${file}"`);
+          } else throw e;
+        }
+        return NextResponse.json({ success: true });
+      }
+
+      if (action === 'delete') {
+        try {
+          await fs.unlink(file);
+        } catch (e: any) {
+          if (e.code === 'EACCES' || e.code === 'EPERM') {
+            await executeWithSudo(`rm "${file}"`);
+          } else throw e;
+        }
+        return NextResponse.json({ success: true });
+      }
+    } catch (err: any) {
+      if (err.message === 'REQUIRES_SUDO_PASSWORD') {
+        return NextResponse.json({ success: false, requiresPassword: true });
+      }
+      if (err.message === 'SUDO_AUTH_FAILED') {
+        return NextResponse.json({ success: false, error: '密码错误' }, { status: 401 });
+      }
+      throw err;
     }
 
     return NextResponse.json({ success: false, error: '无效的操作' }, { status: 400 });
   } catch (error: any) {
+    console.error('Logs POST error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

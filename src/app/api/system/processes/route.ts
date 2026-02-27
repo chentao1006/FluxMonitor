@@ -4,10 +4,17 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Get top processes by CPU
-    const { stdout } = await execAsync("ps -eo pid,pcpu,pmem,user,comm -r | head -n 20");
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const sort = searchParams.get('sort') || 'cpu'; // cpu, mem
+
+    let sortFlag = '-r'; // default cpu
+    if (sort === 'mem') sortFlag = '-m';
+
+    // Get processes
+    const { stdout } = await execAsync(`ps -eo pid,pcpu,pmem,user,comm ${sortFlag} | head -n ${limit + 1}`);
 
     const lines = stdout.trim().split('\n');
     lines.shift(); // Remove header
@@ -33,13 +40,14 @@ export async function POST(request: Request) {
   try {
     const { action, pid } = await request.json();
 
-    if (action === 'kill' && pid) {
+    if ((action === 'kill' || action === 'term') && pid) {
       if (!/^\d+$/.test(pid)) {
         return NextResponse.json({ error: '无效的进程 ID' }, { status: 400 });
       }
 
+      const signal = action === 'kill' ? '-9' : '-15';
       try {
-        await execAsync(`kill -9 ${pid}`);
+        await execAsync(`kill ${signal} ${pid}`);
         return NextResponse.json({ success: true });
       } catch (err: unknown) {
         const error = err as Error;
@@ -47,7 +55,7 @@ export async function POST(request: Request) {
         if (msg.includes('Operation not permitted') || msg.includes('Permission denied')) {
           return NextResponse.json({ error: '权限不足，无法终止该进程' }, { status: 403 });
         }
-        return NextResponse.json({ error: '终止进程失败', details: msg }, { status: 500 });
+        return NextResponse.json({ error: '操作进程失败', details: msg }, { status: 500 });
       }
     }
 

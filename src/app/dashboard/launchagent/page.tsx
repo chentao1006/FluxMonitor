@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { Rocket } from 'lucide-react';
 
 interface PlistItem {
   name: string;
@@ -20,6 +21,7 @@ export default function LaunchAgentDashboard() {
 
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [modalError, setModalError] = useState<{ title: string, content: string } | null>(null);
 
   const isExistingContent = !!(fileContent && fileContent.trim() !== '' && !fileContent.startsWith('读取中') && !fileContent.startsWith('读取失败'));
 
@@ -55,10 +57,13 @@ export default function LaunchAgentDashboard() {
       if (data.success) {
         fetchPlists(); // refresh list
       } else {
-        alert(`操作失败: ${data.details || data.error}`);
+        setModalError({
+          title: `${action === 'load' ? '加载' : action === 'unload' ? '卸载' : '操作'}失败`,
+          content: data.details || data.error || '未知错误'
+        });
       }
     } catch (e) {
-      alert('网络请求失败');
+      setModalError({ title: '网络请求失败', content: '无法连接到服务器，请检查网络连接。' });
     } finally {
       setActionLoading(null);
     }
@@ -113,10 +118,10 @@ export default function LaunchAgentDashboard() {
         if (editingFile?.path === filePath) setEditingFile(null);
         fetchPlists();
       } else {
-        alert(`删除失败: ${data.details || data.error}`);
+        setModalError({ title: '删除失败', content: data.details || data.error || '未知错误' });
       }
     } catch (e) {
-      alert('网络请求失败');
+      setModalError({ title: '网络请求失败', content: '无法连接到服务器，请检查网络连接。' });
     } finally {
       setActionLoading(null);
     }
@@ -142,10 +147,10 @@ export default function LaunchAgentDashboard() {
         if (editingFile?.path === filePath) setEditingFile(null);
         fetchPlists();
       } else {
-        alert(`重命名失败: ${data.details || data.error}`);
+        setModalError({ title: '重命名失败', content: data.details || data.error || '未知错误' });
       }
     } catch (e) {
-      alert('网络请求失败');
+      setModalError({ title: '网络请求失败', content: '无法连接到服务器，请检查网络连接。' });
     } finally {
       setActionLoading(null);
     }
@@ -227,8 +232,11 @@ export default function LaunchAgentDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between">
-        <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>LaunchAgent 配置 ⚙️</h1>
+      <div className="flex-between" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Rocket size={28} color="var(--color-primary)" />
+          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>LaunchAgent 配置</h1>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-primary" onClick={handleAddNew}>添加配置</button>
           <button className="btn btn-ghost" style={{ border: '1px solid currentColor' }} onClick={fetchPlists}>刷新列表</button>
@@ -364,6 +372,38 @@ export default function LaunchAgentDashboard() {
           </div>
         )}
       </div>
+
+      {/* Error Modal */}
+      {modalError && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '1rem'
+        }}>
+          <div className="card glass-panel animate-fade-in" style={{
+            maxWidth: '500px', width: '100%', background: 'white',
+            display: 'flex', flexDirection: 'column', gap: '1rem'
+          }}>
+            <h3 style={{ margin: 0, color: 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>⚠️</span> {modalError.title}
+            </h3>
+            <div style={{
+              background: '#f8fafc', padding: '1rem', borderRadius: 'var(--radius-sm)',
+              fontFamily: 'monospace', fontSize: '0.85rem', color: '#334155',
+              maxHeight: '300px', overflowY: 'auto', border: '1px solid #e2e8f0',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all'
+            }}>
+              {modalError.content}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary" onClick={() => setModalError(null)}>
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

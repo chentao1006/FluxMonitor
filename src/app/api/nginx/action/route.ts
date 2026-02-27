@@ -75,6 +75,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'restart') {
+      try {
+        await executeNginxCmd(`${NGINX_BIN} -s stop`);
+      } catch (e) {
+        // Ignore error if it was already stopped
+      }
+      await executeNginxCmd(NGINX_BIN);
+      return NextResponse.json({ success: true });
+    }
+
     if (action === 'test') {
       const { stdout, stderr } = await executeNginxCmd(`${NGINX_BIN} -t`);
       return NextResponse.json({ success: true, details: stdout || stderr });

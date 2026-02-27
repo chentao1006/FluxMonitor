@@ -50,7 +50,7 @@ export default function LoginPage() {
             justifyContent: 'center', boxShadow: '0 8px 16px rgba(59, 130, 246, 0.3)'
           }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </div>
           <h1 className="card-title" style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>macOS 监控中心</h1>

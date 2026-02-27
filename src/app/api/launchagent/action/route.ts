@@ -54,9 +54,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: '无效的操作' }, { status: 400 });
   } catch (error: any) {
+    console.error('LaunchAgent Action Error:', error);
     return NextResponse.json({
+      success: false,
       error: 'LaunchAgent 操作失败',
-      details: error?.message || '未知错误'
+      details: error?.stderr || error?.message || '未知错误'
     }, { status: 500 });
   }
 }

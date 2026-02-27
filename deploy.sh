@@ -17,13 +17,21 @@ echo "================================================="
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$DIR"
 
-echo "1. Building the project (Standalone Output)..."
+echo "1. Ensuring config.json exists..."
+if [ ! -f "config.json" ]; then
+    echo "config.json not found, creating from example..."
+    cp config.example.json config.json
+else
+    echo "config.json already exists."
+fi
+
+echo "2. Building the project (Standalone Output)..."
 npm run build
 
-echo "2. Preparing deployment directory: $APP_DIR"
+echo "3. Preparing deployment directory: $APP_DIR"
 mkdir -p "$APP_DIR"
 
-echo "3. Copying standalone runnable files..."
+echo "4. Copying standalone runnable files..."
 # Copy the standalone server and necessary node_modules
 cp -a .next/standalone/. "$APP_DIR/"
 
@@ -37,7 +45,7 @@ cp -a .next/static/. "$APP_DIR/.next/static/"
 # Copy config.json so the API can use it
 cp config.json "$APP_DIR/" 2>/dev/null || echo "Warning: config.json not found, skipping."
 
-echo "4. Generating start.sh for LaunchAgent..."
+echo "5. Generating start.sh for LaunchAgent..."
 cat << 'EOF' > "$APP_DIR/start.sh"
 #!/bin/bash
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -59,7 +67,7 @@ echo ""
 # Clean up standalone directory to prevent Next.js turbopack conflicts in dev mode
 rm -rf .next/standalone
 
-echo "5. Restarting the application..."
+echo "6. Restarting the application..."
 # Kill any existing process on port 7000
 EXISTING_PID=$(lsof -t -i:7000 || true)
 if [ ! -z "$EXISTING_PID" ]; then

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
+import { Terminal } from 'lucide-react';
 
 export default function OpenClawDashboard() {
   const [isRunning, setIsRunning] = useState<boolean | null>(null);
@@ -113,8 +114,11 @@ export default function OpenClawDashboard() {
 
   return (
     <div className="grid">
-      <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-        <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>OpenClaw 控制 🦞</h1>
+      <div className="flex-between" style={{ marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Terminal size={28} color="var(--color-primary)" />
+          <h1 className="card-title" style={{ fontSize: '1.75rem', margin: 0 }}>OpenClaw 控制</h1>
+        </div>
         <div className={`badge ${isRunning ? 'badge-success' : isRunning === false ? 'badge-danger' : 'badge-warning'}`}>
           {isRunning ? '运行中' : isRunning === false ? '未运行' : '检查中...'}
         </div>

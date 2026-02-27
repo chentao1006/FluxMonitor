@@ -26,12 +26,20 @@ export async function GET() {
     const { stdout } = await execAsync('launchctl list', { maxBuffer: 100 * 1024 * 1024 });
     const loadedList = stdout.split('\n');
 
-    const enrichedPlists = plists.map(p => {
-      // Very naive check: usually the plist file name w/o extension is the label
-      const label = p.name.replace('.plist', '');
-      const isLoaded = loadedList.some(l => l.includes(label));
-      return { ...p, isLoaded };
-    });
+    const enrichedPlists = await Promise.all(plists.map(async p => {
+      try {
+        // Use plutil to get the real Label from the plist file
+        const { stdout: label } = await execAsync(`plutil -extract Label raw "${p.path}"`);
+        const cleanLabel = label.trim();
+        const isLoaded = loadedList.some(l => l.includes(cleanLabel));
+        return { ...p, isLoaded, label: cleanLabel };
+      } catch (e) {
+        // Fallback to filename if plutil fails
+        const label = p.name.replace('.plist', '');
+        const isLoaded = loadedList.some(l => l.includes(label));
+        return { ...p, isLoaded, label };
+      }
+    }));
 
     return NextResponse.json({ success: true, data: enrichedPlists });
   } catch (error: any) {
