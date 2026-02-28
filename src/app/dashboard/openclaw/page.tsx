@@ -26,6 +26,7 @@ export default function OpenClawMain() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isRunning, setIsRunning] = useState<boolean | null>(null);
   const [statusDetail, setStatusDetail] = useState('');
+  const [versionOutput, setVersionOutput] = useState('');
   const [memoryFiles, setMemoryFiles] = useState<any[]>([]);
   const [recentLogs, setRecentLogs] = useState<string>('');
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -204,7 +205,7 @@ export default function OpenClawMain() {
   };
 
   // Fetch logic helpers
-  const fetchAll = async () => {
+  const fetchAll = async (options: { skipEditable?: boolean } = {}) => {
     // 1. Status
     try {
       const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status' }) });
@@ -212,6 +213,7 @@ export default function OpenClawMain() {
       if (data.success) {
         setIsRunning(data.running);
         setStatusDetail(data.detail || '');
+        setVersionOutput(data.version || 'Unknown');
       }
     } catch (e) { console.error('Status fetch failed:', e); }
 
@@ -256,23 +258,27 @@ export default function OpenClawMain() {
     } catch (e) { console.error('Stats fetch failed:', e); }
 
     // 5. Config
-    try {
-      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_config' }) });
-      const data = await res.json();
-      if (data.success) setConfigContent(data.content);
-    } catch (e) { console.error('Config fetch failed:', e); }
+    if (!options.skipEditable) {
+      try {
+        const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_config' }) });
+        const data = await res.json();
+        if (data.success) setConfigContent(data.content);
+      } catch (e) { console.error('Config fetch failed:', e); }
+    }
 
     // 6. Cron
-    try {
-      const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_cron' }) });
-      const data = await res.json();
-      if (data.success) setCronTasks(data.data?.jobs || []);
-    } catch (e) { console.error('Cron fetch failed:', e); }
+    if (!options.skipEditable) {
+      try {
+        const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_cron' }) });
+        const data = await res.json();
+        if (data.success) setCronTasks(data.data?.jobs || []);
+      } catch (e) { console.error('Cron fetch failed:', e); }
+    }
   };
 
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 10000);
+    const interval = setInterval(() => fetchAll({ skipEditable: true }), 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -289,6 +295,25 @@ export default function OpenClawMain() {
       else alert(`保存失败: ${data.error}`);
     } catch (e) { alert('网络错误'); }
     finally { setIsSavingConfig(false); }
+  };
+
+  const toggleGateway = async () => {
+    const action = isRunning ? 'stop' : 'start';
+    try {
+      const res = await fetch('/api/openclaw/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'command', command: `openclaw gateway ${action}` }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchAll();
+      } else {
+        alert(`${action === 'start' ? '启动' : '停止'}失败: ${data.error}`);
+      }
+    } catch (e) {
+      alert('网络错误');
+    }
   };
 
   const executeCommand = async (e: React.FormEvent) => {
@@ -377,7 +402,7 @@ export default function OpenClawMain() {
       wakeMode: 'now',
       payload: {
         kind: 'agentTurn',
-        message: 'openclaw '
+        message: ''
       },
       delivery: {
         mode: 'announce',
@@ -439,9 +464,27 @@ export default function OpenClawMain() {
           </div>
           <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>OpenClaw</h1>
         </div>
-        <button className="btn btn-ghost mobile-full-width" onClick={fetchAll} disabled={loadingLogs} style={{ gap: '0.5rem', height: '36px' }}>
-          <RefreshCw size={18} className={loadingLogs ? 'animate-spin' : ''} /> 刷新数据
-        </button>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <button
+            className="btn btn-ghost"
+            onClick={toggleGateway}
+            title={isRunning ? '停止网关服务' : '启动网关服务'}
+            style={{
+              color: isRunning ? 'var(--color-danger)' : 'var(--color-success)',
+              width: '36px',
+              height: '36px',
+              padding: 0,
+              justifyContent: 'center',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(0,0,0,0.03)'
+            }}
+          >
+            <Power size={18} />
+          </button>
+          <button className="btn btn-ghost" onClick={() => fetchAll()} disabled={loadingLogs} style={{ gap: '0.5rem', height: '36px', background: 'rgba(0,0,0,0.03)' }}>
+            <RefreshCw size={18} className={loadingLogs ? 'animate-spin' : ''} /> 刷新数据
+          </button>
+        </div>
       </div>
 
       {/* Tab Navigation - Integrated Header */}
@@ -483,87 +526,72 @@ export default function OpenClawMain() {
             {/* Module 1: Status */}
             <div className="card glass-panel small-module" title={statusDetail}>
               <div className="module-header"><LobsterIcon size={14} /> 服务运行状态</div>
-              <div className="module-value" style={{ color: isRunning ? 'var(--color-success)' : statusDetail.includes('not found') ? 'var(--color-warning)' : 'var(--color-danger)' }}>
-                {isRunning ? 'Running' : statusDetail.includes('not found') ? 'Not Found' : 'Stopped'}
+              <div className="module-value" style={{
+                color: isRunning === null ? 'var(--color-text-muted)' :
+                  isRunning ? 'var(--color-success)' :
+                    statusDetail.includes('not found') ? 'var(--color-warning)' : 'var(--color-danger)'
+              }}>
+                {isRunning === null ? 'Loading...' : (isRunning ? 'Running' : statusDetail.includes('not found') ? 'Not Found' : 'Stopped')}
               </div>
-              <div className="module-footer">{statusDetail.includes('not found') ? '环境未检测到命令' : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : '服务已离线')}</div>
+              <div className="module-footer">
+                {isRunning === null ? '正在同步运行状态...' : (statusDetail.includes('not found') ? '环境未检测到命令' : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : '服务已离线'))}
+              </div>
             </div>
 
             {/* Module 2: Fragments */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Brain size={14} /> 知识储存量</div>
-              <div className="module-value">{memoryFiles.length} <span className="unit">FILES</span></div>
-              <div className="module-footer">{isRunning ? '最近 24h 活跃' : '离线数据预览'}</div>
+              <div className="module-value">{isRunning === null ? '--' : memoryFiles.length} <span className="unit">FILES</span></div>
+              <div className="module-footer">{isRunning === null ? '正在扫描目录...' : (isRunning ? '最近 24h 活跃' : '离线数据预览')}</div>
             </div>
 
             {/* Module 3: CPU Usage */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Cpu size={14} /> 核心负载</div>
-              <div className="module-value">{isRunning ? (systemStats?.cpu?.user || 0) : 0}<span className="unit">%</span></div>
-              <div className="module-footer">{isRunning ? '正常负载中' : '服务已离线'}</div>
+              <div className="module-value">{isRunning === null ? '--' : (isRunning ? (systemStats?.cpu?.user || 0) : 0)}<span className="unit">%</span></div>
+              <div className="module-footer">{isRunning === null ? '等待数据收集...' : (isRunning ? '正常负载中' : '服务已离线')}</div>
             </div>
 
             {/* Module 4: Memory Usage */}
             <div className="card glass-panel small-module">
               <div className="module-header"><HardDrive size={14} /> 资源占用</div>
-              <div className="module-value">{isRunning ? (systemStats?.memory?.usedMB || 0) : '--'}<span className="unit">MB</span></div>
-              <div className="module-footer">{isRunning ? '分配内运行' : '无数据'}</div>
+              <div className="module-value">{isRunning === null ? '--' : (isRunning ? (systemStats?.memory?.usedMB || 0) : '--')}<span className="unit">MB</span></div>
+              <div className="module-footer">{isRunning === null ? '正在获取资源统计...' : (isRunning ? '分配内运行' : '无数据')}</div>
             </div>
 
             {/* Module 5: Storage Size */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Database size={14} /> 存储占用</div>
-              <div className="module-value">{(memoryFiles.reduce((acc, f) => acc + (f.size || 0), 0) / 1024).toFixed(1)}<span className="unit">KB</span></div>
-              <div className="module-footer">本地知识库大小</div>
+              <div className="module-value">
+                {isRunning === null ? '--' : (memoryFiles.reduce((acc, f) => acc + (f.size || 0), 0) / 1024).toFixed(1)}
+                <span className="unit">KB</span>
+              </div>
+              <div className="module-footer">{isRunning === null ? '计算中...' : '本地知识库大小'}</div>
             </div>
 
             {/* Module 6: Safety Audit */}
             <div className="card glass-panel small-module">
               <div className="module-header"><ShieldCheck size={14} /> 安全合规性</div>
-              <div className="module-value" style={{ color: isRunning ? '#10b981' : 'var(--color-text-muted)', fontSize: '1.1rem' }}>
-                {isRunning ? 'SECURE' : 'OFFLINE'}
+              <div className="module-value" style={{ color: isRunning === null ? 'var(--color-text-muted)' : (isRunning ? '#10b981' : 'var(--color-text-muted)'), fontSize: '1.1rem' }}>
+                {isRunning === null ? 'PENDING' : (isRunning ? 'SECURE' : 'OFFLINE')}
               </div>
-              <div className="module-footer">{isRunning ? '验证审计通过' : '审计未就绪'}</div>
+              <div className="module-footer">{isRunning === null ? '等待审计...' : (isRunning ? '验证审计通过' : '审计未就绪')}</div>
             </div>
 
             {/* Module 7: Network Activity */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Zap size={14} /> 交互活跃度</div>
-              <div className="module-value">{isRunning ? 'Optimal' : 'N/A'}</div>
-              <div className="module-footer">{isRunning ? '延迟: 12ms' : '连接不可用'}</div>
+              <div className="module-value">{isRunning === null ? '--' : (isRunning ? 'Optimal' : 'N/A')}</div>
+              <div className="module-footer">{isRunning === null ? '测试连通性...' : (isRunning ? '延迟: 12ms' : '连接不可用')}</div>
             </div>
 
             {/* Module 8: Version Info */}
-            <div className="card glass-panel small-module">
+            <div className="card glass-panel small-module" title={versionOutput}>
               <div className="module-header"><Settings size={14} /> 系统版本</div>
-              <div className="module-value" style={{ fontSize: '0.9rem', color: 'inherit' }}>
-                {statusDetail.match(/[vV]?\d+\.\d+\.\d+/)?.[0] || statusDetail.match(/\d+\.\d+\.\d+/)?.[0] || 'Unknown'}
+              <div className="module-value" style={{ fontSize: '0.8rem', color: 'inherit', wordBreak: 'break-all' }}>
+                {isRunning === null ? 'Loading...' : versionOutput}
               </div>
-              <div className="module-footer">当前系统版本号</div>
-            </div>
-
-            {/* Module 9: Chart (Spans 2 columns on desktop) */}
-            <div className="card glass-panel span-2" style={{ padding: '1rem', minHeight: '120px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>记忆增长趋势</div>
-              <div style={{ height: '80px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={history}>
-                    <Area type="monotone" dataKey="count" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.15} isAnimationActive={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Module 10: Recent Active List (Spans 2 columns on desktop) */}
-            <div className="card glass-panel span-2" style={{ padding: '1rem' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>最近活跃记忆</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', width: '100%' }}>
-                {memoryFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 4).map(f => (
-                  <div key={f.path} style={{ fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                    {f.name}
-                  </div>
-                ))}
-              </div>
+              <div className="module-footer">{isRunning === null ? '查询版本中...' : 'openclaw -V 输出结果'}</div>
             </div>
 
             {/* Module 12: Real-time Log Preview (Medium Module - Spans 2 columns on desktop) */}
@@ -593,16 +621,21 @@ export default function OpenClawMain() {
               </div>
             </div>
 
-            {/* Module 11: Quick Controls */}
-            <div className="card glass-panel" style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>快捷操作</div>
-              <button className="btn btn-ghost" style={{ fontSize: '0.75rem', padding: '0.4rem', justifyContent: 'flex-start' }} onClick={fetchAll}>
-                <RefreshCw size={14} style={{ marginRight: '0.5rem' }} /> 同步所有数据
-              </button>
-              <button className="btn btn-ghost" style={{ fontSize: '0.75rem', padding: '0.4rem', justifyContent: 'flex-start', color: isRunning ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                <Power size={14} style={{ marginRight: '0.5rem' }} /> {isRunning ? '停止网关服务' : '启动网关服务'}
-              </button>
+
+
+            {/* Module 10: Recent Active List (Spans 2 columns on desktop) */}
+            <div className="card glass-panel span-2" style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>最近活跃记忆</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', width: '100%' }}>
+                {memoryFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 4).map(f => (
+                  <div key={f.path} style={{ fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                    {f.name}
+                  </div>
+                ))}
+              </div>
             </div>
+
+
           </div>
         )}
 
@@ -630,21 +663,57 @@ export default function OpenClawMain() {
         {/* MEMORY TAB */}
         {activeTab === 'memory' && (
           <div className="memory-container">
-            <div className="card glass-panel memory-sidebar" style={{ padding: 0 }}>
-              {memoryFiles.map(f => (
-                <div
-                  key={f.path}
-                  onClick={() => readMemory(f)}
-                  className={`flex-between`}
-                  style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid rgba(0,0,0,0.05)', background: activeMemoryFile?.path === f.path ? 'var(--color-primary-light)' : 'transparent' }}
-                >
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{(f.size / 1024).toFixed(1)} KB</div>
+            <div className="card glass-panel memory-sidebar" style={{ padding: 0, overflowY: 'auto' }}>
+              {(() => {
+                const coreFiles = memoryFiles.filter(f => !f.path.includes('/memory/'));
+                const fragmentFiles = memoryFiles.filter(f => f.path.includes('/memory/'));
+
+                const renderGroup = (label: string, icon: any, files: any[]) => (
+                  <div key={label}>
+                    <div style={{
+                      padding: '0.6rem 1rem',
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      color: 'var(--color-primary)',
+                      background: 'rgba(59, 130, 246, 0.05)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>
+                      {icon} {label} ({files.length})
+                    </div>
+                    {files.map(f => (
+                      <div
+                        key={f.path}
+                        onClick={() => readMemory(f)}
+                        className={`flex-between`}
+                        style={{
+                          padding: '0.75rem 1rem 0.75rem 1.25rem',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid rgba(0,0,0,0.05)',
+                          background: activeMemoryFile?.path === f.path ? 'var(--color-primary-light)' : 'transparent',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: activeMemoryFile?.path === f.path ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{(f.size / 1024).toFixed(1)} KB</div>
+                        </div>
+                        <ChevronRight size={12} opacity={activeMemoryFile?.path === f.path ? 0.8 : 0.2} />
+                      </div>
+                    ))}
                   </div>
-                  <ChevronRight size={14} opacity={0.3} />
-                </div>
-              ))}
+                );
+
+                return (
+                  <>
+                    {coreFiles.length > 0 && renderGroup('核心架构 (Core)', <LayoutGrid size={12} />, coreFiles)}
+                    {fragmentFiles.length > 0 && renderGroup('记忆碎片 (Fragments)', <FileText size={12} />, fragmentFiles)}
+                  </>
+                );
+              })()}
             </div>
             <div className="card glass-panel memory-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -818,7 +887,7 @@ export default function OpenClawMain() {
 
         {/* CRON TAB */}
         {activeTab === 'cron' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
             <div className="flex-between">
               <h2 className="card-title" style={{ margin: 0 }}>定时任务管理</h2>
               <button className="btn btn-primary btn-sm" onClick={handleAddCron}>
@@ -878,7 +947,7 @@ export default function OpenClawMain() {
                       type="text"
                       className="input"
                       style={{ fontSize: '0.85rem' }}
-                      placeholder="331608740"
+                      placeholder="Telegram ID"
                       value={editingCronTask.delivery.to}
                       onChange={e => setEditingCronTask({
                         ...editingCronTask,
@@ -912,10 +981,27 @@ export default function OpenClawMain() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <div style={{
+              display: 'grid',
+              gap: '0.75rem',
+              maxHeight: 'calc(100vh - 380px)',
+              overflowY: 'auto',
+              paddingRight: '0.5rem',
+              minHeight: '200px'
+            }} className="no-scrollbar">
               {cronTasks.length > 0 ? (
                 cronTasks.map(task => (
-                  <div key={task.id} className="card glass-panel flex-between" style={{ padding: '1rem', opacity: task.enabled ? 1 : 0.6, border: task.enabled ? '1px solid var(--color-surface-border)' : '1px solid transparent' }}>
+                  <div key={task.id} className="card glass-panel cron-task-card" style={{
+                    padding: '1rem',
+                    opacity: task.enabled ? 1 : 0.6,
+                    border: task.enabled ? '1px solid var(--color-surface-border)' : '1px solid transparent',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    minWidth: 0
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'start', gap: '1rem', flex: 1, minWidth: 0 }}>
                       <div style={{ padding: '0.6rem', borderRadius: '10px', background: task.enabled ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)', color: task.enabled ? 'var(--color-primary)' : 'var(--color-text-muted)', flexShrink: 0 }}>
                         <Clock size={20} />
@@ -935,12 +1021,26 @@ export default function OpenClawMain() {
                             </div>
                           )}
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', marginTop: '0.5rem', background: 'var(--color-primary-light)', padding: '0.25rem 0.6rem', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%', fontFamily: 'monospace' }}>
+                        <div style={{
+                          fontSize: '0.8rem',
+                          color: 'var(--color-primary)',
+                          marginTop: '0.5rem',
+                          background: 'var(--color-primary-light)',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '8px',
+                          wordBreak: 'break-all',
+                          whiteSpace: 'pre-wrap',
+                          display: 'block',
+                          maxWidth: '100%',
+                          fontFamily: 'monospace',
+                          lineHeight: 1.5,
+                          border: '1px solid rgba(59, 130, 246, 0.1)'
+                        }}>
                           {task.payload?.message || '--'}
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0.4rem', color: task.enabled ? 'var(--color-danger)' : 'var(--color-success)' }}
@@ -1095,6 +1195,15 @@ export default function OpenClawMain() {
           font-size: 0.7rem;
           color: var(--color-text-muted);
           opacity: 0.8;
+        }
+        .cron-task-card {
+          flex-direction: row;
+        }
+        @media (max-width: 640px) {
+          .cron-task-card {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
         }
       `}</style>
     </div>

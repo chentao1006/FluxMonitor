@@ -58,35 +58,44 @@ export async function POST(request: Request) {
     }
 
     if (action === 'list_memory') {
-      if (!fs.existsSync(MEMORY_DIR)) {
-        return NextResponse.json({ success: true, files: [] });
-      }
-      const files = fs.readdirSync(MEMORY_DIR)
-        .filter(f => f.endsWith('.md'))
-        .map(f => {
-          const fullPath = path.join(MEMORY_DIR, f);
-          const stats = fs.statSync(fullPath);
-          return {
-            name: f,
-            path: fullPath,
-            size: stats.size,
-            mtime: stats.mtime
-          };
-        });
-
-      // Also check for root level memory files in workspace
-      const rootFiles = ['MEMORY.md', 'SOUL.md', 'USER.md', 'README.md', 'AGENTS.md', 'TOOLS.md', 'IDENTITY.md'];
-      for (const f of rootFiles) {
-        const fullPath = path.join(WORKSPACE_DIR, f);
-        if (fs.existsSync(fullPath)) {
-          const stats = fs.statSync(fullPath);
-          files.push({
-            name: f,
-            path: fullPath,
-            size: stats.size,
-            mtime: stats.mtime
+      const files: any[] = [];
+      const scanDir = (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        const list = fs.readdirSync(dir)
+          .filter(f => f.toLowerCase().endsWith('.md'))
+          .map(f => {
+            const fullPath = path.join(dir, f);
+            const stats = fs.statSync(fullPath);
+            return {
+              name: f,
+              path: fullPath,
+              size: stats.size,
+              mtime: stats.mtime
+            };
           });
-        }
+        files.push(...list);
+      };
+
+      // 1. Scan .openclaw/workspace/memory
+      scanDir(MEMORY_DIR);
+
+      // 2. Scan .openclaw/workspace (root)
+      if (fs.existsSync(WORKSPACE_DIR)) {
+        const rootMdFiles = fs.readdirSync(WORKSPACE_DIR)
+          .filter(f => f.toLowerCase().endsWith('.md'))
+          .map(f => {
+            const fullPath = path.join(WORKSPACE_DIR, f);
+            // Avoid adding files already scanned in subdirectories if paths overlap (unlikely here but safe)
+            if (files.find(existing => existing.path === fullPath)) return null;
+            const stats = fs.statSync(fullPath);
+            return {
+              name: f,
+              path: fullPath,
+              size: stats.size,
+              mtime: stats.mtime
+            };
+          }).filter(Boolean);
+        files.push(...(rootMdFiles as any[]));
       }
 
       return NextResponse.json({ success: true, files });
@@ -182,18 +191,37 @@ export async function POST(request: Request) {
 
     if (action === 'status') {
       try {
+        let version = 'Unknown';
+        try {
+          // Use -l (login) and -i (interactive) to force loading of user profiles and aliases
+          // Note: -i might hang if it expects input, so we use -l first
+          const { stdout: vOut, stderr: vErr } = await execAsync('bash -l -c "openclaw -V"', {
+            timeout: 5000
+          });
+          version = (vOut || vErr || '').trim().split('\n')[0] || 'Unknown';
+        } catch (ve: any) {
+          const output = (ve.stdout || ve.stderr || '').trim();
+          if (output) {
+            // Take the first line that doesn't look like a "command not found" error
+            const lines = output.split('\n');
+            const versionLine = lines.find((l: string) => !l.toLowerCase().includes('not found') && !l.toLowerCase().includes('no such'));
+            version = versionLine ? versionLine.trim() : 'Unknown';
+          } else {
+            version = 'Unknown';
+          }
+        }
+
         // Try the command first
         try {
           const { stdout } = await execAsync('openclaw status', { timeout: 3000, env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` } });
-          return NextResponse.json({ success: true, running: stdout.toLowerCase().includes('running'), detail: stdout });
+          return NextResponse.json({
+            success: true,
+            running: stdout.toLowerCase().includes('running'),
+            detail: stdout,
+            version: version
+          });
         } catch (e: any) {
           let detail = e.stdout || e.message || '';
-
-          // If status fails, try to get version info separately to enrich the detail
-          try {
-            const { stdout: versionOut } = await execAsync('openclaw -V', { timeout: 2000, env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` } });
-            if (versionOut) detail += `\nVersion: ${versionOut}`;
-          } catch (ve) { /* ignore version fetch error */ }
 
           // Fallback: check the port
           let port = 18789; // Default
@@ -210,6 +238,7 @@ export async function POST(request: Request) {
               return NextResponse.json({
                 success: true,
                 running: true,
+                version: version,
                 detail: `Detected running process on port ${port} (PID: ${portCheck.trim()}).\nNote: 'openclaw' command not in PATH.`
               });
             }
@@ -220,6 +249,7 @@ export async function POST(request: Request) {
           return NextResponse.json({
             success: true,
             running: false,
+            version: version,
             detail: detail.includes('command not found') || detail.includes('not found') ? 'OpenClaw command line tool not found in PATH' : detail
           });
         }
