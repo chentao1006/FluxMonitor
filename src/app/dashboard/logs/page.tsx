@@ -3,9 +3,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
 import { RefreshCw, Trash2, FileText, ChevronRight, Search, Eraser, ArrowLeft, Sparkles, Brain } from 'lucide-react';
 
 export default function LogsPage() {
+  const { t, language, effectiveLang } = useLanguage();
   const [files, setFiles] = useState<any[]>([]);
   const [filteredFiles, setFilteredFiles] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,10 +18,18 @@ export default function LogsPage() {
   const contentRef = useRef<HTMLPreElement>(null);
   const [logExplanation, setLogExplanation] = useState('');
   const [isExplaining, setIsExplaining] = useState(false);
+  const aiCacheRef = useRef<Record<string, string>>({});
 
   const [activeCategory, setActiveCategory] = useState<string>('全部');
 
-  const categories = ['全部', '系统', '服务', '应用', '其他'];
+  const internalCategories = ['全部', '系统', '服务', '应用', '其他'];
+  const categoryLabels = [
+    t.logs.category,
+    effectiveLang === 'zh' ? '系统' : 'System',
+    effectiveLang === 'zh' ? '服务' : 'Services',
+    effectiveLang === 'zh' ? '应用' : 'Apps',
+    effectiveLang === 'zh' ? '其他' : 'Other'
+  ];
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -28,9 +38,7 @@ export default function LogsPage() {
       const data = await res.json();
       if (data.success) {
         setFiles(data.data);
-        // On desktop, if no file active, pick first matching active category
         if (data.data.length > 0 && !activeFile && typeof window !== 'undefined' && window.innerWidth > 768) {
-          // Find first matching file or just the first overall
           setActiveFile(data.data[0].path);
         }
       }
@@ -48,17 +56,16 @@ export default function LogsPage() {
       const data = await res.json();
       if (data.success) {
         setContent(data.data);
-        // Scroll to bottom after content load
         setTimeout(() => {
           if (contentRef.current) {
             contentRef.current.scrollTop = contentRef.current.scrollHeight;
           }
         }, 100);
       } else {
-        setContent(`错误: ${data.error}`);
+        setContent(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      setContent('加载失败');
+      setContent(t.common.loading + ' failed');
     } finally {
       setContentLoading(false);
     }
@@ -67,7 +74,7 @@ export default function LogsPage() {
   const clearLog = async (targetFile?: string, password?: string) => {
     const fileToClear = targetFile || activeFile;
     if (!fileToClear) return;
-    if (!password && !window.confirm(`确定要清理日志文件 ${fileToClear.split('/').pop()} 吗？`)) return;
+    if (!password && !window.confirm(`${effectiveLang === 'zh' ? '确定要清理日志文件吗？' : 'Clear log file?'} ${fileToClear.split('/').pop()}`)) return;
 
     try {
       const res = await fetch('/api/logs', {
@@ -80,20 +87,20 @@ export default function LogsPage() {
         if (fileToClear === activeFile) setContent('');
         fetchFiles();
       } else if (data.requiresPassword) {
-        const pass = window.prompt('该操作需要系统权限，请输入 sudo 密码:');
+        const pass = window.prompt(effectiveLang === 'zh' ? '该操作需要系统权限，请输入 sudo 密码:' : 'Admin password is required:');
         if (pass) clearLog(fileToClear, pass);
       } else {
-        alert(`清理失败: ${data.error}`);
+        alert(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      alert('网络请求失败');
+      alert(t.common.networkError);
     }
   };
 
   const deleteFile = async (targetFile?: string, password?: string) => {
     const fileToDelete = targetFile || activeFile;
     if (!fileToDelete) return;
-    if (!password && !window.confirm(`⚠️ 高危操作：确定要彻底删除日志文件吗？\n${fileToDelete}`)) return;
+    if (!password && !window.confirm(t.common.deleteConfirm)) return;
 
     try {
       const res = await fetch('/api/logs', {
@@ -109,37 +116,50 @@ export default function LogsPage() {
         }
         fetchFiles();
       } else if (data.requiresPassword) {
-        const pass = window.prompt('该操作需要系统权限，请输入 sudo 密码:');
+        const pass = window.prompt(effectiveLang === 'zh' ? '该操作需要系统权限，请输入 sudo 密码:' : 'Admin password is required:');
         if (pass) deleteFile(fileToDelete, pass);
       } else {
-        alert(`删除失败: ${data.error}`);
+        alert(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      alert('网络请求失败');
+      alert(t.common.networkError);
     }
   };
 
   const explainLog = async () => {
     if (!content || contentLoading || !activeFile) return;
+
+    if (logExplanation) {
+      setLogExplanation('');
+      return;
+    }
+
+    const cacheKey = `${activeFile}:${content.slice(-2000)}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setLogExplanation(aiCacheRef.current[cacheKey]);
+      return;
+    }
+
     setIsExplaining(true);
-    setLogExplanation('AI 正在深度解析该日志文件... 🪄');
+    setLogExplanation(t.logs.aiProcess);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为资深系统专家，分析以下日志文件 "${activeFile.split('/').pop()}" 的内容。请解释当前系统的状态、是否有异常情况（如有，请说明可能的报错原因及建议解决方案）。要求使用中文，结构清晰。日志内容如下：\n\n${content.slice(-4000)}`,
+          prompt: `请作为资深系统专家，分析以下日志文件 "${activeFile.split('/').pop()}" 的内容。请解释当前系统的状态、是否有异常情况。要求使用${effectiveLang === 'zh' ? '中文' : '英文'}，结构清晰。日志内容如下：\n\n${content.slice(-4000)}`,
           systemPrompt: 'You are an expert system administrator and software engineer specializing in macOS and Linux system logs.'
         })
       });
       const data = await res.json();
       if (data.success) {
         setLogExplanation(data.data);
+        aiCacheRef.current[cacheKey] = data.data;
       } else {
-        setLogExplanation(`解析失败: ${data.error}`);
+        setLogExplanation(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      setLogExplanation('网络请求失败');
+      setLogExplanation(t.common.networkError);
     } finally {
       setIsExplaining(false);
     }
@@ -156,7 +176,6 @@ export default function LogsPage() {
     }
   }, [activeFile]);
 
-  // Ensure scrolling to bottom when content changes
   useEffect(() => {
     if (content && contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
@@ -173,7 +192,7 @@ export default function LogsPage() {
     setFilteredFiles(filtered);
   }, [searchTerm, files, activeCategory]);
 
-  if (loading && files.length === 0) return <div className="flex-center" style={{ height: '70vh' }}>加载日志列表中...</div>;
+  if (loading && files.length === 0) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
     <div className="grid animate-fade-in">
@@ -182,24 +201,23 @@ export default function LogsPage() {
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <FileText size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title log-title" style={{ margin: 0, fontSize: '1.5rem' }}>日志分析</h1>
+          <h1 className="card-title log-title" style={{ margin: 0, fontSize: '1.5rem' }}>{t.logs.title}</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-ghost" onClick={fetchFiles} title="刷新列表">
+          <button className="btn btn-ghost" onClick={fetchFiles} title={t.common.refresh}>
             <RefreshCw size={18} />
           </button>
         </div>
       </div>
 
       <div className={`logs-layout ${activeFile ? 'showing-content' : 'showing-list'}`}>
-        {/* Left Side: Tabs / File List */}
         <div className="logs-sidebar card glass-panel" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
           <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
                 className="input"
-                placeholder="搜索日志文件..."
+                placeholder={t.common.search}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 style={{ paddingLeft: '2.5rem', fontSize: '0.9rem', width: '100%' }}
@@ -208,7 +226,7 @@ export default function LogsPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.25rem', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
-              {categories.map(cat => (
+              {internalCategories.map((cat, idx) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
@@ -226,7 +244,7 @@ export default function LogsPage() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  {cat} ({cat === '全部' ? files.length : files.filter(f => f.category === cat).length})
+                  {categoryLabels[idx]} ({cat === '全部' ? files.length : files.filter(f => f.category === cat).length})
                 </button>
               ))}
             </div>
@@ -235,7 +253,7 @@ export default function LogsPage() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
             {filteredFiles.length === 0 ? (
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                {files.length === 0 ? '未在监控路径中找到任何 .log 文件' : '未找到匹配的日志'}
+                {t.common.none}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -272,7 +290,7 @@ export default function LogsPage() {
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             <span>{(file.size / 1024).toFixed(1)} KB</span>
                             <span>•</span>
-                            <span>{new Date(file.mtime).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>{new Date(file.mtime).toLocaleString(effectiveLang === 'zh' ? 'zh-CN' : 'en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
 
                           <div className="log-item-actions" style={{ display: 'flex', gap: '0.15rem', opacity: 0, transition: 'opacity 0.2s' }}>
@@ -280,7 +298,7 @@ export default function LogsPage() {
                               className="btn btn-ghost"
                               onClick={(e) => { e.stopPropagation(); clearLog(file.path); }}
                               style={{ padding: '0.15rem', color: 'var(--color-warning)', minHeight: 'auto', background: 'transparent' }}
-                              title="清空"
+                              title={effectiveLang === 'zh' ? '清空' : 'Clear'}
                             >
                               <Eraser size={12} />
                             </button>
@@ -288,7 +306,7 @@ export default function LogsPage() {
                               className="btn btn-ghost"
                               onClick={(e) => { e.stopPropagation(); deleteFile(file.path); }}
                               style={{ padding: '0.15rem', color: 'var(--color-danger)', minHeight: 'auto', background: 'transparent' }}
-                              title="删除"
+                              title={t.common.delete}
                             >
                               <Trash2 size={12} />
                             </button>
@@ -303,7 +321,6 @@ export default function LogsPage() {
           </div>
         </div>
 
-        {/* Right Side: Content Area */}
         <div className="logs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
           <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)', flexWrap: 'nowrap' }}>
             <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
@@ -311,15 +328,15 @@ export default function LogsPage() {
                 className="btn btn-ghost mobile-back-btn"
                 onClick={() => setActiveFile(null)}
                 style={{ padding: '0.4rem', borderRadius: 'var(--radius-sm)' }}
-                title="返回列表"
+                title={effectiveLang === 'zh' ? '返回列表' : 'Back to list'}
               >
                 <ArrowLeft size={18} />
               </button>
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <span>{activeFile ? activeFile.split('/').pop() : '未选择文件'}</span>
+                <span>{activeFile ? activeFile.split('/').pop() : (effectiveLang === 'zh' ? '未选择文件' : 'No file selected')}</span>
                 {activeFile && (
                   <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                    路径: {activeFile}
+                    {effectiveLang === 'zh' ? '路径' : 'Path'}: {activeFile}
                   </span>
                 )}
               </div>
@@ -329,8 +346,8 @@ export default function LogsPage() {
                 className="btn btn-ghost"
                 onClick={explainLog}
                 disabled={!activeFile || contentLoading || isExplaining}
-                title="AI 智能解析日志"
-                style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)', padding: '0.5rem' }}
+                title={t.common.analyze}
+                style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', padding: '0.5rem', fontWeight: 600 }}
               >
                 <Sparkles size={18} className={isExplaining ? 'animate-pulse' : ''} />
               </button>
@@ -338,7 +355,7 @@ export default function LogsPage() {
                 className="btn btn-ghost"
                 onClick={() => activeFile && fetchContent(activeFile)}
                 disabled={!activeFile || contentLoading}
-                title="刷新内容"
+                title={t.common.refresh}
                 style={{ padding: '0.5rem' }}
               >
                 <RefreshCw size={18} className={contentLoading ? 'animate-spin' : ''} />
@@ -348,7 +365,7 @@ export default function LogsPage() {
                 onClick={() => clearLog()}
                 disabled={!activeFile}
                 style={{ color: 'var(--color-warning)', padding: '0.5rem' }}
-                title="清空日志内容 (保留文件)"
+                title={effectiveLang === 'zh' ? '清空' : 'Clear'}
               >
                 <Eraser size={18} />
               </button>
@@ -357,7 +374,7 @@ export default function LogsPage() {
                 onClick={() => deleteFile()}
                 disabled={!activeFile}
                 style={{ color: 'var(--color-danger)', padding: '0.5rem' }}
-                title="彻底删除文件"
+                title={t.common.delete}
               >
                 <Trash2 size={18} />
               </button>
@@ -365,13 +382,34 @@ export default function LogsPage() {
           </div>
 
           {logExplanation && (
-            <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', maxHeight: '300px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+            <div className="ai-output-block" style={{
+              padding: 0,
+              background: 'rgba(59, 130, 246, 0.03)',
+              borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+              animation: 'slideInDown 0.3s ease',
+              maxHeight: '300px',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem 1.25rem',
+                color: 'var(--color-primary)',
+                position: 'sticky',
+                top: 0,
+                background: 'rgba(240, 247, 255, 0.95)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 5,
+                borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
+              }}>
                 <Brain size={18} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 系统日志诊断建议</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.logs.aiSuggest}</span>
                 <button onClick={() => setLogExplanation('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7 }}>
+              <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{logExplanation}</ReactMarkdown>
               </div>
             </div>
@@ -396,15 +434,15 @@ export default function LogsPage() {
               {contentLoading ? (
                 <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
                   <RefreshCw size={24} className="animate-spin" style={{ marginRight: '1rem' }} />
-                  正在加载日志内容...
+                  {t.common.loading}
                 </div>
               ) : content || (activeFile ? (
                 <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
-                  日志文件为空
+                  {t.common.none}
                 </div>
               ) : (
                 <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
-                  请从左侧选择一个日志文件进行查看
+                  {effectiveLang === 'zh' ? '请从左侧选择一个日志文件进行查看' : 'Please select a log file to view'}
                 </div>
               ))}
             </pre>

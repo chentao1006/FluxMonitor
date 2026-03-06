@@ -88,6 +88,7 @@ p {
   transition: var(--transition);
   outline: none;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .btn:active {
@@ -122,6 +123,11 @@ p {
 .btn-ghost:hover {
   background: var(--color-primary-light);
   color: var(--color-primary);
+}
+
+.btn-sm {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
 }
 
 /* Inputs */
@@ -282,6 +288,33 @@ p {
   color: #92400e;
 }
 
+/* AI Output Container - Strict Layout Protection */
+.ai-output-block {
+  max-width: 100%;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  word-break: break-word;
+  /* Better for natural language */
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+}
+
+/* Technical strings like logs or long paths often need break-all */
+.ai-output-block pre,
+.ai-output-block code {
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  max-width: 100%;
+}
+
+.ai-output-block table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Application Layout */
 .app-layout {
   display: flex;
@@ -353,8 +386,28 @@ p {
   box-shadow: 20px 0 50px rgba(0, 0, 0, 0.1);
 }
 
+.mobile-only {
+  display: block;
+}
+
 .desktop-only {
   display: none;
+}
+
+@media (min-width: 1024px) {
+  .mobile-only {
+    display: none !important;
+  }
+
+  .desktop-only {
+    display: block !important;
+  }
+
+  /* Support for table elements */
+  th.desktop-only,
+  td.desktop-only {
+    display: table-cell !important;
+  }
 }
 
 .sidebar-header {

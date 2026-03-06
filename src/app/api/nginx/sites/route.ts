@@ -35,11 +35,25 @@ async function getNginxDirs() {
     }
   }
 
-  return { availableDir, enabledDir };
+  const possibleMainConfigs = [
+    '/opt/homebrew/etc/nginx/nginx.conf',
+    '/etc/nginx/nginx.conf',
+    '/usr/local/etc/nginx/nginx.conf'
+  ];
+
+  let mainConfig = '';
+  for (const conf of possibleMainConfigs) {
+    if (existsSync(conf)) {
+      mainConfig = conf;
+      break;
+    }
+  }
+
+  return { availableDir, enabledDir, mainConfig };
 }
 export async function GET() {
   try {
-    const { availableDir, enabledDir } = await getNginxDirs();
+    const { availableDir, enabledDir, mainConfig } = await getNginxDirs();
     let files: string[] = [];
     try {
       files = await fs.readdir(availableDir);
@@ -89,7 +103,12 @@ export async function GET() {
       };
     }));
 
-    return NextResponse.json({ success: true, data: sites, dir: availableDir });
+    return NextResponse.json({
+      success: true,
+      data: sites,
+      dir: availableDir,
+      hasMainConfig: !!mainConfig
+    });
   } catch (error: unknown) {
     const err = error as Error;
     return NextResponse.json({ error: '获取站点失败', details: err?.message }, { status: 500 });
@@ -103,11 +122,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '缺少参数' }, { status: 400 });
     }
 
-    const { availableDir, enabledDir } = await getNginxDirs();
-    const filePath = path.join(availableDir, filename);
+    const { availableDir, enabledDir, mainConfig } = await getNginxDirs();
+    let filePath = '';
 
-    if (!filePath.startsWith(availableDir)) {
-      return NextResponse.json({ error: '非法路径' }, { status: 400 });
+    if (filename === 'nginx.conf' && mainConfig) {
+      filePath = mainConfig;
+    } else {
+      filePath = path.join(availableDir, filename);
+      if (!filePath.startsWith(availableDir)) {
+        return NextResponse.json({ error: '非法路径' }, { status: 400 });
+      }
     }
 
     if (action === 'read') {

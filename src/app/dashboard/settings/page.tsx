@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { Sliders, Save, User, Cpu, Power, Info, AlertTriangle, Rocket } from 'lucide-react';
+import { useLanguage } from '@/lib/LanguageContext';
+import { Sliders, Save, User, Cpu, Power, Info, AlertTriangle } from 'lucide-react';
 
 export default function SettingsPage() {
+  const { t } = useLanguage();
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('');
@@ -27,7 +29,7 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
-    setSaveStatus('保存中...');
+    setSaveStatus(t.settings.saving);
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
@@ -36,15 +38,15 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setSaveStatus('保存成功！页面即将自动刷新...');
+        setSaveStatus(t.settings.saveSuccess);
         setTimeout(() => {
           window.location.reload();
         }, 1500);
       } else {
-        setSaveStatus(`保存失败: ${data.error}`);
+        setSaveStatus(`${t.common.saveFailed}: ${data.error}`);
       }
     } catch (e) {
-      setSaveStatus('网络请求失败');
+      setSaveStatus(t.common.networkError);
     }
   };
 
@@ -68,7 +70,7 @@ export default function SettingsPage() {
     setConfig({ ...config, users: newUsers });
   };
 
-  if (loading || !config) return <div className="flex-center" style={{ height: '70vh' }}>加载中...</div>;
+  if (loading || !config) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
     <div className="grid no-scrollbar animate-fade-in" style={{ gap: '1.25rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
@@ -77,26 +79,27 @@ export default function SettingsPage() {
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Sliders size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>系统设置</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.settings.title}</h1>
         </div>
         <button className="btn btn-primary mobile-full-width" onClick={handleSave} style={{ gap: '0.5rem', padding: '0.6rem 1.5rem' }}>
           <Save size={18} />
-          保存更改
+          {t.settings.saveBtn}
         </button>
       </div>
 
       {saveStatus && (
-        <div className={`badge ${saveStatus.includes('成功') ? 'badge-success' : 'badge-danger'}`} style={{ padding: '0.75rem 1rem', width: 'fit-content' }}>
+        <div className={`badge ${saveStatus.includes('成功') || saveStatus.includes('Success') ? 'badge-success' : 'badge-danger'}`} style={{ padding: '0.75rem 1rem', width: 'fit-content' }}>
           {saveStatus}
         </div>
       )}
 
       <div className="responsive-grid responsive-grid-2" style={{ gap: '1.25rem', width: '100%' }}>
+
         {/* Feature Toggles */}
         <section className="card glass-panel span-2" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <Power size={20} color="var(--color-primary)" />
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>功能版块开关</h2>
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{t.settings.features}</h2>
           </div>
           <div className="responsive-grid responsive-grid-auto" style={{ gap: '1rem' }}>
             {Object.entries(config.features || {}).map(([key, enabled]: [string, any]) => (
@@ -113,14 +116,7 @@ export default function SettingsPage() {
                 }}
               >
                 <span style={{ fontWeight: 500, color: enabled ? 'var(--color-primary)' : 'inherit' }}>
-                  {key === 'monitor' ? '系统监控' :
-                    key === 'processes' ? '进程管理' :
-                      key === 'logs' ? '日志分析' :
-                        key === 'configs' ? '配置管理' :
-                          key === 'launchagent' ? 'LaunchAgent' :
-                            key === 'docker' ? 'Docker' :
-                              key === 'nginx' ? 'Nginx' :
-                                key === 'openclaw' ? 'OpenClaw' : key}
+                  {(t.sidebar as any)[key] || key}
                 </span>
                 <input
                   type="checkbox"
@@ -133,7 +129,7 @@ export default function SettingsPage() {
           </div>
           <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
             <Info size={14} />
-            <span>关闭某个版块将隐藏侧边栏中的对应入口。</span>
+            <span>{t.settings.featuresDesc}</span>
           </div>
         </section>
 
@@ -141,12 +137,12 @@ export default function SettingsPage() {
         <section className="card glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <User size={20} color="var(--color-primary)" />
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>账户管理</h2>
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{t.settings.account}</h2>
           </div>
           {config.users.map((user: any, i: number) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>用户名</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.settings.username}</label>
                 <input
                   type="text"
                   className="input"
@@ -155,11 +151,11 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>新密码 (留空则不修改)</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.settings.password}</label>
                 <input
                   type="password"
                   className="input"
-                  placeholder="********"
+                  placeholder={t.settings.passwordPlaceholder}
                   onChange={e => e.target.value && updateUser(i, 'password', e.target.value)}
                 />
               </div>
@@ -168,7 +164,7 @@ export default function SettingsPage() {
           <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(245, 158, 11, 0.1)', borderRadius: 'var(--radius-sm)', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
             <AlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
             <p style={{ fontSize: '0.75rem', color: '#b45309', margin: 0 }}>
-              修改密码后，您需要使用新密码重新登录。请务必记住您的新密码。
+              {t.settings.passwordNote}
             </p>
           </div>
         </section>
@@ -177,11 +173,11 @@ export default function SettingsPage() {
         <section className="card glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <Cpu size={20} color="var(--color-primary)" />
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>AI 引擎配置 (OpenAI)</h2>
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{t.settings.aiConfig}</h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>API Endpoint (Base URL, e.g. .../v1)</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.settings.endpoint}</label>
               <input
                 type="text"
                 className="input"
@@ -191,7 +187,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>API Key</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.settings.apiKey}</label>
               <input
                 type="password"
                 className="input"
@@ -201,7 +197,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>模型名称 (Model)</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.settings.model}</label>
               <input
                 type="text"
                 className="input"
@@ -212,7 +208,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
-
       </div>
     </div>
   );

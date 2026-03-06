@@ -9,14 +9,23 @@ set -e
 
 # Default deployment directory
 APP_DIR="$HOME/Applications/monitor"
+APP_PORT=7000
 
 # Try to read from config.json
 if [ -f "config.json" ]; then
-    # Extract deployPath value from JSON
-    CONFIG_PATH=$(grep '"deployPath":' config.json | sed -E 's/.*"deployPath": "(.*)".*/\1/' || echo "")
+    NODE_PATH=$(which node || echo "node")
+    
+    # Extract deploy path value using node
+    CONFIG_PATH=$($NODE_PATH -e "try { console.log(require('./config.json').deploy?.path || require('./config.json').deployPath || '') } catch(e) {}" 2>/dev/null)
     if [ ! -z "$CONFIG_PATH" ]; then
         # Expand ~ to $HOME if present
         APP_DIR="${CONFIG_PATH/#\~/$HOME}"
+    fi
+
+    # Extract port value using node
+    CONFIG_PORT=$($NODE_PATH -e "try { console.log(require('./config.json').deploy?.port || require('./config.json').port || '') } catch(e) {}" 2>/dev/null)
+    if [ ! -z "$CONFIG_PORT" ]; then
+        APP_PORT="$CONFIG_PORT"
     fi
 fi
 
@@ -42,7 +51,14 @@ npm run build
 echo "3. Preparing deployment directory: $APP_DIR"
 mkdir -p "$APP_DIR"
 
-echo "4. Copying standalone runnable files..."
+echo "4. Backing up existing config.json (if any)..."
+HAS_BACKUP=0
+if [ -f "$APP_DIR/config.json" ]; then
+    cp "$APP_DIR/config.json" "/tmp/monitor_config_backup.json"
+    HAS_BACKUP=1
+fi
+
+echo "5. Copying standalone runnable files..."
 # Copy the standalone server and necessary node_modules
 cp -a .next/standalone/. "$APP_DIR/"
 
@@ -53,10 +69,18 @@ cp -a public/. "$APP_DIR/public/" 2>/dev/null || :
 mkdir -p "$APP_DIR/.next/static"
 cp -a .next/static/. "$APP_DIR/.next/static/"
 
-# Copy config.json so the API can use it
-cp config.json "$APP_DIR/" 2>/dev/null || echo "Warning: config.json not found, skipping."
+echo "6. Restoring config.json..."
+if [ "$HAS_BACKUP" = "1" ]; then
+    echo "Restored existing config.json to protect destination config."
+    cp "/tmp/monitor_config_backup.json" "$APP_DIR/config.json"
+else
+    if [ ! -f "$APP_DIR/config.json" ]; then
+        echo "config.json not found in target, copying from example..."
+        cp config.example.json "$APP_DIR/config.json"
+    fi
+fi
 
-echo "5. Generating start.sh for LaunchAgent..."
+echo "7. Generating start.sh for LaunchAgent..."
 NODE_PATH=$(which node || echo "node")
 cat << EOF > "$APP_DIR/start.sh"
 #!/bin/bash
@@ -66,8 +90,8 @@ cd "\$DIR"
 # Set path just in case LaunchAgent doesn't have it
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:\$PATH"
 
-# Run the server on port 7000
-PORT=7000 $NODE_PATH server.js
+# Run the server on the configured port
+PORT=$APP_PORT $NODE_PATH server.js
 EOF
 chmod +x "$APP_DIR/start.sh"
 
@@ -79,11 +103,11 @@ echo ""
 # Clean up standalone directory to prevent Next.js turbopack conflicts in dev mode
 rm -rf .next/standalone
 
-echo "6. Restarting the application..."
-# Kill any existing process on port 7000
-EXISTING_PID=$(lsof -t -i:7000 || true)
+echo "8. Restarting the application..."
+# Kill any existing process on the configured port
+EXISTING_PID=$(lsof -t -i:$APP_PORT || true)
 if [ ! -z "$EXISTING_PID" ]; then
-    echo "Stopping existing process on port 7000 (PID: $EXISTING_PID)..."
+    echo "Stopping existing process on port $APP_PORT (PID: $EXISTING_PID)..."
     kill -9 $EXISTING_PID 2>/dev/null
     sleep 1
 fi
@@ -92,6 +116,6 @@ echo "Starting new instance via start.sh..."
 cd "$APP_DIR"
 # Run start.sh in the background and detach
 nohup ./start.sh > deploy_run.log 2>&1 &
-echo "Application has been restarted automatically! (Running on port 7000)"
+echo "Application has been restarted automatically! (Running on port $APP_PORT)"
 echo "Logs are available at: $APP_DIR/deploy_run.log"
 echo "================================================="

@@ -2,7 +2,8 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
 import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles } from 'lucide-react';
 
 interface ConfigItem {
@@ -13,6 +14,7 @@ interface ConfigItem {
 }
 
 export default function ConfigsDashboard() {
+  const { t, language, effectiveLang } = useLanguage();
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -22,10 +24,18 @@ export default function ConfigsDashboard() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [readLoading, setReadLoading] = useState(false);
   const [isAiEditing, setIsAiEditing] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState('');
+  const aiCacheRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     fetchConfigs();
   }, []);
+
+  useEffect(() => {
+    setAnalysisResult('');
+    setShowAiPanel(false);
+  }, [editingId]);
 
   const fetchConfigs = async () => {
     try {
@@ -35,7 +45,7 @@ export default function ConfigsDashboard() {
         setConfigs(data.data || []);
       }
     } catch (e) {
-      console.error('获取配置列表失败', e);
+      console.error('Fetch failed', e);
     } finally {
       setLoading(false);
     }
@@ -55,10 +65,10 @@ export default function ConfigsDashboard() {
       if (data.success) {
         setContent(data.content);
       } else {
-        setContent(`读取失败: ${data.details || data.error}`);
+        setContent(`${t.common.error}: ${data.details || data.error}`);
       }
     } catch (e) {
-      setContent('网络请求失败');
+      setContent(t.common.networkError);
     } finally {
       setReadLoading(false);
     }
@@ -66,7 +76,7 @@ export default function ConfigsDashboard() {
 
   const handleSave = async () => {
     if (!editingId) return;
-    setSaveStatus('保存中...');
+    setSaveStatus(effectiveLang === 'zh' ? '保存中...' : 'Saving...');
     try {
       const res = await fetch('/api/configs', {
         method: 'POST',
@@ -75,13 +85,13 @@ export default function ConfigsDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        setSaveStatus('保存成功!');
+        setSaveStatus(t.common.saveSuccess);
         setTimeout(() => setSaveStatus(''), 2000);
       } else {
-        setSaveStatus(`保存失败: ${data.details || data.error}`);
+        setSaveStatus(`${t.common.saveFailed}: ${data.details || data.error}`);
       }
     } catch (e) {
-      setSaveStatus('网络请求失败');
+      setSaveStatus(t.common.networkError);
     }
   };
 
@@ -89,35 +99,75 @@ export default function ConfigsDashboard() {
     if (!content || readLoading || isAiEditing || !aiDemand.trim()) return;
 
     setIsAiEditing(true);
-    setSaveStatus('AI 正在修改中... 🪄');
+    setSaveStatus(effectiveLang === 'zh' ? 'AI 正在修改中... 🪄' : 'AI is editing... 🪄');
     try {
-      const configName = configs.find(c => c.id === editingId)?.name || '配置文件';
+      const configName = configs.find(c => c.id === editingId)?.name || 'Configuration';
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为资深系统专家，帮助我修改以下配置文件 "${configName}"。\n用户的需求是：${aiDemand}\n\n当前文件内容如下：\n${content}\n\n注意：请直接返回修改后的完整文件内容，不要包含任何 markdown 块或解释文字。`,
-          systemPrompt: 'You are an expert system administrator proficient in various configuration formats like JSON, YAML, TOML, and bash scripts.'
+          prompt: `As a system expert, help me modify the configuration file "${configName}".\nUser requirement: ${aiDemand}\n\nCurrent file content:\n${content}\n\nNote: Return the full modified content ONLY without markdown blocks or extra explanation.`,
+          systemPrompt: 'You are an expert system administrator.'
         })
       });
       const data = await res.json();
       if (data.success) {
         setContent(data.data);
-        setSaveStatus('AI 修改完成，请检查并保存');
+        setSaveStatus(effectiveLang === 'zh' ? 'AI 修改完成，请检查并保存' : 'AI modification completed, please review and save');
         setAiDemand('');
         setShowAiPanel(false);
         setTimeout(() => setSaveStatus(''), 5000);
       } else {
-        setSaveStatus(`AI 修改失败: ${data.error}`);
+        setSaveStatus(`AI Fix Failed: ${data.error}`);
       }
     } catch (e) {
-      setSaveStatus('网络请求失败');
+      setSaveStatus(t.common.networkError);
     } finally {
       setIsAiEditing(false);
     }
   };
 
-  if (loading) return <div className="flex-center" style={{ height: '70vh' }}>加载中...</div>;
+  const handleAiAnalyze = async () => {
+    if (!content || readLoading || isAiAnalyzing) return;
+
+    if (analysisResult) {
+      setAnalysisResult('');
+      return;
+    }
+
+    const cacheKey = `${editingId}:${content}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setAnalysisResult(aiCacheRef.current[cacheKey]);
+      return;
+    }
+
+    setIsAiAnalyzing(true);
+    setAnalysisResult(t.configs.aiExplaining);
+    try {
+      const configName = configs.find(c => c.id === editingId)?.name || 'Configuration';
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `As a system expert, analyze the configuration file "${configName}". Explain its purpose, security risks, and optimization suggestions. Format in Markdown, language: ${effectiveLang === 'zh' ? 'Chinese' : 'English'}.\n\nContent:\n${content}`,
+          systemPrompt: 'You are an expert system administrator.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnalysisResult(data.data);
+        aiCacheRef.current[cacheKey] = data.data;
+      } else {
+        setAnalysisResult(`Analyze Failed: ${data.error}`);
+      }
+    } catch (e) {
+      setAnalysisResult(t.common.networkError);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
+  if (loading) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
     <div className="grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
@@ -126,18 +176,19 @@ export default function ConfigsDashboard() {
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Settings size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>配置管理</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.configs.title}</h1>
         </div>
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }} className="desktop-only">
-          快速修改系统和终端配置文件
+          {effectiveLang === 'zh' ? '快速修改系统和终端配置文件' : 'Quickly modify system and terminal config files'}
         </div>
       </div>
 
       <div className={`configs-layout ${editingId ? 'showing-content' : 'showing-list'}`} style={{ marginTop: '0.5rem', alignItems: 'stretch' }}>
-        {/* Left Column: Config List */}
         <div className="configs-sidebar card glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="flex-between" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>可用配置文件</h3>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>
+              {effectiveLang === 'zh' ? '可用配置文件' : 'Available config files'}
+            </h3>
             <button className="btn btn-ghost btn-sm" onClick={fetchConfigs} disabled={loading} style={{ height: '24px', padding: '0 0.4rem' }}>
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -166,7 +217,7 @@ export default function ConfigsDashboard() {
                       {config.name}
                     </span>
                     <span className={`badge ${config.type === 'system' ? 'badge-danger' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                      {config.type === 'system' ? '系统' : '用户'}
+                      {config.type === 'system' ? (effectiveLang === 'zh' ? '系统' : 'System') : (effectiveLang === 'zh' ? '用户' : 'User')}
                     </span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -176,14 +227,13 @@ export default function ConfigsDashboard() {
               ))}
               {configs.length === 0 && (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                  未检测到任何支持的配置文件
+                  {t.common.none}
                 </div>
               )}
             </ul>
           </div>
         </div>
 
-        {/* Right Column: Editor */}
         <div className="configs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
           {editingId ? (
             <>
@@ -198,41 +248,86 @@ export default function ConfigsDashboard() {
                   </h3>
                 </div>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                  {readLoading && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>读取中...</span>}
+                  {readLoading && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>{t.common.loading}</span>}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleAiAnalyze}
+                    disabled={readLoading || isAiAnalyzing || !content}
+                    title={t.common.analyze}
+                    style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.12)', fontWeight: 600, border: '1px solid rgba(16, 185, 129, 0.2)' }}
+                  >
+                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiAnalyzing ? 'animate-pulse' : ''} />
+                    {isAiAnalyzing ? t.common.analyzing : t.common.aiAudit}
+                  </button>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setShowAiPanel(!showAiPanel)}
                     disabled={readLoading || isAiEditing || !content}
-                    title="AI 智能编辑"
-                    style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)' }}
+                    title={effectiveLang === 'zh' ? 'AI 智能编辑' : 'AI Edit'}
+                    style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}
                   >
                     <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiEditing ? 'animate-pulse' : ''} />
-                    {isAiEditing ? 'AI 编辑中...' : 'AI 编辑'}
+                    {isAiEditing ? (effectiveLang === 'zh' ? 'AI 编辑中...' : 'AI Editing...') : t.common.aiAdjust}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId!); setSaveStatus(''); }} title="重新读取">
+                  <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId!); setSaveStatus(''); setAnalysisResult(''); }} title={t.common.refresh}>
                     <RefreshCw size={14} className={readLoading ? 'animate-spin' : ''} />
                   </button>
                 </div>
               </div>
 
               {showAiPanel && (
-                <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
                     <Sparkles size={14} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>AI 智能编辑助手</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{effectiveLang === 'zh' ? 'AI 智能编辑助手' : 'AI Edit Assistant'}</span>
                   </div>
                   <textarea
                     className="input"
-                    placeholder="描述你想要进行的修改，例如：'将端口改为 8080'，'添加代理配置'，'优化注释'..."
+                    placeholder={effectiveLang === 'zh' ? "描述你想要进行的修改..." : "Describe changes you want..."}
                     value={aiDemand}
                     onChange={(e) => setAiDemand(e.target.value)}
                     style={{ minHeight: '100px', fontSize: '0.85rem', width: '100%' }}
                   />
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setShowAiPanel(false)}>取消</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setShowAiPanel(false)}>{t.common.cancel}</button>
                     <button className="btn btn-primary btn-sm" onClick={handleAiEdit} disabled={!aiDemand.trim() || isAiEditing}>
-                      {isAiEditing ? '处理中...' : '开始执行修改'}
+                      {isAiEditing ? (effectiveLang === 'zh' ? '处理中...' : 'Processing...') : (effectiveLang === 'zh' ? '开始执行修改' : 'Apply changes')}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {analysisResult && (
+                <div className="ai-output-block" style={{
+                  marginBottom: '1rem', padding: 0,
+                  background: 'rgba(59, 130, 246, 0.03)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  animation: 'slideInDown 0.3s ease',
+                  maxHeight: '300px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.25rem',
+                    color: 'var(--color-primary)',
+                    position: 'sticky',
+                    top: 0,
+                    background: 'rgba(240, 247, 255, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 5,
+                    borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
+                  }}>
+                    <Sparkles size={16} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.configs.aiAuditTitle}</span>
+                    <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
                   </div>
                 </div>
               )}
@@ -261,7 +356,7 @@ export default function ConfigsDashboard() {
               <div className="flex-between" style={{ marginTop: '1.5rem' }}>
                 <div>
                   {saveStatus && (
-                    <span className={saveStatus.includes('成功') ? 'badge badge-success' : 'badge badge-danger'}>
+                    <span className={saveStatus.includes('成功') || saveStatus.includes('Success') ? 'badge badge-success' : 'badge badge-danger'}>
                       {saveStatus}
                     </span>
                   )}
@@ -269,14 +364,14 @@ export default function ConfigsDashboard() {
                 <button
                   className="btn btn-primary"
                   onClick={handleSave}
-                  disabled={readLoading || !!saveStatus.includes('保存中')}
+                  disabled={readLoading || !!saveStatus.includes('Saving')}
                   style={{ padding: '0.6rem 2rem' }}
                 >
-                  保存修改
+                  {t.common.save}
                 </button>
               </div>
               <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                💡 某些系统文件（如 hosts）可能需要管理员权限。如果保存失败，请确保监控程序具有足够的权限。
+                💡 {effectiveLang === 'zh' ? '某些系统文件（如 hosts）可能需要管理员权限。如果保存失败，请确保监控程序具有足够的权限。' : 'Some system files (like hosts) may require admin privileges. Ensure the agent has sufficient permissions if saving fails.'}
               </p>
             </>
           ) : (
@@ -288,7 +383,7 @@ export default function ConfigsDashboard() {
                 <line x1="16" y1="17" x2="8" y2="17"></line>
                 <polyline points="10 9 9 9 8 9"></polyline>
               </svg>
-              <p>请从左侧选择一个配置文件进行查看或编辑</p>
+              <p>{effectiveLang === 'zh' ? '请从左侧选择一个配置文件进行查看或编辑' : 'Please select a config file to view or edit'}</p>
             </div>
           )}
         </div>
@@ -354,6 +449,6 @@ export default function ConfigsDashboard() {
           animation: spin 1s linear infinite;
         }
       `}</style>
-    </div >
+    </div>
   );
 }

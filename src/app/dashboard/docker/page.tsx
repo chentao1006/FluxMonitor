@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
-import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useLanguage } from '@/lib/LanguageContext';
+import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box, Sparkles, Brain, Wand2 } from 'lucide-react';
 
 interface Container {
   ID: string;
@@ -24,6 +27,7 @@ interface DockerImage {
 }
 
 export default function DockerDashboard() {
+  const { t, language, effectiveLang } = useLanguage();
   const [activeTab, setActiveTab] = useState<'containers' | 'images'>('containers');
   const [containers, setContainers] = useState<Container[]>([]);
   const [images, setImages] = useState<DockerImage[]>([]);
@@ -31,18 +35,34 @@ export default function DockerDashboard() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Logs dialog
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const [currentLogs, setCurrentLogs] = useState('');
   const [logsLoading, setLogsLoading] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll logs to bottom
+  const [analysisResult, setAnalysisResult] = useState('');
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [showAiInput, setShowAiInput] = useState(false);
+  const [aiDemand, setAiDemand] = useState('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [generatedCmd, setGeneratedCmd] = useState('');
+  const aiCacheRef = useRef<Record<string, string>>({});
+  const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
+
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [currentLogs, isLogsOpen]);
+
+  useEffect(() => {
+    setAnalysisResult('');
+    setDiagnosisId(null);
+  }, [activeTab]);
+
+  useEffect(() => {
+    setAnalysisResult('');
+  }, [isLogsOpen]);
 
   const fetchData = async () => {
     try {
@@ -53,7 +73,7 @@ export default function DockerDashboard() {
           setContainers(data.data);
           setError('');
         } else {
-          setError(data.error || '获取容器失败');
+          setError(data.error || (effectiveLang === 'zh' ? '获取容器失败' : 'Failed to fetch containers'));
         }
       } else {
         const res = await fetch('/api/docker/images');
@@ -62,11 +82,11 @@ export default function DockerDashboard() {
           setImages(data.data);
           setError('');
         } else {
-          setError(data.error || '获取镜像失败');
+          setError(data.error || (effectiveLang === 'zh' ? '获取镜像失败' : 'Failed to fetch images'));
         }
       }
     } catch (e) {
-      setError('网络请求失败');
+      setError(t.common.networkError);
     } finally {
       setLoading(false);
     }
@@ -91,31 +111,139 @@ export default function DockerDashboard() {
       if (data.success) {
         fetchData();
       } else {
-        alert(`操作失败: ${data.details || data.error}`);
+        alert(`${t.common.error}: ${data.details || data.error}`);
       }
     } catch (e) {
-      alert('网络请求失败');
+      alert(t.common.networkError);
     } finally {
       setActionLoading(null);
     }
   };
 
-  const showLogs = async (id: string) => {
+  const showLogs = async (id: string, name: string) => {
     setIsLogsOpen(true);
+    setDiagnosisId(id);
     setCurrentLogs('');
     setLogsLoading(true);
     try {
       const res = await fetch(`/api/docker/logs?id=${id}`);
       const data = await res.json();
       if (data.success) {
-        setCurrentLogs(data.logs || '没有日志');
+        setCurrentLogs(data.logs || (effectiveLang === 'zh' ? '没有日志' : 'No logs'));
       } else {
-        setCurrentLogs(`获取日志失败: ${data.details || data.error}`);
+        setCurrentLogs(`${t.common.error}: ${data.details || data.error}`);
       }
     } catch (e) {
-      setCurrentLogs('网络请求失败');
+      setCurrentLogs(t.common.networkError);
     } finally {
       setLogsLoading(false);
+    }
+  };
+
+  const analyzeLogs = async (id: string, name: string) => {
+    if (!currentLogs || isAiAnalyzing) return;
+
+    if (diagnosisId === id && analysisResult) {
+      setAnalysisResult('');
+      setDiagnosisId(null);
+      return;
+    }
+
+    const cacheKey = `logs:${id}:${currentLogs.slice(-2000)}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setAnalysisResult(aiCacheRef.current[cacheKey]);
+      setDiagnosisId(id);
+      return;
+    }
+
+    setIsAiAnalyzing(true);
+    setAnalysisResult(t.docker.aiAnalyzing);
+    setDiagnosisId(id);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请作为 Docker 专家，分析容器 "${name}" (${id}) 的运行日志。请解释日志中出现的任何异常、报错或警告，并给出具体的排查方向或修复建议。要求使用${effectiveLang === 'zh' ? '中文' : '英文'} Markdown。日志如下：\n\n${currentLogs.slice(-4000)}`,
+          systemPrompt: 'You are an expert Docker engineer specializing in container troubleshooting and log analysis.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnalysisResult(data.data);
+        aiCacheRef.current[cacheKey] = data.data;
+      } else {
+        setAnalysisResult(`${t.common.error}: ${data.error}`);
+      }
+    } catch (e) {
+      setAnalysisResult(t.common.networkError);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
+  const analyzeStatus = async (container: Container) => {
+    if (isAiAnalyzing) return;
+
+    if (diagnosisId === container.ID && analysisResult) {
+      setAnalysisResult('');
+      setDiagnosisId(null);
+      return;
+    }
+
+    const cacheKey = `status:${container.ID}:${container.Status}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setAnalysisResult(aiCacheRef.current[cacheKey]);
+      setDiagnosisId(container.ID);
+      return;
+    }
+
+    setIsAiAnalyzing(true);
+    setAnalysisResult(effectiveLang === 'zh' ? `AI 正在分析容器 "${container.Names}" 的异常状态... 🪄` : `AI is analyzing container "${container.Names}" status... 🪄`);
+    setDiagnosisId(container.ID);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `容器 "${container.Names}" 目前状态为 "${container.Status}"。镜像是 "${container.Image}"。请分析该状态是否正常，如果处于异常状态（如反复重启、Exited），请根据此状态信息结合你对该常用镜像的了解，推测可能的失败原因并给出诊断建议。要求使用${effectiveLang === 'zh' ? '中文' : '英文'} Markdown。`,
+          systemPrompt: 'You are an expert DevOps engineer specializing in Docker container health and status monitoring.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnalysisResult(data.data);
+        aiCacheRef.current[cacheKey] = data.data;
+      }
+    } catch (e) {
+      setAnalysisResult(`${t.common.error}`);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
+
+  const handleGenerateCmd = async () => {
+    if (!aiDemand.trim() || isAiGenerating) return;
+
+    setIsAiGenerating(true);
+    setGeneratedCmd('');
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请根据用户的需求，生成一条或多条 Docker 或 Docker Compose 命令。\n用户需求：${aiDemand}\n\n请直接返回可执行的命令代码，不要包含任何解释。`,
+          systemPrompt: 'You are an expert Docker command generator. You provide only the shell command text.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGeneratedCmd(data.data);
+      }
+    } catch (e) {
+      alert(t.common.error);
+    } finally {
+      setIsAiGenerating(false);
     }
   };
 
@@ -126,12 +254,67 @@ export default function DockerDashboard() {
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Box size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>Docker</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.docker.title}</h1>
         </div>
-        <button className="btn btn-ghost mobile-full-width" onClick={fetchData} disabled={loading} style={{ gap: '0.5rem', height: '36px' }}>
-          <RotateCw size={18} className={loading ? 'animate-spin' : ''} /> 刷新数据
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            className="btn btn-ghost mobile-full-width"
+            onClick={() => setShowAiInput(!showAiInput)}
+            style={{ gap: '0.5rem', height: '36px', color: 'var(--color-primary)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+          >
+            <Sparkles size={18} /> {effectiveLang === 'zh' ? 'AI 启动助手' : 'AI Launch Assistant'}
+          </button>
+          {activeTab === 'images' && images.some(img => !img.InUse) && (
+            <button
+              className="btn btn-ghost mobile-full-width"
+              onClick={() => { if (window.confirm(t.docker.pruneConfirm)) handleAction('', 'prune'); }}
+              disabled={loading || actionLoading === '-prune'}
+              style={{ gap: '0.5rem', height: '36px', color: 'var(--color-danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+            >
+              <Trash2 size={18} /> {t.docker.prune}
+            </button>
+          )}
+          <button className="btn btn-ghost mobile-full-width" onClick={fetchData} disabled={loading} style={{ gap: '0.5rem', height: '36px' }}>
+            <RotateCw size={18} className={loading ? 'animate-spin' : ''} /> {t.common.refresh}
+          </button>
+        </div>
       </div>
+
+      {showAiInput && (
+        <div className="card glass-panel" style={{ marginBottom: '1rem', padding: '1.25rem', animation: 'slideInDown 0.3s ease', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
+            <Wand2 size={18} />
+            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{effectiveLang === 'zh' ? 'AI 一键启动助手' : 'AI One-click Launch'}</span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>{effectiveLang === 'zh' ? '只需描述你的需求，AI 将为你规划命令。' : 'Just describe your needs, AI will generate commands for you.'}</p>
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: generatedCmd ? '1rem' : 0 }}>
+            <input
+              className="input"
+              placeholder={effectiveLang === 'zh' ? "例如：启动一个带有密码的 redis..." : "e.g. Start a redis with password..."}
+              style={{ flex: 1 }}
+              value={aiDemand}
+              onChange={(e) => setAiDemand(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGenerateCmd()}
+            />
+            <button className="btn btn-primary" onClick={handleGenerateCmd} disabled={isAiGenerating || !aiDemand.trim()}>
+              {isAiGenerating ? (effectiveLang === 'zh' ? '规划中...' : 'Generating...') : (effectiveLang === 'zh' ? '规划命令' : 'Generate')}
+            </button>
+          </div>
+          {generatedCmd && (
+            <div style={{ marginTop: '1rem', background: '#0f172a', padding: '1.25rem', borderRadius: 'var(--radius-sm)', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600 }}>GENERATED COMMAND</div>
+              <code style={{ color: '#38bdf8', fontSize: '0.85rem', fontFamily: 'monospace' }}>{generatedCmd}</code>
+              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+                  onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
+                >{effectiveLang === 'zh' ? '复制' : 'Copy'}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="badge badge-danger" style={{ display: 'block', padding: '1rem', borderRadius: '8px' }}>
@@ -139,40 +322,39 @@ export default function DockerDashboard() {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="tab-scroll-container no-scrollbar" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--color-surface-border)', overflowX: 'auto', paddingBottom: '2px' }}>
         <button
           className={`btn ${activeTab === 'containers' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setActiveTab('containers')}
           style={{ borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
         >
-          <Server size={18} /> 容器管理
+          <Server size={18} /> {t.docker.containers}
         </button>
         <button
           className={`btn ${activeTab === 'images' ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => setActiveTab('images')}
           style={{ borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
         >
-          <HardDrive size={18} /> 镜像管理
+          <HardDrive size={18} /> {t.docker.images}
         </button>
       </div>
 
       <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', padding: '1rem' }}>
         <div>
           <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {activeTab === 'containers' ? '总容器数' : '总镜像数'}
+            {activeTab === 'containers' ? (effectiveLang === 'zh' ? '总容器数' : 'Total Containers') : (effectiveLang === 'zh' ? '总镜像数' : 'Total Images')}
           </h3>
           <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
             {activeTab === 'containers' ? containers.length : images.length}
           </div>
           {activeTab === 'containers' && (
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-              运行中: {containers.filter(c => c.Status.includes('Up')).length}
+              {effectiveLang === 'zh' ? '运行中' : 'Running'}: {containers.filter(c => c.Status.includes('Up')).length}
             </div>
           )}
         </div>
         <div className={`badge ${!error ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem' }}>
-          {!error ? '服务正常' : '服务异常'}
+          {!error ? (effectiveLang === 'zh' ? '服务正常' : 'Healthy') : (effectiveLang === 'zh' ? '服务异常' : 'Error')}
         </div>
       </div>
 
@@ -182,11 +364,11 @@ export default function DockerDashboard() {
             <table className="docker-table">
               <thead>
                 <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
-                  <th className="col-name">名称 / ID</th>
-                  <th className="col-image">镜像</th>
-                  <th className="col-mappings">映射 (端口/路径)</th>
-                  <th className="col-status">状态</th>
-                  <th className="col-actions">操作</th>
+                  <th className="col-name">{effectiveLang === 'zh' ? '名称 / ID' : 'Name / ID'}</th>
+                  <th className="col-image desktop-only">{t.processes.user}</th>
+                  <th className="col-mappings desktop-only">{effectiveLang === 'zh' ? '映射 (端口/路径)' : 'Mappings'}</th>
+                  <th className="col-status">{effectiveLang === 'zh' ? '状态' : 'Status'}</th>
+                  <th className="col-actions">{effectiveLang === 'zh' ? '操作' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -197,11 +379,19 @@ export default function DockerDashboard() {
                       <td className="col-name">
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.Names}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{c.ID.substring(0, 12)}</div>
+                        <div className="mobile-only" style={{ marginTop: '0.5rem' }}>
+                          {c.Ports && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                              <Server size={10} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-header)' }}>{c.Ports}</div>
+                            </div>
+                          )}
+                        </div>
                       </td>
-                      <td className="col-image">
+                      <td className="col-image desktop-only">
                         <div style={{ fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.Image}</div>
                       </td>
-                      <td className="col-mappings">
+                      <td className="col-mappings desktop-only">
                         {c.Ports && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
                             <Server size={12} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
@@ -214,11 +404,11 @@ export default function DockerDashboard() {
                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }} title={c.Mounts}>{c.Mounts}</div>
                           </div>
                         )}
-                        {!c.Ports && !c.Mounts && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>无映射</div>}
                       </td>
                       <td className="col-status">
-                        <span className={`badge ${isUp ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}>
+                        <span className={`badge ${isUp ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', cursor: !isUp || c.Status.includes('Restarting') ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => (!isUp || c.Status.includes('Restarting')) && analyzeStatus(c)}>
                           {c.Status}
+                          {(!isUp || c.Status.includes('Restarting')) && <Sparkles size={10} style={{ opacity: 0.8 }} />}
                         </span>
                       </td>
                       <td className="col-actions">
@@ -227,28 +417,28 @@ export default function DockerDashboard() {
                             <>
                               <button
                                 className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-warning)' }}
-                                onClick={() => handleAction(c.ID, 'restart')} disabled={actionLoading === `${c.ID}-restart`} title="重启"
+                                onClick={() => handleAction(c.ID, 'restart')} disabled={actionLoading === `${c.ID}-restart`} title={t.common.restart}
                               ><RotateCw size={14} className={actionLoading === `${c.ID}-restart` ? 'animate-spin' : ''} /></button>
                               <button
                                 className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-danger)' }}
-                                onClick={() => handleAction(c.ID, 'stop')} disabled={actionLoading === `${c.ID}-stop`} title="停止"
+                                onClick={() => handleAction(c.ID, 'stop')} disabled={actionLoading === `${c.ID}-stop`} title={t.common.stop}
                               ><Square size={14} /></button>
                             </>
                           ) : (
                             <>
                               <button
                                 className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-success)' }}
-                                onClick={() => handleAction(c.ID, 'start')} disabled={actionLoading === `${c.ID}-start`} title="启动"
+                                onClick={() => handleAction(c.ID, 'start')} disabled={actionLoading === `${c.ID}-start`} title={t.common.start}
                               ><Play size={14} /></button>
                               <button
                                 className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-text-muted)' }}
-                                onClick={() => { if (window.confirm('确定要删除此容器吗？')) handleAction(c.ID, 'rm'); }} disabled={actionLoading === `${c.ID}-rm`} title="删除"
+                                onClick={() => { if (window.confirm(t.common.deleteConfirm)) handleAction(c.ID, 'rm'); }} disabled={actionLoading === `${c.ID}-rm`} title={t.common.delete}
                               ><Trash2 size={14} /></button>
                             </>
                           )}
                           <button
                             className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-primary)' }}
-                            onClick={() => showLogs(c.ID)} title="日志"
+                            onClick={() => showLogs(c.ID, c.Names)} title={t.docker.logs}
                           ><FileText size={14} /></button>
                         </div>
                       </td>
@@ -261,11 +451,11 @@ export default function DockerDashboard() {
             <table className="docker-table">
               <thead>
                 <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
-                  <th className="col-name">仓库名 / 标签</th>
+                  <th className="col-name">{effectiveLang === 'zh' ? '仓库名 / 标签' : 'Repo / Tag'}</th>
                   <th className="col-id desktop-only">ID</th>
-                  <th className="col-size">大小</th>
-                  <th className="col-status">状态</th>
-                  <th className="col-actions">操作</th>
+                  <th className="col-size">{effectiveLang === 'zh' ? '大小' : 'Size'}</th>
+                  <th className="col-status">{effectiveLang === 'zh' ? '状态' : 'Status'}</th>
+                  <th className="col-actions">{effectiveLang === 'zh' ? '操作' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -274,8 +464,7 @@ export default function DockerDashboard() {
                     <td className="col-name">
                       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{img.Repository}</div>
                       <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
-                        <span className="badge badge-warning" style={{ fontSize: '0.6rem', padding: '0.1rem 0.3rem' }}>{img.Tag}</span>
-                        <span className="mobile-only" style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{img.ID.substring(0, 12)}</span>
+                        <span className="badge badge-warning" style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>{img.Tag}</span>
                       </div>
                     </td>
                     <td className="col-id desktop-only">
@@ -286,7 +475,7 @@ export default function DockerDashboard() {
                     </td>
                     <td className="col-status">
                       <span className={`badge ${img.InUse ? 'badge-primary' : 'badge-ghost'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}>
-                        {img.InUse ? '使用中' : '未使用'}
+                        {img.InUse ? (effectiveLang === 'zh' ? '使用中' : 'In Use') : (effectiveLang === 'zh' ? '未使用' : 'Idle')}
                       </span>
                     </td>
                     <td className="col-actions">
@@ -294,7 +483,7 @@ export default function DockerDashboard() {
                         {!img.InUse && (
                           <button
                             className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-danger)' }}
-                            onClick={() => { if (window.confirm('确定要删除此镜像吗？')) handleAction(img.ID, 'rmi'); }} disabled={actionLoading === `${img.ID}-rmi`} title="删除"
+                            onClick={() => { if (window.confirm(t.common.deleteConfirm)) handleAction(img.ID, 'rmi'); }} disabled={actionLoading === `${img.ID}-rmi`} title={t.common.delete}
                           ><Trash2 size={14} /></button>
                         )}
                       </div>
@@ -305,20 +494,67 @@ export default function DockerDashboard() {
             </table>
           )}
         </div>
-
         {((activeTab === 'containers' && containers.length === 0) || (activeTab === 'images' && images.length === 0)) && !loading && (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>没有找到任何数据</div>
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>{t.common.none}</div>
         )}
       </div>
 
-      {/* Logs Modal */}
       {isLogsOpen && (
         <div className="menu-backdrop" onClick={() => setIsLogsOpen(false)} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
           <div className="card glass-panel" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '900px', height: '80vh', display: 'flex', flexDirection: 'column', margin: 'auto' }}>
-            <div className="flex-between" style={{ borderBottom: '1px solid var(--color-surface-border)', padding: '1rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.1rem' }}>容器日志</h2>
-              <button className="btn btn-ghost btn-sm" onClick={() => setIsLogsOpen(false)}>关闭</button>
+            <div className="flex-between" style={{ borderBottom: '1px solid var(--color-surface-border)', padding: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{t.docker.logs}</h2>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px', fontSize: '0.8rem', height: '28px', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  onClick={() => {
+                    const container = containers.find(c => c.ID === diagnosisId);
+                    if (container) analyzeLogs(container.ID, container.Names);
+                  }}
+                  disabled={isAiAnalyzing || logsLoading}
+                >
+                  <Sparkles size={14} className={isAiAnalyzing ? 'animate-pulse' : ''} />
+                  {isAiAnalyzing ? (effectiveLang === 'zh' ? '诊断中...' : 'Analyzing...') : t.common.aiAudit}
+                </button>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setIsLogsOpen(false)}>{t.common.close}</button>
             </div>
+
+            {analysisResult && (
+              <div className="ai-output-block" style={{
+                margin: 0,
+                background: 'rgba(59, 130, 246, 0.03)',
+                borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+                animation: 'slideInDown 0.3s ease',
+                maxHeight: '250px',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.6rem 1.25rem',
+                  color: 'var(--color-primary)',
+                  position: 'sticky',
+                  top: 0,
+                  background: 'rgba(240, 247, 255, 0.98)',
+                  backdropFilter: 'blur(8px)',
+                  zIndex: 5,
+                  borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
+                }}>
+                  <Brain size={16} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{effectiveLang === 'zh' ? 'AI 容器深度诊断报告' : 'AI Container Diagnosis'}</span>
+                  <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem 1.25rem', overflowY: 'auto' }}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                </div>
+              </div>
+            )}
             <div
               ref={logRef}
               style={{
@@ -331,7 +567,7 @@ export default function DockerDashboard() {
               {logsLoading ? (
                 <div className="flex-center" style={{ height: '100%', gap: '0.5rem' }}>
                   <RotateCw className="animate-spin" size={20} />
-                  <span>正在实时获取日志...</span>
+                  <span>{t.common.loading}...</span>
                 </div>
               ) : currentLogs}
             </div>
@@ -387,7 +623,7 @@ export default function DockerDashboard() {
             min-width: 100%;
             table-layout: auto;
           }
-          .col-id, .col-image, .col-mappings {
+          .col-id, .col-image.desktop-only, .col-mappings.desktop-only {
             display: none;
           }
           .docker-table th, .docker-table td {

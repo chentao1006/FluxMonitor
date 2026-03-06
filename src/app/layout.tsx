@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "Flux 浮光 - 一个极简且强大的 macOS 系统监控与管理面板",
 };
 
+import { LanguageProvider } from "@/lib/LanguageContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -14,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="zh" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        {children}
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );

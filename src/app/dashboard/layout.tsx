@@ -3,13 +3,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
+import { Languages } from 'lucide-react';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { t, language, effectiveLang, setLanguage } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [features, setFeatures] = useState<any>({
     monitor: true,
@@ -106,24 +110,76 @@ export default function DashboardLayout({
 
         <div className="app-sidebar-content">
           <nav className="nav-list no-scrollbar">
-            {features.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>系统监控</NavLink>}
-            {features.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>进程管理</NavLink>}
-            {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>日志分析</NavLink>}
-            {features.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>配置管理</NavLink>}
-            {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>LaunchAgent</NavLink>}
-            {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>Docker</NavLink>}
-            {features.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>Nginx</NavLink>}
-            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>OpenClaw</NavLink>}
+            {features.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>{t.sidebar.monitor}</NavLink>}
+            {features.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>{t.sidebar.processes}</NavLink>}
+            {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>{t.sidebar.logs}</NavLink>}
+            {features.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>{t.sidebar.configs}</NavLink>}
+            {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>{t.sidebar.launchagent}</NavLink>}
+            {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>{t.sidebar.docker}</NavLink>}
+            {features.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>{t.sidebar.nginx}</NavLink>}
+            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>{t.sidebar.openclaw}</NavLink>}
           </nav>
 
           <div className="sidebar-footer">
             <div className="footer-icons-row">
-              <NavLink href="/dashboard/settings" icon="sliders" onClick={() => setIsMenuOpen(false)} isIconOnly={true} title="系统设置">系统设置</NavLink>
+              <NavLink href="/dashboard/settings" icon="sliders" onClick={() => setIsMenuOpen(false)} isIconOnly={true} title={t.sidebar.settings}>{t.sidebar.settings}</NavLink>
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="btn btn-ghost icon-only-btn"
+                  onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                  title={effectiveLang === 'zh' ? '语言切换 / Language' : 'Language / 语言切换'}
+                >
+                  <Languages size={20} />
+                </button>
+                {isLangMenuOpen && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 100 }}
+                      onClick={() => setIsLangMenuOpen(false)}
+                    />
+                    <div className="card glass-panel" style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      left: '0',
+                      marginBottom: '0.5rem',
+                      zIndex: 101,
+                      minWidth: '120px',
+                      padding: '0.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.25rem',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                    }}>
+                      <button
+                        className={`btn btn-sm ${language === 'auto' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                        onClick={() => { setLanguage('auto'); setIsLangMenuOpen(false); }}
+                      >
+                        {effectiveLang === 'zh' ? '系统默认' : 'System Default'}
+                      </button>
+                      <button
+                        className={`btn btn-sm ${effectiveLang === 'zh' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                        onClick={() => { setLanguage('zh'); setIsLangMenuOpen(false); }}
+                      >
+                        简体中文
+                      </button>
+                      <button
+                        className={`btn btn-sm ${language === 'en' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                        onClick={() => { setLanguage('en'); setIsLangMenuOpen(false); }}
+                      >
+                        English
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 className="btn btn-ghost icon-only-btn"
-                title="退出登录"
+                title={t.sidebar.logout}
                 onClick={async () => {
-                  if (confirm('确定要退出登录吗？')) {
+                  if (confirm(t.sidebar.logoutConfirm)) {
                     await fetch('/api/auth/logout', { method: 'POST' });
                     window.location.href = '/login';
                   }

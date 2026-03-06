@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
+import { useLanguage } from '@/lib/LanguageContext';
 import {
   Search,
   RefreshCw,
@@ -25,6 +26,7 @@ interface Process {
 }
 
 export default function ProcessManager() {
+  const { t, language, effectiveLang } = useLanguage();
   const [processes, setProcesses] = useState<Process[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,8 +73,7 @@ export default function ProcessManager() {
   };
 
   const handleAction = async (pid: string, action: 'kill' | 'term') => {
-    const actionName = action === 'kill' ? '强制结束 (SIGKILL)' : '正常终止 (SIGTERM)';
-    if (!window.confirm(`确定要 ${actionName} 进程 ${pid} 吗？`)) return;
+    if (!window.confirm(t.processes.killConfirm.replace('{name}', pid).replace('{pid}', pid))) return;
 
     try {
       const res = await fetch('/api/system/processes', {
@@ -84,10 +85,10 @@ export default function ProcessManager() {
       if (data.success) {
         fetchProcesses();
       } else {
-        alert(`操作失败: ${data.error}`);
+        alert(`${effectiveLang === 'zh' ? '操作失败' : 'Action failed'}: ${data.error}`);
       }
     } catch (e) {
-      alert('网络请求失败');
+      alert(t.common.networkError);
     }
   };
 
@@ -128,14 +129,14 @@ export default function ProcessManager() {
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Layers size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>进程管理</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.processes.title}</h1>
           <span className="badge badge-success" style={{ textTransform: 'none', height: 'fit-content' }}>
-            共 {processes.length} 个进程
+            {t.processes.processes.replace('{count}', filteredAndSortedProcesses.length.toString())}
           </span>
         </div>
         <div className="flex-between mobile-full-width" style={{ gap: '0.75rem' }}>
           <div className="flex-center glass-panel" style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-md)', gap: '0.5rem', flex: 1 }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>自动刷新</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{t.common.autoRefresh}</span>
             <input
               type="checkbox"
               checked={autoRefresh}
@@ -145,7 +146,7 @@ export default function ProcessManager() {
           </div>
           <button className="btn btn-primary" onClick={() => fetchProcesses()} disabled={loading} style={{ gap: '0.5rem', flex: 1 }}>
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            刷新
+            {t.common.refresh}
           </button>
         </div>
       </div>
@@ -158,7 +159,7 @@ export default function ProcessManager() {
             <input
               type="text"
               className="input"
-              placeholder="搜索进程名或 PID..."
+              placeholder={t.common.search}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               style={{ paddingLeft: '2.75rem' }}
@@ -174,7 +175,7 @@ export default function ProcessManager() {
                 onChange={e => setFilterUser(e.target.value)}
                 style={{ height: '100%', padding: '0.5rem' }}
               >
-                <option value="all">所有用户</option>
+                <option value="all">{t.logs.category}</option>
                 {uniqueUsers.map(user => (
                   <option key={user} value={user}>{user}</option>
                 ))}
@@ -189,9 +190,9 @@ export default function ProcessManager() {
                 onChange={e => setRefreshInterval(parseInt(e.target.value))}
                 style={{ height: '100%', padding: '0.5rem' }}
               >
-                <option value={2000}>2s 刷新</option>
-                <option value={5000}>5s 刷新</option>
-                <option value={10000}>10s 刷新</option>
+                <option value={2000}>2s</option>
+                <option value={5000}>5s</option>
+                <option value={10000}>10s</option>
               </select>
             </div>
           </div>
@@ -206,17 +207,17 @@ export default function ProcessManager() {
               <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
                 <th onClick={() => toggleSort('pid')} className="col-pid sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    PID {sortField === 'pid' && <ArrowUpDown size={12} />}
+                    {t.processes.pid} {sortField === 'pid' && <ArrowUpDown size={12} />}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('command')} className="col-command sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    进程名称 {sortField === 'command' && <ArrowUpDown size={12} />}
+                    {t.processes.name} {sortField === 'command' && <ArrowUpDown size={12} />}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('user')} className="col-user sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    用户 {sortField === 'user' && <ArrowUpDown size={12} />}
+                    {t.processes.user} {sortField === 'user' && <ArrowUpDown size={12} />}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('cpu')} className="col-cpu sortable">
@@ -229,7 +230,7 @@ export default function ProcessManager() {
                     <Database size={12} /> MEM {sortField === 'mem' && <ArrowUpDown size={12} />}
                   </div>
                 </th>
-                <th className="col-actions">操作</th>
+                <th className="col-actions">{t.common.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -240,7 +241,7 @@ export default function ProcessManager() {
                     <div className="command-text">{p.command}</div>
                     <div className="mobile-only-details">
                       <span className="user-label">{p.user}</span>
-                      <span className="pid-label">PID: {p.pid}</span>
+                      <span className="pid-label">{t.processes.pid}: {p.pid}</span>
                     </div>
                   </td>
                   <td className="col-user">{p.user}</td>
@@ -258,7 +259,7 @@ export default function ProcessManager() {
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0.4rem', color: 'var(--color-warning)' }}
                         onClick={() => handleAction(p.pid, 'term')}
-                        title="SIGTERM (终止)"
+                        title="SIGTERM"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -266,7 +267,7 @@ export default function ProcessManager() {
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0.4rem', color: 'var(--color-danger)' }}
                         onClick={() => handleAction(p.pid, 'kill')}
-                        title="SIGKILL (强制)"
+                        title="SIGKILL"
                       >
                         <XOctagon size={16} />
                       </button>
@@ -279,7 +280,7 @@ export default function ProcessManager() {
                   <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
                     <div className="flex-center" style={{ flexDirection: 'column', gap: '1rem' }}>
                       <Filter size={48} style={{ opacity: 0.2 }} />
-                      <p>未找到匹配的进程</p>
+                      <p>{t.common.none}</p>
                     </div>
                   </td>
                 </tr>
@@ -291,7 +292,7 @@ export default function ProcessManager() {
 
       <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
         <Info size={14} />
-        <span>提示: 正常终止 (SIGTERM) 会尝试保存数据，强制结束 (SIGKILL) 则是立即停止。</span>
+        <span>SIGTERM will attempt to save data, while SIGKILL stops the process immediately.</span>
       </div>
 
       <style jsx>{`
@@ -303,7 +304,7 @@ export default function ProcessManager() {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
-          min-width: 600px; /* Force minimum width to prevent squashing */
+          min-width: 600px;
         }
         .process-table th, .process-table td {
           padding: 1rem;
@@ -376,20 +377,6 @@ export default function ProcessManager() {
           .col-actions {
             width: 80px;
           }
-        }
-
-        @media (max-width: 480px) {
-           .command-text {
-             max-width: 100px;
-           }
-           .col-cpu, .col-mem {
-             padding: 0.75rem 0.25rem !important;
-             font-size: 0.8rem;
-           }
-           .badge {
-             padding: 0.2rem 0.4rem;
-             font-size: 0.7rem;
-           }
         }
 
         .hover-scale:hover {

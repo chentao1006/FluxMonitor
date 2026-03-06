@@ -21,5 +21,8 @@
     "nginx": true,
     "openclaw": true
   },
-  "deployPath": "~/Applications/monitor"
+  "deploy": {
+    "path": "~/Applications/monitor",
+    "port": 7000
+  }
 }

@@ -4,10 +4,11 @@ import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useLanguage } from '@/lib/LanguageContext';
 import {
   Terminal, Brain, Activity, Settings, Zap, ArrowRight, ShieldCheck,
   Database, Clock, RefreshCw, Save, FileText, ChevronRight, Trash2, Sparkles, Wand2,
-  Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus, RotateCw
+  Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus, RotateCw, Maximize2, Download, X
 } from 'lucide-react';
 
 type Tab = 'overview' | 'monitor' | 'config' | 'memory' | 'command' | 'cron';
@@ -25,6 +26,7 @@ const LobsterIcon = ({ size = 24, color = "currentColor" }) => (
 );
 
 export default function OpenClawMain() {
+  const { t, language, effectiveLang } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [isRunning, setIsRunning] = useState<boolean | null>(null);
   const [statusDetail, setStatusDetail] = useState('');
@@ -60,6 +62,7 @@ export default function OpenClawMain() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [logExplanation, setLogExplanation] = useState('');
   const [isExplainingLogs, setIsExplainingLogs] = useState(false);
+  const aiCacheRef = useRef<Record<string, string>>({});
 
   // Auto scroll logs to bottom
   useEffect(() => {
@@ -73,6 +76,21 @@ export default function OpenClawMain() {
       cmdResultRef.current.scrollTop = cmdResultRef.current.scrollHeight;
     }
   }, [recentLogs, activeTab, cmdResult]);
+
+  // Context switch auto-hide
+  useEffect(() => {
+    if (activeTab !== 'monitor') setLogExplanation('');
+    if (activeTab !== 'command') setCmdResult('');
+    if (activeTab !== 'memory') setMemorySummary('');
+  }, [activeTab]);
+
+  useEffect(() => {
+    setMemorySummary('');
+  }, [activeMemoryFile]);
+
+  useEffect(() => {
+    setCmdResult('');
+  }, [cmd]);
 
   // Config helpers
   const parseConfig = () => {
@@ -378,6 +396,20 @@ export default function OpenClawMain() {
 
   const summarizeMemory = async () => {
     if (!memoryContent || memoryContent === 'Loading...') return;
+
+    // Toggle off if already showing
+    if (memorySummary) {
+      setMemorySummary('');
+      return;
+    }
+
+    // Cache key for memory
+    const cacheKey = `memory:${activeMemoryFile?.path}:${memoryContent}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setMemorySummary(aiCacheRef.current[cacheKey]);
+      return;
+    }
+
     setIsSummarizing(true);
     setMemorySummary('AI 正在思考并总结这段记忆... 🪄');
     try {
@@ -392,6 +424,7 @@ export default function OpenClawMain() {
       const data = await res.json();
       if (data.success) {
         setMemorySummary(data.data);
+        aiCacheRef.current[cacheKey] = data.data; // Update cache
       } else {
         setMemorySummary(`总结失败: ${data.error}`);
       }
@@ -431,8 +464,22 @@ export default function OpenClawMain() {
 
   const explainLogs = async () => {
     if (!recentLogs || loadingLogs) return;
+
+    // Toggle off if already showing
+    if (logExplanation) {
+      setLogExplanation('');
+      return;
+    }
+
+    // Cache key for logs (hash based on content)
+    const cacheKey = `logs:${recentLogs.slice(-2000)}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setLogExplanation(aiCacheRef.current[cacheKey]);
+      return;
+    }
+
     setIsExplainingLogs(true);
-    setLogExplanation('AI 正在深度解析这些运行流水日志... 🪄');
+    setLogExplanation('AI 正在深度解析这些运行日志... 🪄');
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -445,6 +492,7 @@ export default function OpenClawMain() {
       const data = await res.json();
       if (data.success) {
         setLogExplanation(data.data);
+        aiCacheRef.current[cacheKey] = data.data; // Update cache
       } else {
         setLogExplanation(`解析失败: ${data.error}`);
       }
@@ -601,7 +649,7 @@ export default function OpenClawMain() {
           <button
             className="btn btn-ghost"
             onClick={toggleGateway}
-            title={isRunning ? '重启网关服务' : '启动网关服务'}
+            title={isRunning ? (effectiveLang === 'zh' ? '重启网关服务' : 'Restart Gateway') : (effectiveLang === 'zh' ? '启动网关服务' : 'Start Gateway')}
             style={{
               color: isRunning ? 'var(--color-warning)' : 'var(--color-success)',
               width: '36px',
@@ -615,7 +663,7 @@ export default function OpenClawMain() {
             {isRunning ? <RotateCw size={18} /> : <Power size={18} />}
           </button>
           <button className="btn btn-ghost" onClick={() => fetchAll()} disabled={loadingLogs} style={{ gap: '0.5rem', height: '36px', background: 'rgba(0,0,0,0.03)' }}>
-            <RefreshCw size={18} className={loadingLogs ? 'animate-spin' : ''} /> 刷新数据
+            <RefreshCw size={18} className={loadingLogs ? 'animate-spin' : ''} /> {t.common.refresh}
           </button>
         </div>
       </div>
@@ -624,12 +672,12 @@ export default function OpenClawMain() {
       <div className="card glass-panel tab-nav-card sticky-tabs" style={{ padding: '0.4rem', zIndex: 10, width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
         <div className="tab-scroll-container no-scrollbar" style={{ display: 'flex', gap: '0.25rem', overflowX: 'auto', paddingBottom: '2px' }}>
           {[
-            { id: 'overview', icon: LayoutGrid, label: '总览' },
-            { id: 'monitor', icon: List, label: '运行日志' },
-            { id: 'memory', icon: Brain, label: '知识库' },
-            { id: 'config', icon: Settings, label: '参数配置' },
-            { id: 'cron', icon: Clock, label: '定时任务' },
-            { id: 'command', icon: Terminal, label: '命令执行' },
+            { id: 'overview', icon: LayoutGrid, label: t.openclaw.tabs.overview },
+            { id: 'monitor', icon: List, label: t.openclaw.tabs.monitor },
+            { id: 'memory', icon: Brain, label: t.openclaw.tabs.memory },
+            { id: 'config', icon: Settings, label: t.openclaw.tabs.config },
+            { id: 'cron', icon: Clock, label: t.openclaw.tabs.cron },
+            { id: 'command', icon: Terminal, label: t.openclaw.tabs.command },
           ].map(t => (
             <button
               key={t.id}
@@ -658,69 +706,69 @@ export default function OpenClawMain() {
 
             {/* Module 1: Status */}
             <div className="card glass-panel small-module" title={statusDetail}>
-              <div className="module-header"><LobsterIcon size={14} /> 服务运行状态</div>
+              <div className="module-header"><LobsterIcon size={14} /> {t.openclaw.modules.status}</div>
               <div className="module-value" style={{
                 color: isRunning === null ? 'var(--color-text-muted)' :
                   isRunning ? 'var(--color-success)' :
                     statusDetail.includes('not found') ? 'var(--color-warning)' : 'var(--color-danger)'
               }}>
-                {isRunning === null ? 'Loading...' : (isRunning ? 'Running' : statusDetail.includes('not found') ? 'Not Found' : 'Stopped')}
+                {isRunning === null ? t.common.loading : (isRunning ? t.openclaw.status.running : statusDetail.includes('not found') ? t.openclaw.status.notFound : t.openclaw.status.stopped)}
               </div>
               <div className="module-footer">
-                {isRunning === null ? '正在同步运行状态...' : (statusDetail.includes('not found') ? '环境未检测到命令' : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : '服务已离线'))}
+                {isRunning === null ? (effectiveLang === 'zh' ? '正在同步运行状态...' : 'Syncing status...') : (statusDetail.includes('not found') ? (effectiveLang === 'zh' ? '环境未检测到命令' : 'Command not found') : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : t.openclaw.status.offline))}
               </div>
             </div>
 
             {/* Module 2: Fragments */}
             <div className="card glass-panel small-module">
-              <div className="module-header"><Brain size={14} /> 知识储存量</div>
+              <div className="module-header"><Brain size={14} /> {t.openclaw.modules.memory}</div>
               <div className="module-value">{isRunning === null ? '--' : memoryFiles.length} <span className="unit">FILES</span></div>
-              <div className="module-footer">{isRunning === null ? '正在扫描目录...' : (isRunning ? '最近 24h 活跃' : '离线数据预览')}</div>
+              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '正在扫描目录...' : 'Scanning...') : (isRunning ? (effectiveLang === 'zh' ? '最近 24h 活跃' : 'Active last 24h') : (effectiveLang === 'zh' ? '离线数据预览' : 'Offline Preview'))}</div>
             </div>
 
             {/* Module 3: CPU Usage */}
             <div className="card glass-panel small-module">
-              <div className="module-header"><Cpu size={14} /> 核心负载</div>
+              <div className="module-header"><Cpu size={14} /> {t.openclaw.modules.cpu}</div>
               <div className="module-value">{isRunning === null ? '--' : (isRunning ? (systemStats?.cpu?.user || 0) : 0)}<span className="unit">%</span></div>
-              <div className="module-footer">{isRunning === null ? '等待数据收集...' : (isRunning ? '正常负载中' : '服务已离线')}</div>
+              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '等待数据收集...' : 'Collecting...') : (isRunning ? (effectiveLang === 'zh' ? '正常负载中' : 'Normal Load') : (effectiveLang === 'zh' ? '服务已离线' : 'Service Offline'))}</div>
             </div>
 
             {/* Module 4: Memory Usage */}
             <div className="card glass-panel small-module">
-              <div className="module-header"><HardDrive size={14} /> 资源占用</div>
+              <div className="module-header"><HardDrive size={14} /> {t.openclaw.modules.resources}</div>
               <div className="module-value">{isRunning === null ? '--' : (isRunning ? (systemStats?.memory?.usedMB || 0) : '--')}<span className="unit">MB</span></div>
-              <div className="module-footer">{isRunning === null ? '正在获取资源统计...' : (isRunning ? '分配内运行' : '无数据')}</div>
+              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '正在获取资源统计...' : 'Fetching stats...') : (isRunning ? (effectiveLang === 'zh' ? '分配内运行' : 'Allocated') : (effectiveLang === 'zh' ? '无数据' : 'No Data'))}</div>
             </div>
 
             {/* Module 5: Storage Size */}
             <div className="card glass-panel small-module">
-              <div className="module-header"><Database size={14} /> 存储占用</div>
+              <div className="module-header"><Database size={14} /> {t.openclaw.modules.storage}</div>
               <div className="module-value">
                 {isRunning === null ? '--' : (memoryFiles.reduce((acc, f) => acc + (f.size || 0), 0) / 1024).toFixed(1)}
                 <span className="unit">KB</span>
               </div>
-              <div className="module-footer">{isRunning === null ? '计算中...' : '本地知识库大小'}</div>
+              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '计算中...' : 'Calculating...') : (effectiveLang === 'zh' ? '本地知识库大小' : 'Local KB Size')}</div>
             </div>
 
             {/* Module 6: Safety Audit */}
             <div className="card glass-panel small-module">
-              <div className="module-header"><ShieldCheck size={14} /> 安全合规性</div>
+              <div className="module-header"><ShieldCheck size={14} /> {t.openclaw.modules.safety}</div>
               <div className="module-value" style={{ color: isRunning === null ? 'var(--color-text-muted)' : (isRunning ? '#10b981' : 'var(--color-text-muted)'), fontSize: '1.1rem' }}>
                 {isRunning === null ? 'PENDING' : (isRunning ? 'SECURE' : 'OFFLINE')}
               </div>
-              <div className="module-footer">{isRunning === null ? '等待审计...' : (isRunning ? '验证审计通过' : '审计未就绪')}</div>
+              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '等待审计...' : 'Pending...') : (isRunning ? (effectiveLang === 'zh' ? '验证审计通过' : 'Audit Passed') : (effectiveLang === 'zh' ? '审计未就绪' : 'Audit Offline'))}</div>
             </div>
 
             {/* Module 7: Network Activity */}
             <div className="card glass-panel small-module">
-              <div className="module-header"><Zap size={14} /> 交互活跃度</div>
+              <div className="module-header"><Zap size={14} /> {t.openclaw.modules.activity}</div>
               <div className="module-value">{isRunning === null ? '--' : (isRunning ? 'Optimal' : 'N/A')}</div>
-              <div className="module-footer">{isRunning === null ? '测试连通性...' : (isRunning ? '延迟: 12ms' : '连接不可用')}</div>
+              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '测试连通性...' : 'Testing...') : (isRunning ? (effectiveLang === 'zh' ? '延迟: 12ms' : 'Latency: 12ms') : (effectiveLang === 'zh' ? '连接不可用' : 'Unavailable'))}</div>
             </div>
 
             {/* Module 8: Version Info */}
             <div className="card glass-panel small-module" title={versionOutput}>
-              <div className="module-header"><Settings size={14} /> 系统版本</div>
+              <div className="module-header"><Settings size={14} /> {t.openclaw.modules.version}</div>
               <div className="module-value" style={{ fontSize: '0.8rem', color: 'inherit', wordBreak: 'break-all' }}>
                 {isRunning === null ? 'Loading...' : versionOutput}
               </div>
@@ -731,8 +779,8 @@ export default function OpenClawMain() {
             <div className="card glass-panel span-2" style={{ padding: 0, overflow: 'hidden' }}>
               <div className="flex-between" style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(0,0,0,0.01)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <FileText size={14} color="var(--color-primary)" /> 最新运行日志 (Live)
-                  {lastLogTime && <span style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>最后更新: {lastLogTime}</span>}
+                  <FileText size={14} color="var(--color-primary)" /> {t.openclaw.modules.liveLogs}
+                  {lastLogTime && <span style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>{t.openclaw.monitor.syncTime}: {lastLogTime}</span>}
                 </div>
                 <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.65rem', height: '24px' }} onClick={() => setActiveTab('monitor')}>详情</button>
               </div>
@@ -750,7 +798,7 @@ export default function OpenClawMain() {
                   background: 'rgba(255,255,255,0.4)'
                 }}
               >
-                {loadingLogs && !recentLogs ? '正在加载日志...' : (recentLogs || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>暂无实时日志输出</div>)}
+                {loadingLogs && !recentLogs ? t.common.loading : (recentLogs || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{effectiveLang === 'zh' ? '暂无实时日志输出' : 'No logs'}</div>)}
               </div>
             </div>
 
@@ -758,7 +806,7 @@ export default function OpenClawMain() {
 
             {/* Module 10: Recent Active List (Spans 2 columns on desktop) */}
             <div className="card glass-panel span-2" style={{ padding: '1rem' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>最近活跃记忆</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.openclaw.modules.recentMemory}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', width: '100%' }}>
                 {memoryFiles.slice(0, 4).map(f => (
                   <div key={f.path} style={{ fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
@@ -777,26 +825,47 @@ export default function OpenClawMain() {
           <div className="card glass-panel" style={{ padding: 0 }}>
             <div className="flex-between" style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--color-surface-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>运行流水日志</span>
-                {lastLogTime && <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>同步时间: {lastLogTime}</span>}
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t.openclaw.monitor.title}</span>
+                {lastLogTime && <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{t.openclaw.monitor.syncTime}: {lastLogTime}</span>}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn btn-ghost btn-sm" onClick={explainLogs} disabled={isExplainingLogs || !recentLogs || loadingLogs} style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)' }}>
-                  <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isExplainingLogs ? 'animate-pulse' : ''} /> {isExplainingLogs ? '正在解析...' : 'AI 解析日志'}
+                <button className="btn btn-ghost btn-sm" onClick={explainLogs} disabled={isExplainingLogs || !recentLogs || loadingLogs} style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                  <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isExplainingLogs ? 'animate-pulse' : ''} /> {isExplainingLogs ? (effectiveLang === 'zh' ? '正在解析...' : 'Analyzing...') : t.openclaw.monitor.analyzeBtn}
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => fetchAll()} disabled={loadingLogs}>
-                  {loadingLogs ? '加载中...' : '立即同步'}
+                  {loadingLogs ? t.common.loading : (effectiveLang === 'zh' ? '立即同步' : 'Sync Now')}
                 </button>
               </div>
             </div>
             {logExplanation && (
-              <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+              <div className="ai-output-block" style={{
+                padding: 0,
+                background: 'rgba(59, 130, 246, 0.03)',
+                borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+                animation: 'slideInDown 0.3s ease',
+                maxHeight: '350px',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1.25rem',
+                  color: 'var(--color-primary)',
+                  position: 'sticky',
+                  top: 0,
+                  background: 'rgba(240, 247, 255, 0.95)',
+                  backdropFilter: 'blur(8px)',
+                  zIndex: 5,
+                  borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
+                }}>
                   <Brain size={16} />
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 运行状态诊断报告</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.openclaw.monitor.reportTitle}</span>
                   <button onClick={() => setLogExplanation('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
                 </div>
-                <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7 }}>
+                <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{logExplanation}</ReactMarkdown>
                 </div>
               </div>
@@ -805,7 +874,7 @@ export default function OpenClawMain() {
               ref={monitorLogRef}
               style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', height: '500px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
             >
-              {loadingLogs && !recentLogs ? '正在同步数据...' : (recentLogs || '等待数据流入...')}
+              {loadingLogs && !recentLogs ? (effectiveLang === 'zh' ? '正在同步数据...' : 'Syncing data...') : (recentLogs || (effectiveLang === 'zh' ? '等待数据流入...' : 'Waiting for data...'))}
             </div>
           </div>
         )}
@@ -872,35 +941,56 @@ export default function OpenClawMain() {
 
                 return (
                   <>
-                    {coreFiles.length > 0 && renderGroup('核心架构 (Core)', <LayoutGrid size={12} />, coreFiles)}
-                    {fragmentFiles.length > 0 && renderGroup('记忆碎片 (Fragments)', <FileText size={12} />, fragmentFiles)}
+                    {coreFiles.length > 0 && renderGroup(t.openclaw.memory.coreGroup, <LayoutGrid size={12} />, coreFiles)}
+                    {fragmentFiles.length > 0 && renderGroup(t.openclaw.memory.fragmentGroup, <FileText size={12} />, fragmentFiles)}
                   </>
                 );
               })()}
             </div>
             <div className="card glass-panel memory-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMemoryFile?.name || '请选择文件'}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMemoryFile?.name || t.openclaw.memory.selectFile}</span>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <button className="btn btn-ghost btn-sm" onClick={summarizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)' }}>
-                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isSummarizing ? 'animate-pulse' : ''} /> {isSummarizing ? '总结中...' : 'AI 总结'}
+                  <button className="btn btn-ghost btn-sm" onClick={summarizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isSummarizing ? 'animate-pulse' : ''} /> {isSummarizing ? (effectiveLang === 'zh' ? '总结中...' : 'Summarizing...') : t.openclaw.memory.analyze}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={optimizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.05)' }}>
-                    <Wand2 size={14} style={{ marginRight: '0.4rem' }} className={isOptimizing ? 'animate-spin' : ''} /> {isOptimizing ? '优化中...' : 'AI 优化'}
+                  <button className="btn btn-ghost btn-sm" onClick={optimizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.12)', fontWeight: 600, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                    <Wand2 size={14} style={{ marginRight: '0.4rem' }} className={isOptimizing ? 'animate-spin' : ''} /> {isOptimizing ? (effectiveLang === 'zh' ? '优化中...' : 'Optimizing...') : t.openclaw.memory.optimize}
                   </button>
                   <button className="btn btn-primary btn-sm" onClick={saveMemoryArr} disabled={isSavingMemory || isOptimizing || !activeMemoryFile}>
-                    <Save size={14} style={{ marginRight: '0.4rem' }} /> 保存
+                    <Save size={14} style={{ marginRight: '0.4rem' }} /> {t.common.save}
                   </button>
                 </div>
               </div>
               {memorySummary && (
-                <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--color-primary)' }}>
+                <div className="ai-output-block" style={{
+                  padding: 0,
+                  background: 'rgba(59, 130, 246, 0.03)',
+                  borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+                  animation: 'slideInDown 0.3s ease',
+                  maxHeight: '250px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    color: 'var(--color-primary)',
+                    position: 'sticky',
+                    top: 0,
+                    background: 'rgba(240, 247, 255, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 5,
+                    borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
+                  }}>
                     <Sparkles size={14} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 核心总结</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.openclaw.memory.summaryTitle}</span>
                     <button onClick={() => setMemorySummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#444', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: '0.85rem', color: '#444', lineHeight: 1.6, padding: '1rem' }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{memorySummary}</ReactMarkdown>
                   </div>
                 </div>
@@ -934,7 +1024,7 @@ export default function OpenClawMain() {
                       border: 'none',
                       cursor: 'pointer'
                     }}
-                  >可视化</button>
+                  >{t.openclaw.config.visual}</button>
                   <button
                     onClick={() => setConfigMode('source')}
                     className="btn btn-sm"
@@ -948,11 +1038,11 @@ export default function OpenClawMain() {
                       border: 'none',
                       cursor: 'pointer'
                     }}
-                  >源码</button>
+                  >{t.openclaw.config.source}</button>
                 </div>
               </div>
               <button className="btn btn-primary btn-sm" onClick={saveConfig} disabled={isSavingConfig}>
-                <Save size={14} style={{ marginRight: '0.4rem' }} /> 保存配置
+                <Save size={14} style={{ marginRight: '0.4rem' }} /> {t.openclaw.config.saveBtn}
               </button>
             </div>
 
@@ -979,7 +1069,7 @@ export default function OpenClawMain() {
                     <input
                       type="text"
                       className="input"
-                      placeholder="新 Key (支持多级，如 api.key)"
+                      placeholder={t.openclaw.config.newKey}
                       value={newConfigKey}
                       onChange={e => setNewConfigKey(e.target.value)}
                       style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
@@ -987,7 +1077,7 @@ export default function OpenClawMain() {
                     <input
                       type="text"
                       className="input"
-                      placeholder="值 (自动识别数字/布尔)"
+                      placeholder={t.openclaw.config.newValue}
                       value={newConfigValue}
                       onChange={e => setNewConfigValue(e.target.value)}
                       style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
@@ -996,7 +1086,7 @@ export default function OpenClawMain() {
                       className="btn btn-primary btn-sm"
                       onClick={addConfigField}
                       style={{ height: '32px', padding: '0 0.75rem' }}
-                      title="添加配置项"
+                      title={t.openclaw.config.addBtn}
                     >
                       <Plus size={14} />
                     </button>
@@ -1008,7 +1098,7 @@ export default function OpenClawMain() {
                     )
                   ) : (
                     <div style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>
-                      配置文件内容为空或格式错误
+                      {t.openclaw.config.empty}
                     </div>
                   )}
                 </div>
@@ -1022,21 +1112,21 @@ export default function OpenClawMain() {
           <div className="card glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
               {[
-                { label: '网关状态', cmd: 'openclaw gateway status' },
-                { label: '启动网关', cmd: 'openclaw gateway start' },
-                { label: '停止网关', cmd: 'openclaw gateway stop' },
-                { label: '重启网关', cmd: 'openclaw gateway restart' },
-                { label: '系统诊断', cmd: 'openclaw doctor' },
-                { label: '安全审计', cmd: 'openclaw security audit' },
-                { label: '版本检查', cmd: 'openclaw -V' },
-                { label: '显示帮助', cmd: 'openclaw --help' },
-                { label: '搜索记忆', cmd: 'openclaw memory search ""' },
-                { label: '索引记忆', cmd: 'openclaw memory index' },
-                { label: '清空缓存', cmd: 'openclaw cache clear' },
-                { label: '代理列表', cmd: 'openclaw agents list' },
-                { label: '插件列表', cmd: 'openclaw plugins list' },
-                { label: '日志跟随', cmd: 'openclaw logs --follow' },
-                { label: '配置验证', cmd: 'openclaw config check' },
+                { label: t.openclaw.command.labels.status, cmd: 'openclaw gateway status' },
+                { label: t.openclaw.command.labels.start, cmd: 'openclaw gateway start' },
+                { label: t.openclaw.command.labels.stop, cmd: 'openclaw gateway stop' },
+                { label: t.openclaw.command.labels.restart, cmd: 'openclaw gateway restart' },
+                { label: t.openclaw.command.labels.doctor, cmd: 'openclaw doctor' },
+                { label: t.openclaw.command.labels.security, cmd: 'openclaw security audit' },
+                { label: t.openclaw.command.labels.version, cmd: 'openclaw -V' },
+                { label: t.openclaw.command.labels.help, cmd: 'openclaw --help' },
+                { label: t.openclaw.command.labels.search, cmd: 'openclaw memory search ""' },
+                { label: t.openclaw.command.labels.index, cmd: 'openclaw memory index' },
+                { label: t.openclaw.command.labels.clear, cmd: 'openclaw cache clear' },
+                { label: t.openclaw.command.labels.agents, cmd: 'openclaw agents list' },
+                { label: t.openclaw.command.labels.plugins, cmd: 'openclaw plugins list' },
+                { label: t.openclaw.command.labels.logs, cmd: 'openclaw logs --follow' },
+                { label: t.openclaw.command.labels.config, cmd: 'openclaw config check' },
               ].map(item => (
                 <button
                   key={item.label}
@@ -1054,16 +1144,16 @@ export default function OpenClawMain() {
                 value={cmd}
                 onChange={e => setCmd(e.target.value)}
                 className="input"
-                placeholder="输入 OpenClaw 命令..."
+                placeholder={t.openclaw.command.placeholder}
                 style={{ flex: 1 }}
               />
-              <button type="submit" className="btn btn-primary">执行指令</button>
+              <button type="submit" className="btn btn-primary">{t.openclaw.command.executeBtn}</button>
             </form>
             <div
               ref={cmdResultRef}
               style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--color-surface-border)', height: '400px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: 'var(--color-primary)', whiteSpace: 'pre-wrap' }}
             >
-              {cmdResult || '等待指令输入...'}
+              {cmdResult || t.openclaw.command.waiting}
             </div>
           </div>
         )}
@@ -1072,9 +1162,9 @@ export default function OpenClawMain() {
         {activeTab === 'cron' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
             <div className="flex-between">
-              <h2 className="card-title" style={{ margin: 0 }}>定时任务管理</h2>
+              <h2 className="card-title" style={{ margin: 0 }}>{t.openclaw.cron.title}</h2>
               <button className="btn btn-primary btn-sm" onClick={handleAddCron}>
-                <Plus size={14} style={{ marginRight: '0.4rem' }} /> 新增任务
+                <Plus size={14} style={{ marginRight: '0.4rem' }} /> {t.openclaw.cron.add}
               </button>
             </div>
 
@@ -1082,19 +1172,19 @@ export default function OpenClawMain() {
               <div className="card glass-panel animate-fade-in" style={{ padding: '1.25rem', marginBottom: '1.5rem', border: '1px solid var(--color-primary)' }}>
                 <form onSubmit={handleSaveCronEdit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>任务名称</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{t.openclaw.cron.name}</label>
                     <input
                       required
                       type="text"
                       className="input"
                       style={{ fontSize: '0.85rem' }}
-                      placeholder="例如: 每日状态检查"
+                      placeholder={t.openclaw.cron.namePlaceholder}
                       value={editingCronTask.name}
                       onChange={e => setEditingCronTask({ ...editingCronTask, name: e.target.value })}
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Cron 表达式</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{t.openclaw.cron.expr}</label>
                     <input
                       required
                       type="text"
@@ -1109,7 +1199,7 @@ export default function OpenClawMain() {
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>通知渠道</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{t.openclaw.cron.channel}</label>
                     <select
                       className="input"
                       style={{ fontSize: '0.85rem' }}
@@ -1121,11 +1211,11 @@ export default function OpenClawMain() {
                     >
                       <option value="telegram">Telegram</option>
                       <option value="email">Email</option>
-                      <option value="none">无</option>
+                      <option value="none">{effectiveLang === 'zh' ? '无' : 'None'}</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>目标 ID (To)</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{t.openclaw.cron.to}</label>
                     <input
                       type="text"
                       className="input"
@@ -1139,12 +1229,12 @@ export default function OpenClawMain() {
                     />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', gridColumn: '1 / -1' }}>
-                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>执行消息 (Prompt/Command)</label>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{t.openclaw.cron.message}</label>
                     <textarea
                       required
                       className="input"
                       style={{ fontSize: '0.85rem', fontFamily: 'monospace', minHeight: '80px', resize: 'vertical' }}
-                      placeholder="请输入任务执行的消息内容..."
+                      placeholder={effectiveLang === 'zh' ? "请输入任务执行的消息内容..." : "Enter message content..."}
                       value={editingCronTask.payload.message}
                       onChange={e => setEditingCronTask({
                         ...editingCronTask,
@@ -1154,10 +1244,10 @@ export default function OpenClawMain() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', gridColumn: '1 / -1', marginTop: '0.5rem' }}>
                     <button type="submit" className="btn btn-primary" disabled={isSavingCron}>
-                      {isSavingCron ? '正在保存...' : '保存任务'}
+                      {isSavingCron ? t.openclaw.cron.saving : t.openclaw.cron.save}
                     </button>
                     <button type="button" className="btn btn-ghost" onClick={() => setIsEditingCron(false)}>
-                      取消
+                      {t.common.cancel}
                     </button>
                   </div>
                 </form>
@@ -1192,7 +1282,7 @@ export default function OpenClawMain() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</span>
-                          {!task.enabled && <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b', fontSize: '0.65rem' }}>已禁用</span>}
+                          {!task.enabled && <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b', fontSize: '0.65rem' }}>{effectiveLang === 'zh' ? '已禁用' : 'Disabled'}</span>}
                         </div>
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
                           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -1228,15 +1318,15 @@ export default function OpenClawMain() {
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0.4rem', color: task.enabled ? 'var(--color-danger)' : 'var(--color-success)' }}
                         onClick={() => handleToggleCron(task.id)}
-                        title={task.enabled ? '禁用' : '启用'}
+                        title={task.enabled ? (effectiveLang === 'zh' ? '禁用' : 'Disable') : (effectiveLang === 'zh' ? '启用' : 'Enable')}
                       >
                         <Power size={16} />
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleEditCron(task)} style={{ fontSize: '0.8rem' }}>
-                        修改
+                        {t.common.edit}
                       </button>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteCron(task.id)} style={{ fontSize: '0.8rem', color: 'var(--color-danger)' }}>
-                        删除
+                        {t.common.delete}
                       </button>
                     </div>
                   </div>
@@ -1244,17 +1334,17 @@ export default function OpenClawMain() {
               ) : (
                 <div style={{ textAlign: 'center', padding: '3rem', background: 'rgba(0,0,0,0.01)', borderRadius: '1rem', border: '1px dashed var(--color-surface-border)' }}>
                   <Clock size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>暂无定时任务</p>
-                  <button className="btn btn-primary btn-sm" style={{ marginTop: '1rem' }} onClick={handleAddCron}>立即添加</button>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{t.openclaw.cron.none}</p>
+                  <button className="btn btn-primary btn-sm" style={{ marginTop: '1rem' }} onClick={handleAddCron}>{t.openclaw.cron.addFirst}</button>
                 </div>
               )}
             </div>
 
             <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.1)', fontSize: '0.75rem', color: 'var(--color-primary)' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Zap size={14} /> 系统说明
+                <Zap size={14} /> {effectiveLang === 'zh' ? '系统说明' : 'System Note'}
               </div>
-              定时任务需要系统中存在对应的 Cron 执行器或 OpenClaw 守护进程支持。此处提供任务配置的可视化管理（CRUD）。
+              {t.openclaw.cron.systemNote}
             </div>
           </div>
         )}
