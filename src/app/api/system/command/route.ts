@@ -15,7 +15,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '命令不能为空' }, { status: 400 });
     }
 
-    const { stdout, stderr } = await execAsync(command, { maxBuffer: 100 * 1024 * 1024 });
+    const COMMON_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
+    const { stdout, stderr } = await execAsync(command, {
+      maxBuffer: 100 * 1024 * 1024,
+      env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+    });
 
     return NextResponse.json({
       success: true,

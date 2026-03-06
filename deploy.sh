@@ -57,16 +57,17 @@ cp -a .next/static/. "$APP_DIR/.next/static/"
 cp config.json "$APP_DIR/" 2>/dev/null || echo "Warning: config.json not found, skipping."
 
 echo "5. Generating start.sh for LaunchAgent..."
-cat << 'EOF' > "$APP_DIR/start.sh"
+NODE_PATH=$(which node || echo "node")
+cat << EOF > "$APP_DIR/start.sh"
 #!/bin/bash
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd "$DIR"
+DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
+cd "\$DIR"
 
 # Set path just in case LaunchAgent doesn't have it
-export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:\$PATH"
 
 # Run the server on port 7000
-PORT=7000 node server.js
+PORT=7000 $NODE_PATH server.js
 EOF
 chmod +x "$APP_DIR/start.sh"
 

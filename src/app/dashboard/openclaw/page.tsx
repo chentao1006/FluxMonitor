@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import {
   Terminal, Brain, Activity, Settings, Zap, ArrowRight, ShieldCheck,
   Database, Clock, RefreshCw, Save, FileText, ChevronRight,
-  Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus
+  Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus, RotateCw
 } from 'lucide-react';
 
 type Tab = 'overview' | 'monitor' | 'config' | 'memory' | 'command' | 'cron';
@@ -298,18 +298,39 @@ export default function OpenClawMain() {
   };
 
   const toggleGateway = async () => {
-    const action = isRunning ? 'stop' : 'start';
+    if (isRunning) {
+      if (!window.confirm('确定要重启网关服务吗？')) return;
+
+      try {
+        const res = await fetch('/api/openclaw/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'command', command: `openclaw gateway restart` }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchAll();
+        } else {
+          alert(`重启失败: ${data.error}`);
+        }
+      } catch (e) {
+        alert('网络错误');
+      }
+      return;
+    }
+
+    // Start action
     try {
       const res = await fetch('/api/openclaw/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'command', command: `openclaw gateway ${action}` }),
+        body: JSON.stringify({ action: 'command', command: `openclaw gateway start` }),
       });
       const data = await res.json();
       if (data.success) {
         fetchAll();
       } else {
-        alert(`${action === 'start' ? '启动' : '停止'}失败: ${data.error}`);
+        alert(`启动失败: ${data.error}`);
       }
     } catch (e) {
       alert('网络错误');
@@ -468,9 +489,9 @@ export default function OpenClawMain() {
           <button
             className="btn btn-ghost"
             onClick={toggleGateway}
-            title={isRunning ? '停止网关服务' : '启动网关服务'}
+            title={isRunning ? '重启网关服务' : '启动网关服务'}
             style={{
-              color: isRunning ? 'var(--color-danger)' : 'var(--color-success)',
+              color: isRunning ? 'var(--color-warning)' : 'var(--color-success)',
               width: '36px',
               height: '36px',
               padding: 0,
@@ -479,7 +500,7 @@ export default function OpenClawMain() {
               background: 'rgba(0,0,0,0.03)'
             }}
           >
-            <Power size={18} />
+            {isRunning ? <RotateCw size={18} /> : <Power size={18} />}
           </button>
           <button className="btn btn-ghost" onClick={() => fetchAll()} disabled={loadingLogs} style={{ gap: '0.5rem', height: '36px', background: 'rgba(0,0,0,0.03)' }}>
             <RefreshCw size={18} className={loadingLogs ? 'animate-spin' : ''} /> 刷新数据

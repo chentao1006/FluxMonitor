@@ -10,6 +10,8 @@ interface Container {
   CreatedAt: string;
   Status: string;
   Names: string;
+  Ports: string;
+  Mounts: string;
 }
 
 interface DockerImage {
@@ -182,6 +184,7 @@ export default function DockerDashboard() {
                 <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
                   <th className="col-name">名称 / ID</th>
                   <th className="col-image">镜像</th>
+                  <th className="col-mappings">映射 (端口/路径)</th>
                   <th className="col-status">状态</th>
                   <th className="col-actions">操作</th>
                 </tr>
@@ -197,6 +200,21 @@ export default function DockerDashboard() {
                       </td>
                       <td className="col-image">
                         <div style={{ fontSize: '0.85rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.Image}</div>
+                      </td>
+                      <td className="col-mappings">
+                        {c.Ports && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.25rem' }}>
+                            <Server size={12} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-header)', overflow: 'hidden', textOverflow: 'ellipsis' }} title={c.Ports}>{c.Ports}</div>
+                          </div>
+                        )}
+                        {c.Mounts && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <HardDrive size={12} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }} title={c.Mounts}>{c.Mounts}</div>
+                          </div>
+                        )}
+                        {!c.Ports && !c.Mounts && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>无映射</div>}
                       </td>
                       <td className="col-status">
                         <span className={`badge ${isUp ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}>
@@ -341,7 +359,8 @@ export default function DockerDashboard() {
           text-overflow: ellipsis;
         }
         .col-name { width: auto; }
-        .col-image { width: 200px; }
+        .col-image { width: 150px; }
+        .col-mappings { width: 200px; }
         .col-id { width: 120px; font-family: monospace; }
         .col-status { width: 120px; }
         .col-size { width: 100px; }
@@ -368,7 +387,7 @@ export default function DockerDashboard() {
             min-width: 100%;
             table-layout: auto;
           }
-          .col-id, .col-image {
+          .col-id, .col-image, .col-mappings {
             display: none;
           }
           .docker-table th, .docker-table td {

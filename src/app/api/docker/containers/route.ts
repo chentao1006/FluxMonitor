@@ -4,9 +4,14 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+const COMMON_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
+
 export async function GET() {
   try {
-    const { stdout } = await execAsync('docker ps -a --format "{{json .}}"', { maxBuffer: 100 * 1024 * 1024 });
+    const { stdout } = await execAsync('docker ps -a --format "{{json .}}"', {
+      maxBuffer: 100 * 1024 * 1024,
+      env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+    });
 
     // stdout contains one JSON object per line.
     const lines = stdout.trim().split('\n').filter(Boolean);
