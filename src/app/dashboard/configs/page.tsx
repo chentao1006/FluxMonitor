@@ -1,7 +1,9 @@
 "use client";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState } from 'react';
-import { Settings, FileText, ChevronLeft, RefreshCw } from 'lucide-react';
+import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles } from 'lucide-react';
 
 interface ConfigItem {
   id: string;
@@ -16,7 +18,10 @@ export default function ConfigsDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [aiDemand, setAiDemand] = useState('');
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const [readLoading, setReadLoading] = useState(false);
+  const [isAiEditing, setIsAiEditing] = useState(false);
 
   useEffect(() => {
     fetchConfigs();
@@ -77,6 +82,38 @@ export default function ConfigsDashboard() {
       }
     } catch (e) {
       setSaveStatus('网络请求失败');
+    }
+  };
+
+  const handleAiEdit = async () => {
+    if (!content || readLoading || isAiEditing || !aiDemand.trim()) return;
+
+    setIsAiEditing(true);
+    setSaveStatus('AI 正在修改中... 🪄');
+    try {
+      const configName = configs.find(c => c.id === editingId)?.name || '配置文件';
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请作为资深系统专家，帮助我修改以下配置文件 "${configName}"。\n用户的需求是：${aiDemand}\n\n当前文件内容如下：\n${content}\n\n注意：请直接返回修改后的完整文件内容，不要包含任何 markdown 块或解释文字。`,
+          systemPrompt: 'You are an expert system administrator proficient in various configuration formats like JSON, YAML, TOML, and bash scripts.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setContent(data.data);
+        setSaveStatus('AI 修改完成，请检查并保存');
+        setAiDemand('');
+        setShowAiPanel(false);
+        setTimeout(() => setSaveStatus(''), 5000);
+      } else {
+        setSaveStatus(`AI 修改失败: ${data.error}`);
+      }
+    } catch (e) {
+      setSaveStatus('网络请求失败');
+    } finally {
+      setIsAiEditing(false);
     }
   };
 
@@ -162,11 +199,43 @@ export default function ConfigsDashboard() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                   {readLoading && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>读取中...</span>}
-                  <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId); setSaveStatus(''); }} title="重新读取">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowAiPanel(!showAiPanel)}
+                    disabled={readLoading || isAiEditing || !content}
+                    title="AI 智能编辑"
+                    style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)' }}
+                  >
+                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiEditing ? 'animate-pulse' : ''} />
+                    {isAiEditing ? 'AI 编辑中...' : 'AI 编辑'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId!); setSaveStatus(''); }} title="重新读取">
                     <RefreshCw size={14} className={readLoading ? 'animate-spin' : ''} />
                   </button>
                 </div>
               </div>
+
+              {showAiPanel && (
+                <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
+                    <Sparkles size={14} />
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>AI 智能编辑助手</span>
+                  </div>
+                  <textarea
+                    className="input"
+                    placeholder="描述你想要进行的修改，例如：'将端口改为 8080'，'添加代理配置'，'优化注释'..."
+                    value={aiDemand}
+                    onChange={(e) => setAiDemand(e.target.value)}
+                    style={{ minHeight: '100px', fontSize: '0.85rem', width: '100%' }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setShowAiPanel(false)}>取消</button>
+                    <button className="btn btn-primary btn-sm" onClick={handleAiEdit} disabled={!aiDemand.trim() || isAiEditing}>
+                      {isAiEditing ? '处理中...' : '开始执行修改'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <textarea
                 className="input"
@@ -285,6 +354,6 @@ export default function ConfigsDashboard() {
           animation: spin 1s linear infinite;
         }
       `}</style>
-    </div>
+    </div >
   );
 }

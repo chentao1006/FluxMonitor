@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { XSquare, Camera, X, Maximize2, Download, Activity } from 'lucide-react';
+import { XSquare, Camera, X, Maximize2, Download, Activity, Sparkles, Brain, Square } from 'lucide-react';
 
 export default function DashboardOverview() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,6 +19,29 @@ export default function DashboardOverview() {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const quickCommands = [
+    { label: '目录', cmd: 'ls -FhG' },
+    { label: '磁盘', cmd: 'df -h' },
+    { label: '内存排行', cmd: 'ps -e -o pmem,comm | sort -rn | head -n 10' },
+    { label: 'CPU 排行', cmd: 'ps -e -o pcpu,comm | sort -rn | head -n 10' },
+    { label: '本机 IP', cmd: 'ifconfig | grep "inet " | grep -v 127.0.0.1' },
+    { label: '监听端口', cmd: 'lsof -i -P | grep LISTEN' },
+    { label: '运行时间', cmd: 'uptime' },
+    { label: 'Brew', cmd: 'brew list --versions' },
+    { label: '系统版本', cmd: 'sw_vers' },
+    { label: '进程数', cmd: 'ps aux | wc -l' },
+    { label: '空间详情', cmd: 'du -sh ~/* | sort -rh | head -n 5' },
+    { label: '下载历史', cmd: 'ls -lt ~/Downloads | head -n 5' },
+    { label: '硬件架构', cmd: 'uname -m' },
+    { label: '活跃用户', cmd: 'who' },
+    { label: 'DNS 配置', cmd: 'cat /etc/resolv.conf' },
+  ];
 
   const takeScreenshot = async () => {
     setScreenshotLoading(true);
@@ -94,23 +119,72 @@ export default function DashboardOverview() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [cmdResult]);
+
+  const stopCommand = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsExecuting(false);
+    }
+  };
+
   const executeCommand = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCmdResult('执行中...');
+    if (isExecuting || !cmd) return;
+
+    setIsExecuting(true);
+    setCmdResult('');
+    setAnalysisResult('');
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await fetch('/api/system/command', {
+      const response = await fetch('/api/system/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: cmd }),
+        signal: controller.signal
       });
-      const data = await res.json();
-      if (data.success) {
-        setCmdResult(data.stdout || data.stderr || '执行成功，无输出');
-      } else {
-        setCmdResult(`错误: ${data.details || data.error}`);
+
+      if (!response.body) {
+        setIsExecuting(false);
+        return;
       }
-    } catch (e) {
-      setCmdResult('网络请求失败');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            const chunk = decoder.decode(value);
+            setCmdResult(prev => prev + chunk);
+          }
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          setCmdResult(prev => prev + '\n[已停止: 用户中断执行]\n');
+        } else {
+          throw err;
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        setCmdResult(prev => prev + `\n[Error]: 网络请求失败 (${e.message})`);
+      }
+    } finally {
+      setIsExecuting(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -137,6 +211,38 @@ export default function DashboardOverview() {
       setCmdResult('网络错误');
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (cmdResult && !cmdResult.includes('翻译') && !cmdResult.includes('执行中')) {
+      setAnalysisResult('');
+    }
+  }, [cmdResult]);
+
+  const analyzeOutput = async () => {
+    if (!cmdResult || cmdResult === '执行中...' || cmdResult.includes('正在把你的自然语言翻译成')) return;
+    setIsAnalyzing(true);
+    setAnalysisResult('AI 正在深度分析命令输出内容... 🪄');
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请作为资深系统专家，分析以下终端命令的运行输出。请解释该输出代表了什么、是否有关键信息或异常、以及建议的操作。要求使用中文，Markdown 格式，结构清晰。命令输出如下：\n\n${cmdResult.slice(-4000)}`,
+          systemPrompt: 'You are an expert system administrator and software engineer specializing in system diagnostics and performance analysis.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAnalysisResult(data.data);
+      } else {
+        setAnalysisResult(`分析失败: ${data.error}`);
+      }
+    } catch (e) {
+      setAnalysisResult('网络请求失败');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -253,17 +359,17 @@ export default function DashboardOverview() {
       {/* Charts Section */}
       <div className="responsive-grid responsive-grid-2">
         {/* CPU Chart */}
-        <div className="card glass-panel chart-card" style={{ padding: '1.25rem', minHeight: '260px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: '1rem', width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>CPU 综合使用率动态 (%)</h3>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+        <div className="card glass-panel chart-card" style={{ padding: '1rem', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: '0.5rem', width: '100%' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>CPU 综合使用率动态 (%)</h3>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>
               {history.length > 0 ? `${history[history.length - 1].cpu}%` : 'N/A'}
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>
               User: {stats?.cpu?.user || 0}% | Sys: {stats?.cpu?.sys || 0}%
             </div>
           </div>
-          <div style={{ width: '100%', height: '180px', marginTop: 'auto' }}>
+          <div style={{ width: '100%', height: '120px', marginTop: 'auto' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
                 <defs>
@@ -287,17 +393,17 @@ export default function DashboardOverview() {
         </div>
 
         {/* Memory Chart */}
-        <div className="card glass-panel chart-card" style={{ padding: '1.25rem', minHeight: '260px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: '1rem', width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>内存使用率动态 (%)</h3>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
+        <div className="card glass-panel chart-card" style={{ padding: '1rem', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: '0.5rem', width: '100%' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>内存使用率动态 (%)</h3>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f59e0b' }}>
               {history.length > 0 ? `${history[history.length - 1].memory}%` : 'N/A'}
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.1rem' }}>
               已用 {stats?.memory?.usedMB || '0'} MB / {stats?.memory?.totalMB || '0'} MB
             </div>
           </div>
-          <div style={{ width: '100%', height: '180px', marginTop: 'auto' }}>
+          <div style={{ width: '100%', height: '120px', marginTop: 'auto' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
                 <defs>
@@ -323,18 +429,18 @@ export default function DashboardOverview() {
 
       <div className="responsive-grid responsive-grid-2">
         {/* Network Chart */}
-        <div className="card glass-panel chart-card" style={{ padding: '1.25rem', minHeight: '260px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ marginBottom: '1rem', width: '100%' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>网络流量动态 (KB/s)</h3>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="card glass-panel chart-card" style={{ padding: '1rem', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ marginBottom: '0.5rem', width: '100%' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>网络流量动态 (KB/s)</h3>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ color: '#10b981' }}>↓ {history.length > 0 ? history[history.length - 1].netIn : '0'}</span>
               <span style={{ color: '#8b5cf6' }}>↑ {history.length > 0 ? history[history.length - 1].netOut : '0'}</span>
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {stats?.network?.split(',').slice(0, 2).join(',') || 'N/A'} (累计)
             </div>
           </div>
-          <div style={{ width: '100%', height: '180px', marginTop: 'auto' }}>
+          <div style={{ width: '100%', height: '120px', marginTop: 'auto' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history} margin={{ top: 10, right: 0, left: -25, bottom: 0 }}>
                 <defs>
@@ -362,47 +468,100 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        <div className="card glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'center' }}>
-          <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.75rem' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>系统负载</h3>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-primary)' }}>{stats?.loadAvg || 'N/A'}</div>
-          </div>
+        <div className="card glass-panel" style={{ padding: '1.25rem', minHeight: '200px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', flex: 1 }}>
+            {/* Left Column */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>主机名称</h3>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stats?.hostname || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>系统负载</h3>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-primary)' }}>{stats?.loadAvg || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>运行时间</h3>
+                <div style={{ fontSize: '0.75rem', fontWeight: 500 }}>{stats?.uptime?.split(',')[0]?.split('up')[1]?.trim() || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>磁盘空间</h3>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{stats?.disk?.used} / {stats?.disk?.total}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>内核版本</h3>
+                <div style={{ fontSize: '0.75rem', fontWeight: 500, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stats?.kernel || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>CPU 模型</h3>
+                <div style={{ fontSize: '0.7rem', fontWeight: 500, textAlign: 'right', maxWidth: '120px', overflow: 'hidden', height: '1rem' }} title={stats?.cpuModel}>
+                  {stats?.cpuModel || 'N/A'}
+                </div>
+              </div>
+            </div>
 
-          <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.75rem' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>系统版本</h3>
-            <div style={{ fontSize: '1rem', fontWeight: 600, textAlign: 'right' }}>{stats?.osVersion || 'N/A'}</div>
-          </div>
-
-          <div className="flex-between">
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>电池状态</h3>
-            <div style={{ fontSize: '1rem', fontWeight: 600, color: '#10b981' }}>{stats?.battery || 'N/A'}</div>
+            {/* Right Column */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>交换分区</h3>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{stats?.swap || '0 / 0'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>架构类型</h3>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{stats?.arch || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>内存压力</h3>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{stats?.memPressure || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>系统版本</h3>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, textAlign: 'right' }}>{stats?.osVersion || 'N/A'}</div>
+              </div>
+              <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>网络累计</h3>
+                <div style={{ fontSize: '0.7rem', fontWeight: 500, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {stats?.network?.split(',')[0]?.replace('in', '↓') || 'N/A'}
+                </div>
+              </div>
+              <div className="flex-between">
+                <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>电池状态</h3>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>{stats?.battery || 'N/A'}</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid">
         {/* Command Execution */}
-        <div className="card glass-panel terminal-section" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
+        <div className="card glass-panel terminal-section" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: '550px', maxWidth: '100%', overflow: 'hidden' }}>
           <div className="flex-between" style={{ marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <h2 className="card-title" style={{ margin: 0 }}>终端命令执行</h2>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.4rem 0.75rem',
-                height: 'auto',
-                background: 'rgba(139, 92, 246, 0.05)',
-                color: '#8b5cf6',
-                border: '1px solid rgba(139, 92, 246, 0.1)',
-                borderRadius: 'var(--radius-sm)'
-              }}
-              onClick={translateAICommand}
-              disabled={aiLoading || !cmd}
-            >
-              {aiLoading ? '翻译中...' : '🪄 自然语言转命令'}
-            </button>
           </div>
+
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            {quickCommands.map((q, i) => (
+              <button
+                key={i}
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setCmd(q.cmd)}
+                style={{
+                  fontSize: '0.7rem',
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '12px',
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  color: 'var(--color-primary)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  height: 'auto'
+                }}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+
           <form onSubmit={executeCommand} className="command-form" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <input
               type="text"
@@ -410,22 +569,121 @@ export default function DashboardOverview() {
               placeholder="输入命令 或 需求..."
               value={cmd}
               onChange={e => setCmd(e.target.value)}
+              disabled={isExecuting}
               style={{ flex: 1, fontFamily: 'monospace' }}
             />
-            <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>执行</button>
+            {isExecuting ? (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={stopCommand}
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Square size={16} fill="white" />
+                停止
+              </button>
+            ) : (
+              <button type="submit" className="btn btn-primary" style={{ flexShrink: 0 }}>执行</button>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                fontSize: '0.85rem',
+                padding: '0 1rem',
+                height: 'auto',
+                background: 'rgba(139, 92, 246, 0.05)',
+                color: '#8b5cf6',
+                border: '1px solid rgba(139, 92, 246, 0.1)',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                whiteSpace: 'nowrap'
+              }}
+              onClick={translateAICommand}
+              disabled={aiLoading || !cmd || isExecuting}
+            >
+              <Sparkles size={16} className={aiLoading ? 'animate-pulse' : ''} />
+              {aiLoading ? '翻译中...' : 'AI 翻译'}
+            </button>
           </form>
-          <div className="terminal-output" style={{
-            flex: 1, background: '#1e293b', color: '#f8fafc', borderRadius: 'var(--radius-sm)',
-            padding: '1rem', overflowY: 'auto', fontFamily: '"JetBrains Mono", monospace',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
-            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)', minHeight: '150px'
-          }}>
+          <div
+            ref={terminalRef}
+            className="terminal-output"
+            style={{
+              flex: 1,
+              background: '#ffffff',
+              color: '#1e293b',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--color-surface-border)',
+              padding: '1.25rem',
+              overflowY: 'auto',
+              fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              fontSize: '0.85rem',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+              minHeight: '550px',
+              position: 'relative',
+              lineHeight: '1.6'
+            }}>
             {cmdResult || (
               <span style={{ color: '#94a3b8' }}>
                 结果将在此处显示...
               </span>
             )}
+            {cmdResult && !cmdResult.includes('执行中') && !cmdResult.includes('翻译') && (
+              <button
+                onClick={analyzeOutput}
+                disabled={isAnalyzing}
+                style={{
+                  position: 'absolute',
+                  top: '0.75rem',
+                  right: '0.75rem',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--color-primary)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  padding: '0.4rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  zIndex: 2,
+                  backdropFilter: 'blur(4px)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Sparkles size={14} className={isAnalyzing ? 'animate-pulse' : ''} />
+                {isAnalyzing ? '分析中...' : 'AI 分析输出'}
+              </button>
+            )}
           </div>
+
+          {analysisResult && (
+            <div style={{
+              marginTop: '1.25rem', padding: '1.25rem',
+              background: 'rgba(59, 130, 246, 0.03)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid rgba(59, 130, 246, 0.1)',
+              animation: 'slideInDown 0.3s ease',
+              maxWidth: '100%',
+              overflowX: 'auto',
+              wordBreak: 'break-word'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+                <Brain size={18} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 输出诊断建议</span>
+                <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7 }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -31,13 +31,13 @@ export default function ProcessManager() {
   const [sortField, setSortField] = useState<'cpu' | 'mem' | 'pid' | 'command' | 'user'>('cpu');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterUser, setFilterUser] = useState<string>('all');
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5000);
 
   const fetchProcesses = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/system/processes?limit=100&sort=${sortField === 'mem' ? 'mem' : 'cpu'}`);
+      const res = await fetch(`/api/system/processes?limit=1000&sort=${sortField === 'mem' ? 'mem' : 'cpu'}`);
       const data = await res.json();
       if (data.success) {
         setProcesses(data.data);

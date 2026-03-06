@@ -126,6 +126,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'delete_memory') {
+      if (!targetPath) return NextResponse.json({ error: '未指定路径' }, { status: 400 });
+      if (!targetPath.includes('.openclaw')) {
+        return NextResponse.json({ error: '非法路径' }, { status: 403 });
+      }
+      if (!fs.existsSync(targetPath)) {
+        return NextResponse.json({ error: '文件不存在' }, { status: 404 });
+      }
+      fs.unlinkSync(targetPath);
+      return NextResponse.json({ success: true });
+    }
+
     if (action === 'logs') {
       let targetPath = logPath;
 

@@ -1,10 +1,12 @@
 "use client";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   Terminal, Brain, Activity, Settings, Zap, ArrowRight, ShieldCheck,
-  Database, Clock, RefreshCw, Save, FileText, ChevronRight,
+  Database, Clock, RefreshCw, Save, FileText, ChevronRight, Trash2, Sparkles, Wand2,
   Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus, RotateCw
 } from 'lucide-react';
 
@@ -53,6 +55,11 @@ export default function OpenClawMain() {
   const [isEditingCron, setIsEditingCron] = useState(false);
   const [editingCronTask, setEditingCronTask] = useState<any>(null);
   const [isSavingCron, setIsSavingCron] = useState(false);
+  const [memorySummary, setMemorySummary] = useState('');
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [logExplanation, setLogExplanation] = useState('');
+  const [isExplainingLogs, setIsExplainingLogs] = useState(false);
 
   // Auto scroll logs to bottom
   useEffect(() => {
@@ -222,11 +229,14 @@ export default function OpenClawMain() {
       const res = await fetch('/api/openclaw/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list_memory' }) });
       const data = await res.json();
       if (data.success) {
-        setMemoryFiles(data.files);
+        const sortedFiles = (data.files || []).sort((a: any, b: any) =>
+          new Date(b.mtime).getTime() - new Date(a.mtime).getTime()
+        );
+        setMemoryFiles(sortedFiles);
         const now = new Date();
         const mockHistory = Array.from({ length: 10 }).map((_, i) => ({
           time: new Date(now.getTime() - (9 - i) * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          count: Math.floor(data.files.length * (0.8 + Math.random() * 0.4))
+          count: Math.floor(sortedFiles.length * (0.8 + Math.random() * 0.4))
         }));
         setHistory(mockHistory);
       }
@@ -366,6 +376,85 @@ export default function OpenClawMain() {
     } catch (e) { setMemoryContent('Network error'); }
   };
 
+  const summarizeMemory = async () => {
+    if (!memoryContent || memoryContent === 'Loading...') return;
+    setIsSummarizing(true);
+    setMemorySummary('AI 正在思考并总结这段记忆... 🪄');
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请简要总结以下这段记忆碎片的内容，突出核心重点。要求使用中文，简洁明了，采用列表形式或简短段落。内容如下：\n\n${memoryContent.slice(0, 4000)}`,
+          systemPrompt: 'You are a helpful AI assistant that summarizes knowledge fragments.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMemorySummary(data.data);
+      } else {
+        setMemorySummary(`总结失败: ${data.error}`);
+      }
+    } catch (e) {
+      setMemorySummary('网络请求失败');
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const optimizeMemory = async () => {
+    if (!memoryContent || memoryContent === 'Loading...') return;
+    if (!window.confirm('AI 将尝试优化内容结构和清晰度，这可能会修改现有文本。是否继续？')) return;
+
+    setIsOptimizing(true);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请优化以下这段知识碎片的内容。要求保持原意不变，但提升排版、逻辑结构和语言清晰度。请确保输出仍然是标准的 Markdown 格式。内容如下：\n\n${memoryContent}`,
+          systemPrompt: 'You are an expert editor who optimizes markdown knowledge notes for clarity and structure.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMemoryContent(data.data);
+      } else {
+        alert(`优化失败: ${data.error}`);
+      }
+    } catch (e) {
+      alert('网络请求失败');
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const explainLogs = async () => {
+    if (!recentLogs || loadingLogs) return;
+    setIsExplainingLogs(true);
+    setLogExplanation('AI 正在深度解析这些运行流水日志... 🪄');
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请作为资深系统专家，分析以下 OpenClaw 网关的运行日志。请解释当前系统的状态、是否有异常情况（如有，请说明可能的报错原因及建议解决方案）。要求使用中文，结构清晰。日志内容如下：\n\n${recentLogs.slice(-4000)}`,
+          systemPrompt: 'You are an expert system administrator and software engineer specializing in gateway and agent system logs.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLogExplanation(data.data);
+      } else {
+        setLogExplanation(`解析失败: ${data.error}`);
+      }
+    } catch (e) {
+      setLogExplanation('网络请求失败');
+    } finally {
+      setIsExplainingLogs(false);
+    }
+  };
+
   const saveMemoryArr = async () => {
     if (!activeMemoryFile) return;
     setIsSavingMemory(true);
@@ -380,6 +469,29 @@ export default function OpenClawMain() {
       else alert(`Error: ${data.error}`);
     } catch (e) { alert('Network error'); }
     finally { setIsSavingMemory(false); }
+  };
+
+  const deleteMemory = async (file: any) => {
+    if (!window.confirm(`确定要永久删除 ${file.name} 吗？`)) return;
+
+    try {
+      const res = await fetch('/api/openclaw/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_memory', path: file.path }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (activeMemoryFile?.path === file.path) {
+          setActiveMemoryFile(null);
+          setMemoryContent('');
+          setMemorySummary('');
+        }
+        fetchAll();
+      } else {
+        alert(`删除失败: ${data.error}`);
+      }
+    } catch (e) { alert('网络错误'); }
   };
 
   const saveCronTasks = async (tasks: any[]) => {
@@ -648,7 +760,7 @@ export default function OpenClawMain() {
             <div className="card glass-panel span-2" style={{ padding: '1rem' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>最近活跃记忆</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', width: '100%' }}>
-                {memoryFiles.sort((a, b) => b.mtime - a.mtime).slice(0, 4).map(f => (
+                {memoryFiles.slice(0, 4).map(f => (
                   <div key={f.path} style={{ fontSize: '0.75rem', padding: '0.4rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
                     {f.name}
                   </div>
@@ -668,10 +780,27 @@ export default function OpenClawMain() {
                 <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>运行流水日志</span>
                 {lastLogTime && <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>同步时间: {lastLogTime}</span>}
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => fetchAll()} disabled={loadingLogs}>
-                {loadingLogs ? '加载中...' : '立即同步'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn btn-ghost btn-sm" onClick={explainLogs} disabled={isExplainingLogs || !recentLogs || loadingLogs} style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)' }}>
+                  <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isExplainingLogs ? 'animate-pulse' : ''} /> {isExplainingLogs ? '正在解析...' : 'AI 解析日志'}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => fetchAll()} disabled={loadingLogs}>
+                  {loadingLogs ? '加载中...' : '立即同步'}
+                </button>
+              </div>
             </div>
+            {logExplanation && (
+              <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+                  <Brain size={16} />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 运行状态诊断报告</span>
+                  <button onClick={() => setLogExplanation('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7 }}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{logExplanation}</ReactMarkdown>
+                </div>
+              </div>
+            )}
             <div
               ref={monitorLogRef}
               style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', height: '500px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
@@ -720,9 +849,22 @@ export default function OpenClawMain() {
                       >
                         <div style={{ overflow: 'hidden' }}>
                           <div style={{ fontSize: '0.8rem', fontWeight: activeMemoryFile?.path === f.path ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{(f.size / 1024).toFixed(1)} KB</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', display: 'flex', gap: '0.75rem' }}>
+                            <span>{(f.size / 1024).toFixed(1)} KB</span>
+                            <span>{new Date(f.mtime).toLocaleDateString()} {new Date(f.mtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
                         </div>
-                        <ChevronRight size={12} opacity={activeMemoryFile?.path === f.path ? 0.8 : 0.2} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px', height: '28px', width: '28px', color: 'var(--color-danger)', opacity: 0.6 }}
+                            onClick={(e) => { e.stopPropagation(); deleteMemory(f); }}
+                            title="删除"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                          <ChevronRight size={12} opacity={activeMemoryFile?.path === f.path ? 0.8 : 0.2} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -737,12 +879,32 @@ export default function OpenClawMain() {
               })()}
             </div>
             <div className="card glass-panel memory-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeMemoryFile?.name || '请选择文件'}</span>
-                <button className="btn btn-primary btn-sm" onClick={saveMemoryArr} disabled={isSavingMemory || !activeMemoryFile}>
-                  <Save size={14} style={{ marginRight: '0.4rem' }} /> 保存
-                </button>
+              <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMemoryFile?.name || '请选择文件'}</span>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button className="btn btn-ghost btn-sm" onClick={summarizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)' }}>
+                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isSummarizing ? 'animate-pulse' : ''} /> {isSummarizing ? '总结中...' : 'AI 总结'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={optimizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.05)' }}>
+                    <Wand2 size={14} style={{ marginRight: '0.4rem' }} className={isOptimizing ? 'animate-spin' : ''} /> {isOptimizing ? '优化中...' : 'AI 优化'}
+                  </button>
+                  <button className="btn btn-primary btn-sm" onClick={saveMemoryArr} disabled={isSavingMemory || isOptimizing || !activeMemoryFile}>
+                    <Save size={14} style={{ marginRight: '0.4rem' }} /> 保存
+                  </button>
+                </div>
               </div>
+              {memorySummary && (
+                <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--color-primary)' }}>
+                    <Sparkles size={14} />
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 核心总结</span>
+                    <button onClick={() => setMemorySummary('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#444', lineHeight: 1.6 }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{memorySummary}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
               <textarea
                 value={memoryContent}
                 onChange={e => setMemoryContent(e.target.value)}

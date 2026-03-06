@@ -1,35 +1,62 @@
+import { spawn } from 'child_process';
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 export async function POST(request: Request) {
   try {
     const { command } = await request.json();
 
-    // Security note: In a real production environment executing arbitrary 
-    // commands from an API is extremely dangerous without strict sanitization.
-    // Given the constraints of a personal monitor, we allow it but note the risk.
     if (!command) {
-      return NextResponse.json({ error: '命令不能为空' }, { status: 400 });
+      return new Response(JSON.stringify({ error: '命令不能为空' }), { status: 400 });
     }
 
     const COMMON_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
-    const { stdout, stderr } = await execAsync(command, {
-      maxBuffer: 100 * 1024 * 1024,
-      env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+    const encoder = new TextEncoder();
+
+    let childProcess: any;
+    const stream = new ReadableStream({
+      start(controller) {
+        childProcess = spawn(command, {
+          shell: true,
+          env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+        });
+
+        childProcess.stdout.on('data', (data: any) => {
+          controller.enqueue(encoder.encode(data.toString()));
+        });
+
+        childProcess.stderr.on('data', (data: any) => {
+          controller.enqueue(encoder.encode(data.toString()));
+        });
+
+        childProcess.on('error', (error: any) => {
+          controller.enqueue(encoder.encode(`\n[Spawn Error]: ${error.message}\n`));
+          controller.close();
+        });
+
+        childProcess.on('close', (code: any) => {
+          if (code !== 0 && code !== null) {
+            controller.enqueue(encoder.encode(`\n[Process Exited with Code ${code}]\n`));
+          }
+          controller.close();
+        });
+      },
+      cancel() {
+        if (childProcess) {
+          childProcess.kill('SIGINT');
+        }
+      }
     });
 
-    return NextResponse.json({
-      success: true,
-      stdout: stdout,
-      stderr: stderr
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      },
     });
   } catch (error: any) {
-    return NextResponse.json({
-      error: '命令执行失败',
+    return new Response(JSON.stringify({
+      error: '命令执行过程中发生错误',
       details: error?.message || '未知错误'
-    }, { status: 500 });
+    }), { status: 500 });
   }
 }

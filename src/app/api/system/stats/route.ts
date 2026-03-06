@@ -122,6 +122,27 @@ export async function GET() {
       loadAvg = loadRaw.replace(/[{}]/g, '').trim();
     } catch (e) { }
 
+    // More Info
+    const { stdout: hostname } = await execAsync("hostname");
+    const { stdout: kernel } = await execAsync("uname -sr");
+    const { stdout: arch } = await execAsync("uname -m");
+    const { stdout: cpuModel } = await execAsync("sysctl -n machdep.cpu.brand_string");
+
+    let swap = 'Unknown';
+    try {
+      const { stdout: swapRaw } = await execAsync("sysctl -n vm.swapusage");
+      const swapMatch = swapRaw.match(/total = (\d+\.\d+M).*used = (\d+\.\d+M).*free = (\d+\.\d+M)/);
+      if (swapMatch) {
+        swap = `${swapMatch[2]} / ${swapMatch[1]}`;
+      }
+    } catch (e) { }
+
+    let memPressure = 'Unknown';
+    try {
+      const { stdout: pressureRaw } = await execAsync("sysctl -n kern.memorystatus_level"); // Corrected from memo_status_level
+      memPressure = pressureRaw.trim(); // No '%' needed, it's a level (0-5)
+    } catch (e) { }
+
     // Battery
     let battery = 'Unknown';
     try {
@@ -129,9 +150,9 @@ export async function GET() {
       const match = battRaw.match(/(\d+)%/);
       if (match) {
         battery = `${match[1]}%`;
-        if (battRaw.includes('discharging')) battery += ' (放电中)';
-        else if (battRaw.includes('charging')) battery += ' (充电中)';
-        else battery += ' (使用电源)';
+        if (battRaw.includes('discharging')) battery += ' (放电)';
+        else if (battRaw.includes('charging')) battery += ' (充电)';
+        else battery += ' (电源)';
       }
     } catch (e) { }
 
@@ -146,7 +167,13 @@ export async function GET() {
         network,
         netBytes,
         loadAvg,
-        battery
+        battery,
+        hostname: hostname.trim(),
+        kernel: kernel.trim(),
+        arch: arch.trim(),
+        cpuModel: cpuModel.trim(),
+        swap,
+        memPressure
       }
     });
 

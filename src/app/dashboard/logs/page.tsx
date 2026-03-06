@@ -1,7 +1,9 @@
 "use client";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
-import { RefreshCw, Trash2, FileText, ChevronRight, Search, Eraser, ArrowLeft } from 'lucide-react';
+import { RefreshCw, Trash2, FileText, ChevronRight, Search, Eraser, ArrowLeft, Sparkles, Brain } from 'lucide-react';
 
 export default function LogsPage() {
   const [files, setFiles] = useState<any[]>([]);
@@ -12,6 +14,8 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const contentRef = useRef<HTMLPreElement>(null);
+  const [logExplanation, setLogExplanation] = useState('');
+  const [isExplaining, setIsExplaining] = useState(false);
 
   const [activeCategory, setActiveCategory] = useState<string>('全部');
 
@@ -115,6 +119,32 @@ export default function LogsPage() {
     }
   };
 
+  const explainLog = async () => {
+    if (!content || contentLoading || !activeFile) return;
+    setIsExplaining(true);
+    setLogExplanation('AI 正在深度解析该日志文件... 🪄');
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `请作为资深系统专家，分析以下日志文件 "${activeFile.split('/').pop()}" 的内容。请解释当前系统的状态、是否有异常情况（如有，请说明可能的报错原因及建议解决方案）。要求使用中文，结构清晰。日志内容如下：\n\n${content.slice(-4000)}`,
+          systemPrompt: 'You are an expert system administrator and software engineer specializing in macOS and Linux system logs.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLogExplanation(data.data);
+      } else {
+        setLogExplanation(`解析失败: ${data.error}`);
+      }
+    } catch (e) {
+      setLogExplanation('网络请求失败');
+    } finally {
+      setIsExplaining(false);
+    }
+  };
+
   useEffect(() => {
     fetchFiles();
   }, []);
@@ -122,6 +152,7 @@ export default function LogsPage() {
   useEffect(() => {
     if (activeFile) {
       fetchContent(activeFile);
+      setLogExplanation('');
     }
   }, [activeFile]);
 
@@ -151,7 +182,7 @@ export default function LogsPage() {
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <FileText size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title log-title" style={{ margin: 0, fontSize: '1.5rem' }}>日志浏览</h1>
+          <h1 className="card-title log-title" style={{ margin: 0, fontSize: '1.5rem' }}>日志分析</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-ghost" onClick={fetchFiles} title="刷新列表">
@@ -296,6 +327,15 @@ export default function LogsPage() {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 className="btn btn-ghost"
+                onClick={explainLog}
+                disabled={!activeFile || contentLoading || isExplaining}
+                title="AI 智能解析日志"
+                style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)', padding: '0.5rem' }}
+              >
+                <Sparkles size={18} className={isExplaining ? 'animate-pulse' : ''} />
+              </button>
+              <button
+                className="btn btn-ghost"
                 onClick={() => activeFile && fetchContent(activeFile)}
                 disabled={!activeFile || contentLoading}
                 title="刷新内容"
@@ -323,6 +363,19 @@ export default function LogsPage() {
               </button>
             </div>
           </div>
+
+          {logExplanation && (
+            <div style={{ padding: '1.25rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', maxHeight: '300px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--color-primary)' }}>
+                <Brain size={18} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI 系统日志诊断建议</span>
+                <button onClick={() => setLogExplanation('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7 }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{logExplanation}</ReactMarkdown>
+              </div>
+            </div>
+          )}
 
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-surface)', borderTop: '1px solid var(--color-surface-border)' }}>
             <pre

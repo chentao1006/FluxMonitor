@@ -108,7 +108,7 @@ export default function DashboardLayout({
           <nav className="nav-list no-scrollbar">
             {features.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>系统监控</NavLink>}
             {features.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>进程管理</NavLink>}
-            {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>日志浏览</NavLink>}
+            {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>日志分析</NavLink>}
             {features.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>配置管理</NavLink>}
             {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>LaunchAgent</NavLink>}
             {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>Docker</NavLink>}

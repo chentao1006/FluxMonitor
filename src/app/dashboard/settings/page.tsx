@@ -100,11 +100,22 @@ export default function SettingsPage() {
           </div>
           <div className="responsive-grid responsive-grid-auto" style={{ gap: '1rem' }}>
             {Object.entries(config.features || {}).map(([key, enabled]: [string, any]) => (
-              <div key={key} className="flex-between glass-panel" style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>
+              <label
+                key={key}
+                className="flex-between glass-panel"
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'all 0.2s',
+                  border: enabled ? '1px solid var(--color-primary-light)' : '1px solid transparent'
+                }}
+              >
+                <span style={{ fontWeight: 500, color: enabled ? 'var(--color-primary)' : 'inherit' }}>
                   {key === 'monitor' ? '系统监控' :
                     key === 'processes' ? '进程管理' :
-                      key === 'logs' ? '日志浏览' :
+                      key === 'logs' ? '日志分析' :
                         key === 'configs' ? '配置管理' :
                           key === 'launchagent' ? 'LaunchAgent' :
                             key === 'docker' ? 'Docker' :
@@ -115,9 +126,9 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={enabled}
                   onChange={e => updateFeature(key, e.target.checked)}
-                  style={{ width: '18px', height: '18px' }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                 />
-              </div>
+              </label>
             ))}
           </div>
           <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
