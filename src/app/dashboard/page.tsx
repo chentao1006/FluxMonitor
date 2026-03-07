@@ -127,12 +127,16 @@ export default function DashboardOverview() {
     }
   }, [cmdResult]);
 
-  const stopCommand = () => {
+  const stopCommand = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
-      setIsExecuting(false);
     }
+    setIsExecuting(false);
   };
 
   const executeCommand = async (e: React.FormEvent) => {
@@ -475,7 +479,7 @@ export default function DashboardOverview() {
           <form onSubmit={executeCommand} className="command-form" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <input type="text" className="input terminal-input" placeholder={t.monitor.terminalHint} value={cmd} onChange={e => setCmd(e.target.value)} disabled={isExecuting} style={{ flex: 1, fontFamily: 'monospace' }} />
             {isExecuting ? (
-              <button type="button" className="btn btn-danger" onClick={stopCommand} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <button type="button" className="btn btn-danger" onClick={(e) => stopCommand(e)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Square size={16} fill="white" /> {t.common.stop}
               </button>
             ) : (

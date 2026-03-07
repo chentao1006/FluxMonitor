@@ -206,21 +206,22 @@ export async function POST(request: Request) {
       try {
         let version = 'Unknown';
         try {
-          // Use -l (login) and -i (interactive) to force loading of user profiles and aliases
-          // Note: -i might hang if it expects input, so we use -l first
-          const { stdout: vOut, stderr: vErr } = await execAsync('bash -l -c "openclaw -V"', {
-            timeout: 5000
+          const { stdout: vOut, stderr: vErr } = await execAsync('openclaw -V', {
+            timeout: 5000,
+            env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
           });
-          version = (vOut || vErr || '').trim().split('\n')[0] || 'Unknown';
-        } catch (ve: any) {
-          const output = (ve.stdout || ve.stderr || '').trim();
+          const output = (vOut || vErr || '').trim();
           if (output) {
-            // Take the first line that doesn't look like a "command not found" error
             const lines = output.split('\n');
             const versionLine = lines.find((l: string) => !l.toLowerCase().includes('not found') && !l.toLowerCase().includes('no such'));
             version = versionLine ? versionLine.trim() : 'Unknown';
-          } else {
-            version = 'Unknown';
+          }
+        } catch (ve: any) {
+          const output = (ve.stdout || ve.stderr || '').trim();
+          if (output) {
+            const lines = output.split('\n');
+            const versionLine = lines.find((l: string) => !l.toLowerCase().includes('not found') && !l.toLowerCase().includes('no such'));
+            version = versionLine ? versionLine.trim() : 'Unknown';
           }
         }
 
