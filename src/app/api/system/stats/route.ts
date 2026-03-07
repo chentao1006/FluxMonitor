@@ -150,9 +150,9 @@ export async function GET() {
       const match = battRaw.match(/(\d+)%/);
       if (match) {
         battery = `${match[1]}%`;
-        if (battRaw.includes('discharging')) battery += ' (放电)';
-        else if (battRaw.includes('charging')) battery += ' (充电)';
-        else battery += ' (电源)';
+        if (battRaw.includes('discharging')) battery += ' (discharging)';
+        else if (battRaw.includes('charging')) battery += ' (charging)';
+        else battery += ' (ac)';
       }
     } catch (e) { }
 
@@ -179,6 +179,6 @@ export async function GET() {
 
   } catch (error) {
     console.error('System stats error:', error);
-    return NextResponse.json({ error: '无法获取系统状态' }, { status: 500 });
+    return NextResponse.json({ error: 'FETCH_STATS_FAILED' }, { status: 500 });
   }
 }

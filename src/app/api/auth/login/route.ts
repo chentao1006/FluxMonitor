@@ -33,8 +33,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: '无效的用户名或密码' }, { status: 401 });
+    return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
   } catch (error) {
-    return NextResponse.json({ error: '内部服务器错误' }, { status: 500 });
+    return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const id = searchParams.get('id');
 
   if (!id) {
-    return NextResponse.json({ error: '缺少容器 ID' }, { status: 400 });
+    return NextResponse.json({ error: 'MISSING_CONTAINER_ID' }, { status: 400 });
   }
 
   try {
@@ -20,8 +20,8 @@ export async function GET(request: Request) {
     });
   } catch (error: any) {
     return NextResponse.json({
-      error: '获取日志失败',
-      details: error?.message || '未知错误',
+      error: 'FETCH_LOGS_FAILED',
+      details: error?.message || 'UNKNOWN_ERROR',
       logs: error?.stderr || ''
     }, { status: 500 });
   }

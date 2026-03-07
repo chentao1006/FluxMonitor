@@ -15,6 +15,12 @@ interface NginxSite {
 
 export default function NginxDashboard() {
   const { t, language, effectiveLang } = useLanguage();
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
   const [isRunning, setIsRunning] = useState<boolean | null>(null);
   const [pids, setPids] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +37,14 @@ export default function NginxDashboard() {
   const [siteLoading, setSiteLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
 
+  const [nginxLogs, setNginxLogs] = useState('');
+  const [logType, setLogType] = useState<'error' | 'access'>('error');
+  const [logLoading, setLogLoading] = useState(false);
+  const logTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [logAnalysisResult, setLogAnalysisResult] = useState('');
+  const [isLogAnalyzing, setIsLogAnalyzing] = useState(false);
+
   const [binPath, setBinPath] = useState<string>('nginx');
   const [sitesDir, setSitesDir] = useState<string>('Unknown');
   const [hasMainConfig, setHasMainConfig] = useState(false);
@@ -41,6 +55,12 @@ export default function NginxDashboard() {
   const [aiDemand, setAiDemand] = useState('');
   const [showAiPanel, setShowAiPanel] = useState(false);
   const aiCacheRef = useRef<Record<string, string>>({});
+
+  const scrollLogsToBottom = () => {
+    if (logTextareaRef.current) {
+      logTextareaRef.current.scrollTop = logTextareaRef.current.scrollHeight;
+    }
+  };
 
   const fetchStatus = async () => {
     try {
@@ -62,6 +82,25 @@ export default function NginxDashboard() {
     }
   };
 
+  const fetchLogs = async (type: 'error' | 'access' = logType) => {
+    setLogLoading(true);
+    try {
+      const res = await fetch(`/api/nginx/logs?type=${type}&lines=100`);
+      const data = await res.json();
+      if (data.success) {
+        setNginxLogs(data.logs);
+        // Scroll after state update
+        setTimeout(scrollLogsToBottom, 100);
+      } else {
+        setNginxLogs(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      setNginxLogs('Failed to fetch logs');
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
   const fetchSites = async () => {
     try {
       const res = await fetch('/api/nginx/sites');
@@ -79,9 +118,18 @@ export default function NginxDashboard() {
   useEffect(() => {
     fetchStatus();
     fetchSites();
-    const interval = setInterval(fetchStatus, 5000);
+    fetchLogs();
+    const interval = setInterval(() => {
+      fetchStatus();
+      fetchLogs();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    fetchLogs();
+    setLogAnalysisResult(''); // Type change, clear analysis
+  }, [logType]);
 
   useEffect(() => {
     setAnalysisResult('');
@@ -91,7 +139,7 @@ export default function NginxDashboard() {
 
   const handleAction = async (action: string, password?: string) => {
     if (!password) setActionLoading(action);
-    setTestResult('');
+    if (action === 'test') setTestResult('');
 
     try {
       const payload: Record<string, unknown> = { action };
@@ -119,24 +167,67 @@ export default function NginxDashboard() {
 
       if (action === 'test') {
         if (data.success) {
-          setTestResult(data.details);
+          setTestResult(data.details || t.nginx.testSuccess);
         } else {
-          setTestResult(`${effectiveLang === 'zh' ? '配置测试失败' : 'Test failed'}:\n${data.details || data.error}`);
+          setTestResult(`${t.nginx.testFailed}:\n${data.details || data.error}`);
           diagnoseError(data.details || data.error);
         }
       } else {
         if (data.success) {
+          if (action === 'reload') {
+            showToast(t.nginx.reloadSuccess, 'success');
+          } else if (action === 'start') {
+            showToast(t.common.success, 'success');
+          } else if (action === 'stop') {
+            showToast(t.common.success, 'success');
+          }
           setTimeout(fetchStatus, 500);
         } else {
-          alert(`${t.common.error}: ${data.details || data.error}`);
+          showToast(`${t.common.error}: ${data.details || data.error}`, 'error');
         }
       }
     } catch (e) {
-      alert(t.common.networkError);
+      showToast(t.common.networkError, 'error');
     } finally {
       if (!showSudoPrompt) {
         setActionLoading(null);
       }
+    }
+  };
+
+  const handleAnalyzeLogs = async () => {
+    if (!nginxLogs || isLogAnalyzing) return;
+
+    const cacheKey = `logAnalysis:${logType}:${nginxLogs.slice(-2000)}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setLogAnalysisResult(aiCacheRef.current[cacheKey]);
+      return;
+    }
+
+    setIsLogAnalyzing(true);
+    setLogAnalysisResult(t.nginx.aiAnalyzingLogs);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: t.nginx.aiLogPrompt
+            .replace('{type}', logType === 'error' ? t.nginx.errorLog : t.nginx.accessLog)
+            .replace('{logs}', nginxLogs.slice(-4000)),
+          systemPrompt: 'You are an expert Nginx administrator specializing in system observation and troubleshooting.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLogAnalysisResult(data.data);
+        aiCacheRef.current[cacheKey] = data.data;
+      } else {
+        setLogAnalysisResult(`${t.common.error}: ${data.error}`);
+      }
+    } catch (e) {
+      setLogAnalysisResult(t.common.networkError);
+    } finally {
+      setIsLogAnalyzing(false);
     }
   };
 
@@ -149,13 +240,13 @@ export default function NginxDashboard() {
       return;
     }
 
-    setAnalysisResult(effectiveLang === 'zh' ? 'AI 正在诊断配置错误原因... 🪄' : 'AI is diagnosing the configuration error... 🪄');
+    setAnalysisResult(t.nginx.aiDiagnosing);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为 Nginx 专家，分析以下 Nginx 配置测试失败的错误日志。请用通俗易懂的${effectiveLang === 'zh' ? '中文' : '英文'}解释错误原因，并给出具体的修复建议。错误日志如下：\n\n${errorLog}`,
+          prompt: t.nginx.aiErrorPrompt.replace('{errorLog}', errorLog),
           systemPrompt: 'You are an expert Nginx administrator and software engineer specializing in Nginx configuration and troubleshooting.'
         })
       });
@@ -184,13 +275,15 @@ export default function NginxDashboard() {
     }
 
     setIsAiAnalyzing(true);
-    setAnalysisResult(effectiveLang === 'zh' ? 'AI 正在深度审计该站点的 Nginx 配置... 🪄' : 'AI is auditing this Nginx config... 🪄');
+    setAnalysisResult(t.nginx.aiAuditing);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为资深 Nginx 专家，分析以下站点配置 "${editingSite}"。请从安全性（是否有漏洞隐患）、性能优化（缓存、压缩）、以及逻辑正确性三个维度进行评估，并给出优化建议。使用${effectiveLang === 'zh' ? '中文' : '英文'} Markdown 格式。配置内容如下：\n\n${siteContent}`,
+          prompt: t.nginx.aiAuditPrompt
+            .replace('{site}', editingSite || '')
+            .replace('{content}', siteContent),
           systemPrompt: 'You are an expert Nginx administrator specializing in security auditing and performance tuning.'
         })
       });
@@ -217,7 +310,9 @@ export default function NginxDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请根据用户的需求修改现有的 Nginx 配置文件。\n现有内容如下：\n---\n${siteContent}\n---\n用户需求：${aiDemand}\n\n请直接返回修改后的完整 Nginx 配置代码，不要包含任何解释或 Markdown 代码块容器。`,
+          prompt: t.nginx.aiEditPrompt
+            .replace('{content}', siteContent)
+            .replace('{demand}', aiDemand),
           systemPrompt: 'You are an expert Nginx configuration generator. You follow instructions precisely and output only the configuration text.'
         })
       });
@@ -226,12 +321,12 @@ export default function NginxDashboard() {
         setSiteContent(data.data);
         setAiDemand('');
         setShowAiPanel(false);
-        setSaveStatus(effectiveLang === 'zh' ? 'AI 已完成修改，请检查后保存' : 'AI completed changes, please review and save');
+        setSaveStatus(t.nginx.aiEditDone);
       } else {
-        alert(`${t.common.error}: ${data.error}`);
+        showToast(`${t.common.error}: ${data.error}`, 'error');
       }
     } catch (e) {
-      alert(t.common.networkError);
+      showToast(t.common.networkError, 'error');
     } finally {
       setIsAiEditing(false);
     }
@@ -267,7 +362,7 @@ export default function NginxDashboard() {
 
   const handleSaveSite = async () => {
     if (!editingSite) return;
-    setSaveStatus(effectiveLang === 'zh' ? '保存中...' : 'Saving...');
+    setSaveStatus(t.common.saving);
     try {
       const res = await fetch('/api/nginx/sites', {
         method: 'POST',
@@ -279,6 +374,7 @@ export default function NginxDashboard() {
         setSaveStatus(t.common.saveSuccess);
         fetchSites();
         setTimeout(() => setSaveStatus(''), 2000);
+        handleAction('test');
       } else {
         setSaveStatus(`${t.common.saveFailed}: ${data.details || data.error}`);
       }
@@ -300,10 +396,10 @@ export default function NginxDashboard() {
       if (data.success) {
         fetchSites();
       } else {
-        alert(`${t.common.error}: ${data.details || data.error}`);
+        showToast(`${t.common.error}: ${data.details || data.error}`, 'error');
       }
     } catch (e) {
-      alert(t.common.networkError);
+      showToast(t.common.networkError, 'error');
     } finally {
       setSiteLoading(false);
     }
@@ -323,17 +419,17 @@ export default function NginxDashboard() {
         fetchSites();
         if (editingSite === filename) setEditingSite(null);
       } else {
-        alert(`${t.common.error}: ${data.details || data.error}`);
+        showToast(`${t.common.error}: ${data.details || data.error}`, 'error');
       }
     } catch (e) {
-      alert(t.common.networkError);
+      showToast(t.common.networkError, 'error');
     } finally {
       setSiteLoading(false);
     }
   };
 
   const handleAddSite = () => {
-    let filename = prompt(effectiveLang === 'zh' ? '请输入新站点的文件名 (例如 default.conf):' : 'Enter new site filename (e.g. default.conf):', 'new-site.conf');
+    let filename = prompt(t.nginx.newSitePrompt, 'new-site.conf');
     if (!filename) return;
     if (!filename.endsWith('.conf')) filename += '.conf';
 
@@ -346,6 +442,18 @@ export default function NginxDashboard() {
 
   return (
     <div className="grid">
+      {toast && (
+        <div style={{
+          position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+          background: toast.type === 'error' ? 'var(--color-danger)' : toast.type === 'success' ? 'var(--color-success)' : 'var(--color-primary)',
+          color: 'white', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          zIndex: 9999, transition: 'all 0.3s', animation: 'slideInDown 0.3s ease',
+          fontSize: '0.9rem', fontWeight: 500
+        }}>
+          {toast.message}
+        </div>
+      )}
       <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
@@ -353,71 +461,197 @@ export default function NginxDashboard() {
           </div>
           <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>Nginx</h1>
         </div>
-        <div className={`badge ${isRunning ? 'badge-success' : 'badge-danger'}`} style={{ height: 'fit-content' }}>
-          {isRunning ? (effectiveLang === 'zh' ? '运行中' : 'Running') : (effectiveLang === 'zh' ? '已停止' : 'Stopped')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {binPath && (
+            <div className="desktop-only" style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>{t.nginx.binPath}:</span>
+              <code style={{
+                background: 'rgba(255, 255, 255, 0.4)',
+                padding: '0.15rem 0.5rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-surface-border)',
+                color: 'var(--color-text)',
+                fontSize: '0.75rem',
+                fontFamily: 'monospace'
+              }}>
+                {binPath}
+              </code>
+            </div>
+          )}
+          <div className={`badge ${isRunning ? 'badge-success' : 'badge-danger'}`} style={{ height: 'fit-content' }}>
+            {isRunning ? t.nginx.running : t.nginx.stopped}
+          </div>
         </div>
       </div>
 
-      <div className="responsive-grid responsive-grid-auto">
-        <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start' }}>
-          <div>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{effectiveLang === 'zh' ? 'Nginx 进程 (PID)' : 'Nginx PIDs'}</h3>
-            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
-              {isRunning ? (pids.length > 0 ? pids.join(', ') : (effectiveLang === 'zh' ? '未知' : 'Unknown')) : (effectiveLang === 'zh' ? '无进程' : 'None')}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-              {effectiveLang === 'zh' ? '目标路径' : 'Bin Path'}: <code style={{ background: '#f1f5f9', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>{binPath}</code>
+      <div className="responsive-grid responsive-grid-2">
+        {/* Left column: Process & Control */}
+        <div className="card glass-panel flex-column" style={{ height: '100%', minHeight: '340px' }}>
+          <div className="flex-between" style={{ marginBottom: '1rem' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>{t.nginx.controlPanel}</h3>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+              {t.nginx.pids}: <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{isRunning ? (pids.length > 0 ? pids.join(', ') : t.common.unknown) : t.common.none}</span>
             </div>
           </div>
-        </div>
 
-        <div className="card glass-panel">
-          <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>{effectiveLang === 'zh' ? '控制面板' : 'Control Panel'}</h3>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button
-              className={`btn ${isRunning ? 'btn-warning' : 'btn-success'}`}
-              onClick={() => isRunning ? handleAction('restart') : handleAction('start')}
-              disabled={actionLoading === 'restart' || actionLoading === 'start'}
-            >
-              {isRunning ? (effectiveLang === 'zh' ? '重启 Nginx' : 'Restart Nginx') : (effectiveLang === 'zh' ? '启动 Nginx' : 'Start Nginx')}
-            </button>
-            <button
-              className="btn" style={{ background: '#f59e0b', color: 'white', flex: 1 }}
-              onClick={() => handleAction('reload')}
-              disabled={actionLoading === 'reload'}
-            >
-              {effectiveLang === 'zh' ? '重载配置' : 'Reload Config'}
-            </button>
-          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <button
+                className="btn btn-success"
+                onClick={() => handleAction('start')}
+                disabled={actionLoading === 'start' || isRunning === true}
+              >
+                {t.nginx.start}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={() => handleAction('stop')}
+                disabled={actionLoading === 'stop' || isRunning === false}
+              >
+                {t.nginx.stop}
+              </button>
+            </div>
 
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-surface-border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <button
+                className="btn btn-warning"
+                onClick={() => handleAction('restart')}
+                disabled={actionLoading === 'restart'}
+              >
+                {t.nginx.restart}
+              </button>
+              <button
+                className="btn btn-info"
+                onClick={() => handleAction('reload')}
+                disabled={actionLoading === 'reload'}
+              >
+                {t.nginx.reload}
+              </button>
+            </div>
+
             <button
               className="btn btn-ghost" style={{ width: '100%', border: '1px solid #e2e8f0' }}
               onClick={() => handleAction('test')}
               disabled={actionLoading === 'test'}
             >
-              {effectiveLang === 'zh' ? '测试配置文件 (-t)' : 'Test Config (-t)'}
+              {t.nginx.test}
             </button>
+          </div>
+
+          {testResult && (
+            <div style={{
+              marginTop: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
+              fontFamily: 'monospace', color: testResult.includes('failed') || testResult.includes('失败') ? 'var(--color-danger)' : 'var(--color-success)',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.75rem',
+              border: '1px solid var(--color-surface-border)', maxHeight: '120px', overflowY: 'auto', flex: 1
+            }}>
+              {testResult}
+            </div>
+          )}
+
+
+        </div>
+
+        {/* Right column: Log Viewer */}
+        <div className="card glass-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div className="flex-between" style={{ marginBottom: '1rem' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>{t.nginx.logsTitle}</h3>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={handleAnalyzeLogs}
+                disabled={isLogAnalyzing || !nginxLogs}
+                style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.05)', fontSize: '0.7rem' }}
+              >
+                <Sparkles size={12} style={{ marginRight: '0.3rem' }} />
+                {t.nginx.aiAnalyzeLogs}
+              </button>
+              <div className="tabs" style={{ background: '#f1f5f9', padding: '0.2rem', borderRadius: 'var(--radius-md)', display: 'flex', gap: '0.2rem' }}>
+                <button
+                  onClick={() => setLogType('error')}
+                  style={{
+                    padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: 'var(--radius-sm)',
+                    backgroundColor: logType === 'error' ? 'white' : 'transparent',
+                    color: logType === 'error' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                    border: 'none', cursor: 'pointer'
+                  }}
+                >
+                  {t.nginx.errorLog}
+                </button>
+                <button
+                  onClick={() => setLogType('access')}
+                  style={{
+                    padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: 'var(--radius-sm)',
+                    backgroundColor: logType === 'access' ? 'white' : 'transparent',
+                    color: logType === 'access' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                    border: 'none', cursor: 'pointer'
+                  }}
+                >
+                  {t.nginx.accessLog}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style={{ position: 'relative', flex: 1, minHeight: '180px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {logAnalysisResult && (
+              <div className="ai-output-block" style={{
+                padding: '0.75rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: 'var(--radius-sm)',
+                border: '1px solid rgba(16, 185, 129, 0.1)', maxHeight: '150px', overflowY: 'auto'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', color: 'var(--color-success)', fontWeight: 600, fontSize: '0.75rem' }}>
+                  <Brain size={14} /> {t.nginx.logAnalysisResult}
+                  <button onClick={() => setLogAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>&times;</button>
+                </div>
+                <div style={{ fontSize: '0.75rem', lineHeight: 1.5 }}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{logAnalysisResult}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+            <div style={{ position: 'relative', flex: 1 }}>
+              <textarea
+                ref={logTextareaRef}
+                readOnly
+                value={nginxLogs}
+                style={{
+                  width: '100%', height: '100%', background: '#f8fafc', color: '#334155',
+                  padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontFamily: 'monospace',
+                  fontSize: '0.75rem', resize: 'none', border: '1px solid #e2e8f0',
+                  whiteSpace: 'pre-wrap', overflowX: 'auto'
+                }}
+              />
+              <button
+                onClick={() => fetchLogs()}
+                className="btn btn-ghost"
+                style={{
+                  position: 'absolute', bottom: '10px', right: '20px',
+                  backgroundColor: 'rgba(0,0,0,0.05)', color: 'var(--color-text)',
+                  padding: '0.4rem', borderRadius: '50%', minWidth: 'auto', width: '32px', height: '32px', zIndex: 10
+                }}
+                title={t.common.refresh}
+              >
+                <RotateCw size={14} className={logLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className={`responsive-grid ${editingSite ? 'responsive-grid-2' : ''}`} style={{ transition: 'all 0.3s', marginTop: '1rem' }}>
-        <div className="card glass-panel" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+        <div className="card glass-panel" style={{ maxHeight: '420px', overflowY: 'auto' }}>
           <div className="flex-between">
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>{effectiveLang === 'zh' ? '站点管理' : 'Site Manager'} ({sitesDir})</h3>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>{t.nginx.siteManager} ({sitesDir})</h3>
             <div style={{ display: 'flex', gap: '0.4rem' }}>
               {hasMainConfig && (
                 <button
-                  className="btn btn-ghost"
-                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', border: '1px solid var(--color-surface-border)' }}
+                  className="btn btn-info"
+                  style={{ padding: '0.35rem 0.8rem', fontSize: '0.85rem', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.2)' }}
                   onClick={() => handleEditSite('nginx.conf')}
                 >
-                  {effectiveLang === 'zh' ? '主配置' : 'Main Config'}
+                  {t.nginx.mainConfig}
                 </button>
               )}
               <button className="btn btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }} onClick={handleAddSite}>
-                {effectiveLang === 'zh' ? '添加站点' : 'Add Site'}
+                {t.nginx.addSite}
               </button>
             </div>
           </div>
@@ -434,7 +668,7 @@ export default function NginxDashboard() {
                   <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {site.name}
                     <span className={`badge ${site.status === 'enabled' ? 'badge-success' : 'badge-ghost'}`} style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}>
-                      {site.status === 'enabled' ? (effectiveLang === 'zh' ? '已启用' : 'Enabled') : (effectiveLang === 'zh' ? '已禁用' : 'Disabled')}
+                      {site.status === 'enabled' ? t.common.enabled : t.common.disabled}
                     </span>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
@@ -453,7 +687,7 @@ export default function NginxDashboard() {
                     onClick={() => handleToggleStatus(site.name, site.status)}
                     disabled={siteLoading}
                   >
-                    {site.status === 'enabled' ? (effectiveLang === 'zh' ? '禁用' : 'Disable') : (effectiveLang === 'zh' ? '启用' : 'Enable')}
+                    {site.status === 'enabled' ? t.common.disableTitle : t.common.enableTitle}
                   </button>
                   <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#3b82f6', border: '1px solid #3b82f6' }} onClick={() => handleEditSite(site.name)}>{t.common.edit}</button>
                   <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#ef4444', border: '1px solid #ef4444' }} onClick={() => handleDeleteSite(site.name)} disabled={siteLoading}>{t.common.delete}</button>
@@ -480,7 +714,7 @@ export default function NginxDashboard() {
                   style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.05)', height: '32px' }}
                 >
                   <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiAnalyzing ? 'animate-pulse' : ''} />
-                  {isAiAnalyzing ? (effectiveLang === 'zh' ? '分析中...' : 'Analyzing...') : t.common.aiAudit}
+                  {isAiAnalyzing ? t.common.analyzing : t.nginx.aiAudit}
                 </button>
                 <button
                   className="btn btn-ghost btn-sm"
@@ -499,20 +733,25 @@ export default function NginxDashboard() {
               <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
                   <Wand2 size={14} />
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>AI Edit Assistant</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t.nginx.aiEditAssistant}</span>
                 </div>
-                <input
+                <textarea
                   className="input"
-                  placeholder={effectiveLang === 'zh' ? "描述你想要进行的修改..." : "Describe your changes..."}
+                  placeholder={t.nginx.aiProcessPlaceholder}
                   value={aiDemand}
                   onChange={(e) => setAiDemand(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAiEdit()}
-                  style={{ fontSize: '0.85rem' }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAiEdit();
+                    }
+                  }}
+                  style={{ fontSize: '0.85rem', minHeight: '80px', resize: 'vertical' }}
                 />
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                   <button className="btn btn-ghost btn-sm" onClick={() => setShowAiPanel(false)}>{t.common.cancel}</button>
                   <button className="btn btn-primary btn-sm" onClick={handleAiEdit} disabled={!aiDemand.trim() || isAiEditing}>
-                    {isAiEditing ? (effectiveLang === 'zh' ? '处理中...' : 'Processing...') : (effectiveLang === 'zh' ? '应用修改' : 'Apply')}
+                    {isAiEditing ? t.nginx.aiApplyRunning : t.nginx.aiApply}
                   </button>
                 </div>
               </div>
@@ -568,25 +807,11 @@ export default function NginxDashboard() {
               <button className="btn btn-primary" onClick={handleSaveSite}>{t.common.save}</button>
             </div>
             <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              {effectiveLang === 'zh' ? '保存后请点击“测试配置文件 (-t)”检查语法，然后点击“重载配置 (Reload)”使其生效。' : 'After saving, click "Test Config (-t)" and then "Reload Config".'}
+              {t.nginx.saveNote}
             </div>
           </div>
         )}
       </div>
-
-      {testResult && (
-        <div className="card glass-panel" style={{ marginTop: '0.5rem' }}>
-          <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>{effectiveLang === 'zh' ? '配置文件测试结果' : 'Config Test Result'}</h3>
-          <div style={{
-            background: '#f1f5f9', padding: '1rem', borderRadius: 'var(--radius-sm)',
-            fontFamily: 'monospace', color: testResult.includes('failed') ? 'var(--color-danger)' : 'var(--color-success)',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
-            border: '1px solid var(--color-surface-border)'
-          }}>
-            {testResult}
-          </div>
-        </div>
-      )}
 
       {showSudoPrompt && (
         <div style={{
@@ -595,16 +820,16 @@ export default function NginxDashboard() {
           display: 'flex', justifyContent: 'center', alignItems: 'center'
         }}>
           <div className="card glass-panel" style={{ width: '90%', maxWidth: '400px' }}>
-            <h2 className="card-title" style={{ marginTop: 0 }}>{effectiveLang === 'zh' ? '需要管理员权限' : 'Admin Required'}</h2>
+            <h2 className="card-title" style={{ marginTop: 0 }}>{t.nginx.sudoTitle}</h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              {effectiveLang === 'zh' ? 'Nginx 进程配置受保护，继续此操作需要你的 Mac 开机密码。' : 'Nginx process is protected. Admin password required.'}
+              {t.nginx.sudoDesc}
             </p>
             <form onSubmit={submitSudoAction}>
               <input
                 type="password"
                 className="input"
                 style={{ width: '100%', marginBottom: '1rem' }}
-                placeholder={effectiveLang === 'zh' ? "在此输入管理员密码" : "Enter admin password"}
+                placeholder={t.nginx.sudoPlaceholder}
                 value={sudoPassword}
                 onChange={e => setSudoPassword(e.target.value)}
                 autoFocus

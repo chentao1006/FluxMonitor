@@ -193,21 +193,21 @@ export default function DashboardOverview() {
   const translateAICommand = async () => {
     if (!cmd) return;
     setAiLoading(true);
-    setCmdResult('AI is translating your requirement to command... 🪄');
+    setCmdResult(t.monitor.aiTranslating);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `Translate the following natural language requirement to a single-line bash command for macOS. Requirement: ${cmd}\nNote: Return ONLY the command itself without markdown or extra explanation.`
+          prompt: t.monitor.aiTranslatePrompt.replace('{demand}', cmd)
         })
       });
       const data = await res.json();
       if (data.success) {
         setCmd(data.data);
-        setCmdResult('✅ AI Translation complete! Please check and execute.');
+        setCmdResult(t.monitor.aiTranslateDone);
       } else {
-        setCmdResult(`AI Translation failed: ${data.error || data.details}`);
+        setCmdResult(`${t.monitor.aiTranslateFailed}: ${data.error || data.details}`);
       }
     } catch {
       setCmdResult(t.common.networkError);
@@ -240,7 +240,7 @@ export default function DashboardOverview() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `As a system expert, analyze the following terminal output. Explain what it means, identify key info/anomalies, and suggest actions. Output in Markdown, language should match user's context.\n\n${cmdResult.slice(-4000)}`,
+          prompt: t.monitor.aiAnalyzeOutputPrompt.replace('{lang}', t.common.systemDefault).replace('{output}', cmdResult.slice(-4000)),
           systemPrompt: 'You are an expert system administrator.'
         })
       });
@@ -249,7 +249,7 @@ export default function DashboardOverview() {
         setAnalysisResult(data.data);
         aiCacheRef.current[cmdResult] = data.data;
       } else {
-        setAnalysisResult(`Analysis failed: ${data.error}`);
+        setAnalysisResult(`${t.monitor.aiAnalyzeFailed}: ${data.error}`);
       }
     } catch (e) {
       setAnalysisResult(t.common.networkError);
@@ -287,7 +287,7 @@ export default function DashboardOverview() {
           style={{
             position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.8)',
             backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: '1rem',
+            alignItems: 'flex-start', justifyContent: 'center', padding: '4rem 1rem 1rem 1rem',
             animation: 'fadeIn 0.3s ease'
           }}
         >
@@ -303,7 +303,7 @@ export default function DashboardOverview() {
           >
             <div className="flex-between" style={{ marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Maximize2 size={18} color="var(--color-primary)" />
+                <Camera size={18} color="var(--color-primary)" />
                 <span style={{ fontWeight: 600 }}>{t.monitor.screenshot}</span>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>

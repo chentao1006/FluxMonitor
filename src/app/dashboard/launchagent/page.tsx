@@ -34,7 +34,7 @@ export default function LaunchAgentDashboard() {
       if (data.success) {
         setPlists(data.data);
       } else {
-        setError(data.error || (effectiveLang === 'zh' ? '获取失败' : 'Fetch failed'));
+        setError(data.error || t.common.fetchFailed);
       }
     } catch (e) {
       setError(t.common.networkError);
@@ -60,19 +60,19 @@ export default function LaunchAgentDashboard() {
         fetchPlists();
       } else {
         setModalError({
-          title: effectiveLang === 'zh' ? `${action === 'load' ? '加载' : action === 'unload' ? '卸载' : '操作'}失败` : `${action} failed`,
-          content: data.details || data.error || (effectiveLang === 'zh' ? '未知错误' : 'Unknown error')
+          title: action === 'load' ? t.launchagent.loadFailed : action === 'unload' ? t.launchagent.unloadFailed : t.common.actionFailed,
+          content: data.details || data.error || t.common.unknownError
         });
       }
     } catch (e) {
-      setModalError({ title: t.common.networkError, content: effectiveLang === 'zh' ? '无法连接到服务器，请检查网络连接。' : 'Unable to connect to server.' });
+      setModalError({ title: t.common.networkError, content: t.common.networkConnectionFailed });
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleAddNew = () => {
-    let name = prompt(effectiveLang === 'zh' ? '请输入新建配置的名称 (如 com.example.app.plist):' : 'Enter new config name (e.g. com.example.app.plist):', 'com.example.agent.plist');
+    let name = prompt(t.launchagent.newConfigPrompt, 'com.example.agent.plist');
     if (!name) return;
     if (!name.endsWith('.plist')) name += '.plist';
 
@@ -118,7 +118,7 @@ export default function LaunchAgentDashboard() {
         if (editingFile?.path === filePath) setEditingFile(null);
         fetchPlists();
       } else {
-        setModalError({ title: t.common.saveFailed, content: data.details || data.error || 'Unknown error' });
+        setModalError({ title: t.common.saveFailed, content: data.details || data.error || t.common.unknownError });
       }
     } catch (e) {
       setModalError({ title: t.common.networkError, content: 'Network connection failed.' });
@@ -128,7 +128,7 @@ export default function LaunchAgentDashboard() {
   };
 
   const handleRename = async (filePath: string, currentName: string) => {
-    let newName = prompt(effectiveLang === 'zh' ? `请输入新的文件名 (当前: ${currentName}):` : `Enter new filename (Current: ${currentName}):`, currentName);
+    let newName = prompt(`${t.common.renamePrompt} (Current: ${currentName}):`, currentName);
     if (!newName || newName === currentName) return;
     if (!newName.endsWith('.plist')) newName += '.plist';
 
@@ -147,7 +147,7 @@ export default function LaunchAgentDashboard() {
         if (editingFile?.path === filePath) setEditingFile(null);
         fetchPlists();
       } else {
-        setModalError({ title: effectiveLang === 'zh' ? '重命名失败' : 'Rename failed', content: data.details || data.error || 'Unknown error' });
+        setModalError({ title: t.common.renameFailed, content: data.details || data.error || t.common.unknownError });
       }
     } catch (e) {
       setModalError({ title: t.common.networkError, content: 'Network connection failed.' });
@@ -179,7 +179,7 @@ export default function LaunchAgentDashboard() {
 
   const saveFile = async () => {
     if (!editingFile) return;
-    setSaveStatus(effectiveLang === 'zh' ? '保存中...' : 'Saving...');
+    setSaveStatus(t.common.saving);
     try {
       const res = await fetch('/api/launchagent/action', {
         method: 'POST',
@@ -202,11 +202,14 @@ export default function LaunchAgentDashboard() {
   const generateAIPlist = async () => {
     if (!aiPrompt) return;
     setAiLoading(true);
-    setSaveStatus(effectiveLang === 'zh' ? 'AI 魔法生成中... 🪄' : 'AI is generating... 🪄');
+    setSaveStatus(t.launchagent.aiGenerating);
 
     const promptText = isExistingContent
-      ? `请参考以下已有的 macOS LaunchAgent plist 内容，并根据新的需求进行修改：\n\n---当前内容---\n${fileContent}\n---当前内容---\n\n新的修改需求: ${aiPrompt}\n\n注意：必须仅返回修改后的纯 plist XML 代码文本，不要包含任何 markdown 语法（如 \`\`\`xml）和多余对话，直接以 <?xml 打头。`
-      : `请根据以下需求，为我生成一份 macOS LaunchAgent 的 plist 配置文件。\n需求: ${aiPrompt}\n注意：必须仅返回纯 plist XML 代码文本，不要包含任何 markdown 语法（如 \`\`\`xml）和多余对话，直接以 <?xml 打头。`;
+      ? t.launchagent.aiPromptExisting
+        .replace('{content}', fileContent)
+        .replace('{demand}', aiPrompt)
+      : t.launchagent.aiPromptNew
+        .replace('{demand}', aiPrompt);
 
     try {
       const res = await fetch('/api/ai', {
@@ -217,9 +220,9 @@ export default function LaunchAgentDashboard() {
       const data = await res.json();
       if (data.success) {
         setFileContent(data.data);
-        setSaveStatus(effectiveLang === 'zh' ? '✅ 生成完成！请核对' : '✅ Generated! Please review');
+        setSaveStatus(t.launchagent.generateSuccess);
       } else {
-        setSaveStatus(`${effectiveLang === 'zh' ? '生成失败' : 'Generate failed'}: ${data.error || data.details}`);
+        setSaveStatus(`${t.launchagent.generateFailed}: ${data.error || data.details}`);
       }
     } catch {
       setSaveStatus(t.common.networkError);
@@ -240,7 +243,7 @@ export default function LaunchAgentDashboard() {
           <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.sidebar.launchagent}</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }} className="mobile-full-width">
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddNew}>{effectiveLang === 'zh' ? '添加配置' : 'Add Config'}</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddNew}>{t.launchagent.addConfig}</button>
           <button className="btn btn-ghost" style={{ flex: 1, border: '1px solid var(--color-surface-border)' }} onClick={fetchPlists}>{t.common.refresh}</button>
         </div>
       </div>
@@ -263,16 +266,16 @@ export default function LaunchAgentDashboard() {
                 background: editingFile?.name === plist.name ? 'var(--color-primary-light)' : 'transparent',
                 borderRadius: 'var(--radius-sm)'
               }}>
-                <div>
-                  <div style={{ fontWeight: 500, marginBottom: '0.25rem', wordBreak: 'break-all' }}>{plist.name}</div>
+                <div style={{ flex: 1, minWidth: 0, marginRight: '1rem' }}>
+                  <div style={{ fontWeight: 500, marginBottom: '0.25rem', wordBreak: 'break-all', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plist.name}</div>
                   <div>
                     <span className={`badge ${plist.isLoaded ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
-                      {plist.isLoaded ? (effectiveLang === 'zh' ? '已加载 / 运行中' : 'Loaded / Running') : (effectiveLang === 'zh' ? '未加载' : 'Not Loaded')}
+                      {plist.isLoaded ? t.launchagent.loadedRunning : t.launchagent.notLoaded}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '200px' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexShrink: 0 }}>
                   <button
                     className="btn btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
                     onClick={() => openEditor(plist)}
@@ -287,14 +290,14 @@ export default function LaunchAgentDashboard() {
                         onClick={() => handleAction(plist.path, 'reload')}
                         disabled={actionLoading === `${plist.path}-reload`}
                       >
-                        {t.common.restart}
+                        {t.common.reload}
                       </button>
                       <button
                         className="btn btn-ghost" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', color: '#ef4444', border: '1px solid #ef4444' }}
                         onClick={() => handleAction(plist.path, 'unload')}
                         disabled={actionLoading === `${plist.path}-unload`}
                       >
-                        {t.common.stop}
+                        {t.common.unload}
                       </button>
                     </>
                   ) : (
@@ -303,16 +306,17 @@ export default function LaunchAgentDashboard() {
                       onClick={() => handleAction(plist.path, 'load')}
                       disabled={actionLoading === `${plist.path}-load`}
                     >
-                      {t.common.start}
+                      {t.common.load}
                     </button>
                   )}
+
 
                   <button
                     className="btn btn-ghost" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', color: '#8b5cf6', border: '1px solid #c4b5fd' }}
                     onClick={() => handleRename(plist.path, plist.name)}
                     disabled={actionLoading === `${plist.path}-rename`}
                   >
-                    {effectiveLang === 'zh' ? '重命名' : 'Rename'}
+                    {t.common.rename}
                   </button>
 
                   <button
@@ -327,7 +331,7 @@ export default function LaunchAgentDashboard() {
             ))}
           </ul>
           {plists.length === 0 && !loading && <div style={{ padding: '1rem', color: 'var(--color-text-muted)' }}>{t.common.none}</div>}
-        </div>
+        </div >
 
         {editingFile && (
           <div className="card glass-panel" style={{ display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 150px)' }}>
@@ -341,13 +345,13 @@ export default function LaunchAgentDashboard() {
                 type="text"
                 className="input"
                 style={{ flex: 1, border: 'none', background: 'transparent' }}
-                placeholder={isExistingContent ? (effectiveLang === 'zh' ? "描述你想要如何修改这段配置..." : "Describe how to modify...") : (effectiveLang === 'zh' ? "想要系统替你写什么？" : "What should AI write?")}
+                placeholder={isExistingContent ? t.launchagent.modifyPrompt : t.launchagent.writePrompt}
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && generateAIPlist()}
               />
               <button className="btn btn-primary" style={{ background: 'linear-gradient(to right, #38bdf8, #a855f7)', border: 'none' }} onClick={generateAIPlist} disabled={aiLoading}>
-                {aiLoading ? t.common.loading : '🪄 AI ' + (isExistingContent ? t.common.edit : effectiveLang === 'zh' ? '生成' : 'Gen')}
+                {aiLoading ? t.common.loading : '🪄 AI ' + (isExistingContent ? t.common.edit : t.common.generate)}
               </button>
             </div>
 
@@ -366,11 +370,12 @@ export default function LaunchAgentDashboard() {
             </div>
 
             <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-              {effectiveLang === 'zh' ? '注意: 保存 plist 文件后，通常需要点击「重载」或「加载」以使更改生效。' : 'Note: After saving, you usually need to Restart or Start the agent.'}
+              {t.launchagent.saveNote}
             </div>
           </div>
-        )}
-      </div>
+        )
+        }
+      </div >
 
       {modalError && (
         <div style={{
@@ -402,6 +407,6 @@ export default function LaunchAgentDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </div >
   );
 }

@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const { command } = await request.json();
 
     if (!command) {
-      return new Response(JSON.stringify({ error: '命令不能为空' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'EMPTY_COMMAND' }), { status: 400 });
     }
 
     const COMMON_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     return new Response(JSON.stringify({
-      error: '命令执行过程中发生错误',
-      details: error?.message || '未知错误'
+      error: 'COMMAND_EXEC_ERROR',
+      details: error?.message || 'UNKNOWN_ERROR'
     }), { status: 500 });
   }
 }

@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
         // If we tried with a password and it failed with incorrect password, throw specific error
         if (password && (msg.includes('incorrect password') || msg.includes('Sorry, try again'))) {
-          throw new Error('SUDO_AUTH_FAILED:密码错误');
+          throw new Error('SUDO_AUTH_FAILED');
         }
 
         if (
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, details: stdout || stderr });
     }
 
-    return NextResponse.json({ error: '无效的操作' }, { status: 400 });
+    return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });
   } catch (error: unknown) {
     const err = error as Error;
 
@@ -99,12 +99,12 @@ export async function POST(request: Request) {
     }
 
     if (err.message.includes('SUDO_AUTH_FAILED')) {
-      return NextResponse.json({ success: false, error: '管理员密码错误，请重试' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'SUDO_AUTH_FAILED' }, { status: 403 });
     }
 
     return NextResponse.json({
-      error: 'Nginx 操作失败',
-      details: err?.message || '未知错误'
+      error: 'NGINX_ACTION_FAILED',
+      details: err?.message || 'UNKNOWN_ERROR'
     }, { status: 500 });
   }
 }

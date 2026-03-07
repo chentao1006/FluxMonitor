@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const { action, filePath, content, newFilePath } = await request.json();
 
     if (!action || !filePath) {
-      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+      return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
 
     if (action === 'read') {
@@ -46,19 +46,19 @@ export async function POST(request: Request) {
     }
 
     if (action === 'rename') {
-      if (!newFilePath) return NextResponse.json({ error: '缺少新文件名' }, { status: 400 });
+      if (!newFilePath) return NextResponse.json({ error: 'MISSING_NEW_PATH' }, { status: 400 });
       try { await execAsync(`launchctl unload -w "${filePath}"`); } catch (e) { }
       await fs.rename(filePath, newFilePath);
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: '无效的操作' }, { status: 400 });
+    return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });
   } catch (error: any) {
     console.error('LaunchAgent Action Error:', error);
     return NextResponse.json({
       success: false,
-      error: 'LaunchAgent 操作失败',
-      details: error?.stderr || error?.message || '未知错误'
+      error: 'LAUNCHAGENT_ACTION_FAILED',
+      details: error?.stderr || error?.message || 'UNKNOWN_ERROR'
     }, { status: 500 });
   }
 }

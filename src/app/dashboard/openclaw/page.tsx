@@ -319,15 +319,21 @@ export default function OpenClawMain() {
         body: JSON.stringify({ action: 'save_config', content: configContent }),
       });
       const data = await res.json();
-      if (data.success) alert('配置已成功保存');
-      else alert(`保存失败: ${data.error}`);
-    } catch (e) { alert('网络错误'); }
+      if (data.success) alert(t.common.saveSuccess);
+      else alert(`${t.common.saveFailed}: ${getOpenClawError(data.error)}`);
+    } catch (e) { alert(t.common.networkError); }
     finally { setIsSavingConfig(false); }
+  };
+
+  const getOpenClawError = (errorKey: string, details?: string) => {
+    const errorMap: Record<string, string> = t.openclaw.errors as any;
+    const msg = errorMap[errorKey] || errorKey || t.common.unknownError;
+    return details ? `${msg} (${details})` : msg;
   };
 
   const toggleGateway = async () => {
     if (isRunning) {
-      if (!window.confirm('确定要重启网关服务吗？')) return;
+      if (!window.confirm(`${t.openclaw.misc.restartGateway}?`)) return;
 
       try {
         const res = await fetch('/api/openclaw/action', {
@@ -339,10 +345,10 @@ export default function OpenClawMain() {
         if (data.success) {
           fetchAll();
         } else {
-          alert(`重启失败: ${data.error}`);
+          alert(`${t.common.restart}${t.common.error}: ${getOpenClawError(data.error)}`);
         }
       } catch (e) {
-        alert('网络错误');
+        alert(t.common.networkError);
       }
       return;
     }
@@ -358,16 +364,16 @@ export default function OpenClawMain() {
       if (data.success) {
         fetchAll();
       } else {
-        alert(`启动失败: ${data.error}`);
+        alert(`${t.common.start}${t.common.error}: ${getOpenClawError(data.error)}`);
       }
     } catch (e) {
-      alert('网络错误');
+      alert(t.common.networkError);
     }
   };
 
   const executeCommand = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCmdResult('Executing...');
+    setCmdResult(t.common.loading);
     try {
       const res = await fetch('/api/openclaw/action', {
         method: 'POST',
@@ -375,14 +381,14 @@ export default function OpenClawMain() {
         body: JSON.stringify({ action: 'command', command: cmd }),
       });
       const data = await res.json();
-      setCmdResult(data.success ? (data.stdout || data.stderr || 'Success') : `Error: ${data.error}`);
+      setCmdResult(data.success ? (data.stdout || data.stderr || t.common.success) : `Error: ${getOpenClawError(data.error, data.details)}`);
       fetchAll();
-    } catch (e) { setCmdResult('Network error'); }
+    } catch (e) { setCmdResult(t.common.networkError); }
   };
 
   const readMemory = async (file: any) => {
     setActiveMemoryFile(file);
-    setMemoryContent('Loading...');
+    setMemoryContent(t.common.loading);
     try {
       const res = await fetch('/api/openclaw/action', {
         method: 'POST',
@@ -390,8 +396,8 @@ export default function OpenClawMain() {
         body: JSON.stringify({ action: 'read_memory', path: file.path }),
       });
       const data = await res.json();
-      setMemoryContent(data.success ? data.content : `Load error: ${data.error}`);
-    } catch (e) { setMemoryContent('Network error'); }
+      setMemoryContent(data.success ? data.content : `Load error: ${getOpenClawError(data.error)}`);
+    } catch (e) { setMemoryContent(t.common.networkError); }
   };
 
   const summarizeMemory = async () => {
@@ -411,13 +417,13 @@ export default function OpenClawMain() {
     }
 
     setIsSummarizing(true);
-    setMemorySummary('AI 正在思考并总结这段记忆... 🪄');
+    setMemorySummary(t.openclaw.memory.summarizing);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请简要总结以下这段记忆碎片的内容，突出核心重点。要求使用中文，简洁明了，采用列表形式或简短段落。内容如下：\n\n${memoryContent.slice(0, 4000)}`,
+          prompt: t.openclaw.aiSummarizePrompt.replace('{content}', memoryContent.slice(0, 4000)),
           systemPrompt: 'You are a helpful AI assistant that summarizes knowledge fragments.'
         })
       });
@@ -426,10 +432,10 @@ export default function OpenClawMain() {
         setMemorySummary(data.data);
         aiCacheRef.current[cacheKey] = data.data; // Update cache
       } else {
-        setMemorySummary(`总结失败: ${data.error}`);
+        setMemorySummary(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      setMemorySummary('网络请求失败');
+      setMemorySummary(t.common.networkError);
     } finally {
       setIsSummarizing(false);
     }
@@ -437,7 +443,7 @@ export default function OpenClawMain() {
 
   const optimizeMemory = async () => {
     if (!memoryContent || memoryContent === 'Loading...') return;
-    if (!window.confirm('AI 将尝试优化内容结构和清晰度，这可能会修改现有文本。是否继续？')) return;
+    if (!window.confirm(t.openclaw.memory.optimize + '?')) return;
 
     setIsOptimizing(true);
     try {
@@ -445,7 +451,7 @@ export default function OpenClawMain() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请优化以下这段知识碎片的内容。要求保持原意不变，但提升排版、逻辑结构和语言清晰度。请确保输出仍然是标准的 Markdown 格式。内容如下：\n\n${memoryContent}`,
+          prompt: t.openclaw.aiOptimizePrompt.replace('{content}', memoryContent),
           systemPrompt: 'You are an expert editor who optimizes markdown knowledge notes for clarity and structure.'
         })
       });
@@ -453,10 +459,10 @@ export default function OpenClawMain() {
       if (data.success) {
         setMemoryContent(data.data);
       } else {
-        alert(`优化失败: ${data.error}`);
+        alert(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      alert('网络请求失败');
+      alert(t.common.networkError);
     } finally {
       setIsOptimizing(false);
     }
@@ -479,13 +485,13 @@ export default function OpenClawMain() {
     }
 
     setIsExplainingLogs(true);
-    setLogExplanation('AI 正在深度解析这些运行日志... 🪄');
+    setLogExplanation(t.openclaw.monitor.explaining);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为资深系统专家，分析以下 OpenClaw 网关的运行日志。请解释当前系统的状态、是否有异常情况（如有，请说明可能的报错原因及建议解决方案）。要求使用中文，结构清晰。日志内容如下：\n\n${recentLogs.slice(-4000)}`,
+          prompt: t.openclaw.aiLogPrompt.replace('{logs}', recentLogs.slice(-4000)),
           systemPrompt: 'You are an expert system administrator and software engineer specializing in gateway and agent system logs.'
         })
       });
@@ -494,10 +500,10 @@ export default function OpenClawMain() {
         setLogExplanation(data.data);
         aiCacheRef.current[cacheKey] = data.data; // Update cache
       } else {
-        setLogExplanation(`解析失败: ${data.error}`);
+        setLogExplanation(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      setLogExplanation('网络请求失败');
+      setLogExplanation(t.common.networkError);
     } finally {
       setIsExplainingLogs(false);
     }
@@ -513,14 +519,14 @@ export default function OpenClawMain() {
         body: JSON.stringify({ action: 'save_memory', path: activeMemoryFile.path, content: memoryContent }),
       });
       const data = await res.json();
-      if (data.success) { alert('Saved successfully'); fetchAll(); }
-      else alert(`Error: ${data.error}`);
-    } catch (e) { alert('Network error'); }
+      if (data.success) { alert(t.common.saveSuccess); fetchAll(); }
+      else alert(`Error: ${getOpenClawError(data.error)}`);
+    } catch (e) { alert(t.common.networkError); }
     finally { setIsSavingMemory(false); }
   };
 
   const deleteMemory = async (file: any) => {
-    if (!window.confirm(`确定要永久删除 ${file.name} 吗？`)) return;
+    if (!window.confirm(`${t.common.deleteConfirm} (${file.name})`)) return;
 
     try {
       const res = await fetch('/api/openclaw/action', {
@@ -537,9 +543,9 @@ export default function OpenClawMain() {
         }
         fetchAll();
       } else {
-        alert(`删除失败: ${data.error}`);
+        alert(`${t.common.delete}${t.common.error}: ${getOpenClawError(data.error)}`);
       }
-    } catch (e) { alert('网络错误'); }
+    } catch (e) { alert(t.common.networkError); }
   };
 
   const saveCronTasks = async (tasks: any[]) => {
@@ -558,10 +564,10 @@ export default function OpenClawMain() {
         setCronTasks(tasks);
         setIsEditingCron(false);
       } else {
-        alert('保存失败: ' + data.error);
+        alert(`${t.common.saveFailed}: ${getOpenClawError(data.error)}`);
       }
     } catch (e) {
-      alert('网络请求失败');
+      alert(t.common.networkError);
     } finally {
       setIsSavingCron(false);
     }
@@ -603,7 +609,7 @@ export default function OpenClawMain() {
   };
 
   const handleDeleteCron = (id: string) => {
-    if (confirm('确定要删除这个定时任务吗？')) {
+    if (confirm(t.common.deleteConfirm)) {
       const newTasks = cronTasks.filter(t => t.id !== id);
       saveCronTasks(newTasks);
     }
@@ -649,7 +655,7 @@ export default function OpenClawMain() {
           <button
             className="btn btn-ghost"
             onClick={toggleGateway}
-            title={isRunning ? (effectiveLang === 'zh' ? '重启网关服务' : 'Restart Gateway') : (effectiveLang === 'zh' ? '启动网关服务' : 'Start Gateway')}
+            title={isRunning ? t.openclaw.misc.restartGateway : t.openclaw.misc.startGateway}
             style={{
               color: isRunning ? 'var(--color-warning)' : 'var(--color-success)',
               width: '36px',
@@ -715,7 +721,7 @@ export default function OpenClawMain() {
                 {isRunning === null ? t.common.loading : (isRunning ? t.openclaw.status.running : statusDetail.includes('not found') ? t.openclaw.status.notFound : t.openclaw.status.stopped)}
               </div>
               <div className="module-footer">
-                {isRunning === null ? (effectiveLang === 'zh' ? '正在同步运行状态...' : 'Syncing status...') : (statusDetail.includes('not found') ? (effectiveLang === 'zh' ? '环境未检测到命令' : 'Command not found') : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : t.openclaw.status.offline))}
+                {isRunning === null ? t.openclaw.misc.syncingStatus : (statusDetail.includes('not found') ? t.openclaw.misc.cmdNotFound : (isRunning ? `PID: ${statusDetail.match(/PID: (\d+)/i)?.[1] || statusDetail.match(/pid: (\d+)/)?.[1] || '--'}` : t.openclaw.status.offline))}
               </div>
             </div>
 
@@ -723,21 +729,21 @@ export default function OpenClawMain() {
             <div className="card glass-panel small-module">
               <div className="module-header"><Brain size={14} /> {t.openclaw.modules.memory}</div>
               <div className="module-value">{isRunning === null ? '--' : memoryFiles.length} <span className="unit">FILES</span></div>
-              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '正在扫描目录...' : 'Scanning...') : (isRunning ? (effectiveLang === 'zh' ? '最近 24h 活跃' : 'Active last 24h') : (effectiveLang === 'zh' ? '离线数据预览' : 'Offline Preview'))}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.scanning : (isRunning ? t.openclaw.misc.active24h : t.openclaw.misc.offlinePreview)}</div>
             </div>
 
             {/* Module 3: CPU Usage */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Cpu size={14} /> {t.openclaw.modules.cpu}</div>
               <div className="module-value">{isRunning === null ? '--' : (isRunning ? (systemStats?.cpu?.user || 0) : 0)}<span className="unit">%</span></div>
-              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '等待数据收集...' : 'Collecting...') : (isRunning ? (effectiveLang === 'zh' ? '正常负载中' : 'Normal Load') : (effectiveLang === 'zh' ? '服务已离线' : 'Service Offline'))}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.collecting : (isRunning ? t.openclaw.misc.normalLoad : t.openclaw.misc.serviceOffline)}</div>
             </div>
 
             {/* Module 4: Memory Usage */}
             <div className="card glass-panel small-module">
               <div className="module-header"><HardDrive size={14} /> {t.openclaw.modules.resources}</div>
               <div className="module-value">{isRunning === null ? '--' : (isRunning ? (systemStats?.memory?.usedMB || 0) : '--')}<span className="unit">MB</span></div>
-              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '正在获取资源统计...' : 'Fetching stats...') : (isRunning ? (effectiveLang === 'zh' ? '分配内运行' : 'Allocated') : (effectiveLang === 'zh' ? '无数据' : 'No Data'))}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.fetchingStats : (isRunning ? t.openclaw.misc.allocated : t.openclaw.misc.noData)}</div>
             </div>
 
             {/* Module 5: Storage Size */}
@@ -747,7 +753,7 @@ export default function OpenClawMain() {
                 {isRunning === null ? '--' : (memoryFiles.reduce((acc, f) => acc + (f.size || 0), 0) / 1024).toFixed(1)}
                 <span className="unit">KB</span>
               </div>
-              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '计算中...' : 'Calculating...') : (effectiveLang === 'zh' ? '本地知识库大小' : 'Local KB Size')}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.calculating : t.openclaw.misc.localKbSize}</div>
             </div>
 
             {/* Module 6: Safety Audit */}
@@ -756,14 +762,14 @@ export default function OpenClawMain() {
               <div className="module-value" style={{ color: isRunning === null ? 'var(--color-text-muted)' : (isRunning ? '#10b981' : 'var(--color-text-muted)'), fontSize: '1.1rem' }}>
                 {isRunning === null ? 'PENDING' : (isRunning ? 'SECURE' : 'OFFLINE')}
               </div>
-              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '等待审计...' : 'Pending...') : (isRunning ? (effectiveLang === 'zh' ? '验证审计通过' : 'Audit Passed') : (effectiveLang === 'zh' ? '审计未就绪' : 'Audit Offline'))}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.pending : (isRunning ? t.openclaw.misc.auditPassed : t.openclaw.misc.auditOffline)}</div>
             </div>
 
             {/* Module 7: Network Activity */}
             <div className="card glass-panel small-module">
               <div className="module-header"><Zap size={14} /> {t.openclaw.modules.activity}</div>
               <div className="module-value">{isRunning === null ? '--' : (isRunning ? 'Optimal' : 'N/A')}</div>
-              <div className="module-footer">{isRunning === null ? (effectiveLang === 'zh' ? '测试连通性...' : 'Testing...') : (isRunning ? (effectiveLang === 'zh' ? '延迟: 12ms' : 'Latency: 12ms') : (effectiveLang === 'zh' ? '连接不可用' : 'Unavailable'))}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.testing : (isRunning ? t.openclaw.misc.latency12ms : t.openclaw.misc.unavailable)}</div>
             </div>
 
             {/* Module 8: Version Info */}
@@ -772,7 +778,7 @@ export default function OpenClawMain() {
               <div className="module-value" style={{ fontSize: '0.8rem', color: 'inherit', wordBreak: 'break-all' }}>
                 {isRunning === null ? 'Loading...' : versionOutput}
               </div>
-              <div className="module-footer">{isRunning === null ? '查询版本中...' : 'openclaw -V 输出结果'}</div>
+              <div className="module-footer">{isRunning === null ? t.openclaw.misc.queryingVersion : t.openclaw.misc.versionOutputLabel}</div>
             </div>
 
             {/* Module 12: Real-time Log Preview (Medium Module - Spans 2 columns on desktop) */}
@@ -782,7 +788,7 @@ export default function OpenClawMain() {
                   <FileText size={14} color="var(--color-primary)" /> {t.openclaw.modules.liveLogs}
                   {lastLogTime && <span style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>{t.openclaw.monitor.syncTime}: {lastLogTime}</span>}
                 </div>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.65rem', height: '24px' }} onClick={() => setActiveTab('monitor')}>详情</button>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: '0.65rem', height: '24px' }} onClick={() => setActiveTab('monitor')}>{t.openclaw.misc.details}</button>
               </div>
               <div
                 ref={previewLogRef}
@@ -798,7 +804,7 @@ export default function OpenClawMain() {
                   background: 'rgba(255,255,255,0.4)'
                 }}
               >
-                {loadingLogs && !recentLogs ? t.common.loading : (recentLogs || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{effectiveLang === 'zh' ? '暂无实时日志输出' : 'No logs'}</div>)}
+                {loadingLogs && !recentLogs ? t.common.loading : (recentLogs || <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>{t.openclaw.misc.noLogsLive}</div>)}
               </div>
             </div>
 
@@ -830,10 +836,10 @@ export default function OpenClawMain() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-ghost btn-sm" onClick={explainLogs} disabled={isExplainingLogs || !recentLogs || loadingLogs} style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                  <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isExplainingLogs ? 'animate-pulse' : ''} /> {isExplainingLogs ? (effectiveLang === 'zh' ? '正在解析...' : 'Analyzing...') : t.openclaw.monitor.analyzeBtn}
+                  <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isExplainingLogs ? 'animate-pulse' : ''} /> {isExplainingLogs ? t.openclaw.misc.analyzing : t.openclaw.monitor.analyzeBtn}
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={() => fetchAll()} disabled={loadingLogs}>
-                  {loadingLogs ? t.common.loading : (effectiveLang === 'zh' ? '立即同步' : 'Sync Now')}
+                  {loadingLogs ? t.common.loading : t.openclaw.misc.syncNow}
                 </button>
               </div>
             </div>
@@ -874,7 +880,7 @@ export default function OpenClawMain() {
               ref={monitorLogRef}
               style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', height: '500px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: '#4b5563', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
             >
-              {loadingLogs && !recentLogs ? (effectiveLang === 'zh' ? '正在同步数据...' : 'Syncing data...') : (recentLogs || (effectiveLang === 'zh' ? '等待数据流入...' : 'Waiting for data...'))}
+              {loadingLogs && !recentLogs ? t.openclaw.misc.syncingData : (recentLogs || t.openclaw.misc.waitingData)}
             </div>
           </div>
         )}
@@ -928,7 +934,7 @@ export default function OpenClawMain() {
                             className="btn btn-ghost btn-sm"
                             style={{ padding: '4px', height: '28px', width: '28px', color: 'var(--color-danger)', opacity: 0.6 }}
                             onClick={(e) => { e.stopPropagation(); deleteMemory(f); }}
-                            title="删除"
+                            title={t.common.delete}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -952,10 +958,10 @@ export default function OpenClawMain() {
                 <span style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMemoryFile?.name || t.openclaw.memory.selectFile}</span>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
                   <button className="btn btn-ghost btn-sm" onClick={summarizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isSummarizing ? 'animate-pulse' : ''} /> {isSummarizing ? (effectiveLang === 'zh' ? '总结中...' : 'Summarizing...') : t.openclaw.memory.analyze}
+                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isSummarizing ? 'animate-pulse' : ''} /> {isSummarizing ? t.openclaw.memory.summarizing : t.openclaw.memory.analyze}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={optimizeMemory} disabled={isSummarizing || isOptimizing || !activeMemoryFile || memoryContent === 'Loading...'} style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.12)', fontWeight: 600, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
-                    <Wand2 size={14} style={{ marginRight: '0.4rem' }} className={isOptimizing ? 'animate-spin' : ''} /> {isOptimizing ? (effectiveLang === 'zh' ? '优化中...' : 'Optimizing...') : t.openclaw.memory.optimize}
+                    <Wand2 size={14} style={{ marginRight: '0.4rem' }} className={isOptimizing ? 'animate-spin' : ''} /> {isOptimizing ? t.openclaw.memory.optimizing : t.openclaw.memory.optimize}
                   </button>
                   <button className="btn btn-primary btn-sm" onClick={saveMemoryArr} disabled={isSavingMemory || isOptimizing || !activeMemoryFile}>
                     <Save size={14} style={{ marginRight: '0.4rem' }} /> {t.common.save}
@@ -1211,7 +1217,7 @@ export default function OpenClawMain() {
                     >
                       <option value="telegram">Telegram</option>
                       <option value="email">Email</option>
-                      <option value="none">{effectiveLang === 'zh' ? '无' : 'None'}</option>
+                      <option value="none">{t.common.none}</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -1234,7 +1240,7 @@ export default function OpenClawMain() {
                       required
                       className="input"
                       style={{ fontSize: '0.85rem', fontFamily: 'monospace', minHeight: '80px', resize: 'vertical' }}
-                      placeholder={effectiveLang === 'zh' ? "请输入任务执行的消息内容..." : "Enter message content..."}
+                      placeholder={t.openclaw.misc.msgPlaceholder}
                       value={editingCronTask.payload.message}
                       onChange={e => setEditingCronTask({
                         ...editingCronTask,
@@ -1282,7 +1288,7 @@ export default function OpenClawMain() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.name}</span>
-                          {!task.enabled && <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b', fontSize: '0.65rem' }}>{effectiveLang === 'zh' ? '已禁用' : 'Disabled'}</span>}
+                          {!task.enabled && <span className="badge" style={{ backgroundColor: '#e2e8f0', color: '#64748b', fontSize: '0.65rem' }}>{t.common.disabled}</span>}
                         </div>
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
                           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -1290,7 +1296,7 @@ export default function OpenClawMain() {
                           </div>
                           {task.delivery?.channel !== 'none' && (
                             <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <MessageSquare size={10} /> {task.delivery?.channel} ({task.delivery?.to || '未指定'})
+                              <MessageSquare size={10} /> {task.delivery?.channel} ({task.delivery?.to || t.openclaw.misc.notSpecified})
                             </div>
                           )}
                         </div>
@@ -1318,7 +1324,7 @@ export default function OpenClawMain() {
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0.4rem', color: task.enabled ? 'var(--color-danger)' : 'var(--color-success)' }}
                         onClick={() => handleToggleCron(task.id)}
-                        title={task.enabled ? (effectiveLang === 'zh' ? '禁用' : 'Disable') : (effectiveLang === 'zh' ? '启用' : 'Enable')}
+                        title={task.enabled ? t.common.disableTitle : t.common.enableTitle}
                       >
                         <Power size={16} />
                       </button>
@@ -1342,7 +1348,7 @@ export default function OpenClawMain() {
 
             <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.1)', fontSize: '0.75rem', color: 'var(--color-primary)' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Zap size={14} /> {effectiveLang === 'zh' ? '系统说明' : 'System Note'}
+                <Zap size={14} /> {t.openclaw.misc.systemNoteLabel}
               </div>
               {t.openclaw.cron.systemNote}
             </div>

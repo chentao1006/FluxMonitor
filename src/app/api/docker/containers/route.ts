@@ -27,8 +27,8 @@ export async function GET() {
   } catch (error: unknown) {
     const err = error as Error;
     if (err?.message?.includes('command not found')) {
-      return NextResponse.json({ error: 'Docker 未运行或未安装' }, { status: 500 });
+      return NextResponse.json({ error: 'DOCKER_NOT_RUNNING' }, { status: 500 });
     }
-    return NextResponse.json({ error: '无法获取 Docker 容器列表', details: err?.message }, { status: 500 });
+    return NextResponse.json({ error: 'FETCH_FAILED', details: err?.message }, { status: 500 });
   }
 }

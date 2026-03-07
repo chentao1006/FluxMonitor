@@ -73,7 +73,7 @@ export async function GET() {
       }
 
       // Extract port using regex
-      const portMatch = content.match(/listen\s+(?:[^:]+?:)?(\d+)/i);
+      const portMatch = content.match(/^[ \t]*listen\s+(?:\[.*?\]:|[^;:\s]+:)?(\d+)/im);
       const port = portMatch ? portMatch[1] : '80';
 
       const serverNameMatch = content.match(/server_name\s+([^;]+);/i);
@@ -111,7 +111,7 @@ export async function GET() {
     });
   } catch (error: unknown) {
     const err = error as Error;
-    return NextResponse.json({ error: '获取站点失败', details: err?.message }, { status: 500 });
+    return NextResponse.json({ error: 'FETCH_SITES_FAILED', details: err?.message }, { status: 500 });
   }
 }
 
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   try {
     const { action, filename, content } = await request.json();
     if (!action || !filename) {
-      return NextResponse.json({ error: '缺少参数' }, { status: 400 });
+      return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
 
     const { availableDir, enabledDir, mainConfig } = await getNginxDirs();
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     } else {
       filePath = path.join(availableDir, filename);
       if (!filePath.startsWith(availableDir)) {
-        return NextResponse.json({ error: '非法路径' }, { status: 400 });
+        return NextResponse.json({ error: 'ILLEGAL_PATH' }, { status: 400 });
       }
     }
 
@@ -216,9 +216,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: '未知操作' }, { status: 400 });
+    return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });
   } catch (error: unknown) {
     const err = error as Error;
-    return NextResponse.json({ error: '操作失败', details: err?.message }, { status: 500 });
+    return NextResponse.json({ error: 'ACTION_FAILED', details: err?.message }, { status: 500 });
   }
 }

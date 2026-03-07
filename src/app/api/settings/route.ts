@@ -20,7 +20,7 @@ export async function GET() {
     const { jwtSecret, ...safeConfig } = config;
     return NextResponse.json({ success: true, data: safeConfig });
   } catch (error) {
-    return NextResponse.json({ success: false, error: '获取设置失败' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'FETCH_SETTINGS_FAILED' }, { status: 500 });
   }
 }
 
@@ -40,6 +40,6 @@ export async function POST(request: Request) {
     saveConfig(newConfig);
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ success: false, error: '保存设置失败' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'SAVE_SETTINGS_FAILED' }, { status: 500 });
   }
 }

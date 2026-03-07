@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Flux | 浮光",
-  description: "Flux 浮光 - 一个极简且强大的 macOS 系统监控与管理面板",
+  title: "Flux | macOS Dashboard",
+  description: "Flux - A minimalist and powerful macOS system monitoring and management panel",
 };
 
 import { LanguageProvider } from "@/lib/LanguageContext";

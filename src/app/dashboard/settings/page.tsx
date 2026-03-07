@@ -115,15 +115,21 @@ export default function SettingsPage() {
                   border: enabled ? '1px solid var(--color-primary-light)' : '1px solid transparent'
                 }}
               >
-                <span style={{ fontWeight: 500, color: enabled ? 'var(--color-primary)' : 'inherit' }}>
+                <span style={{
+                  fontWeight: 500,
+                  color: enabled ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  opacity: enabled ? 1 : 0.7
+                }}>
                   {(t.sidebar as any)[key] || key}
                 </span>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={e => updateFeature(key, e.target.checked)}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                />
+                <label className="switch" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={e => updateFeature(key, e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
               </label>
             ))}
           </div>

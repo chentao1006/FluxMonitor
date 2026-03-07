@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       try {
         await fs.access(filePath);
       } catch {
-        return NextResponse.json({ success: false, error: '文件不存在' }, { status: 404 });
+        return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
       }
 
       // Use spawn instead of exec to avoid maxBuffer issues with large files
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
           if (code === 0 || data.length > 0) {
             resolve(data);
           } else {
-            reject(new Error(`tail 命令退出，错误代码: ${code}`));
+            reject(new Error(`tail command exited with code: ${code}`));
           }
         });
 
@@ -92,10 +92,10 @@ export async function GET(request: Request) {
       const fullPath = parts.slice(2).join(' ');
       const dirname = path.dirname(fullPath);
 
-      let category = '其他';
-      if (fullPath.startsWith('/var/log')) category = '系统';
-      else if (fullPath.includes('Library/Logs')) category = '应用';
-      else if (fullPath.includes('var/log') || fullPath.includes('.pm2') || fullPath.includes('Applications')) category = '服务';
+      let category = 'other';
+      if (fullPath.startsWith('/var/log')) category = 'system';
+      else if (fullPath.includes('Library/Logs')) category = 'app';
+      else if (fullPath.includes('var/log') || fullPath.includes('.pm2') || fullPath.includes('Applications')) category = 'service';
 
       return {
         path: fullPath,
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   try {
     const { file, action, password } = await request.json();
     if (!file) {
-      return NextResponse.json({ success: false, error: '未指定文件' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'No file specified' }, { status: 400 });
     }
 
     const executeWithSudo = async (cmd: string) => {
@@ -162,12 +162,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, requiresPassword: true });
       }
       if (err.message === 'SUDO_AUTH_FAILED') {
-        return NextResponse.json({ success: false, error: '密码错误' }, { status: 401 });
+        return NextResponse.json({ success: false, error: 'Wrong password' }, { status: 401 });
       }
       throw err;
     }
 
-    return NextResponse.json({ success: false, error: '无效的操作' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
     console.error('Logs POST error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

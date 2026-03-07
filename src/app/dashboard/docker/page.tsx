@@ -73,7 +73,7 @@ export default function DockerDashboard() {
           setContainers(data.data);
           setError('');
         } else {
-          setError(data.error || (effectiveLang === 'zh' ? '获取容器失败' : 'Failed to fetch containers'));
+          setError(data.error || t.docker.fetchContainersFailed);
         }
       } else {
         const res = await fetch('/api/docker/images');
@@ -82,7 +82,7 @@ export default function DockerDashboard() {
           setImages(data.data);
           setError('');
         } else {
-          setError(data.error || (effectiveLang === 'zh' ? '获取镜像失败' : 'Failed to fetch images'));
+          setError(data.error || t.docker.fetchImagesFailed);
         }
       }
     } catch (e) {
@@ -129,7 +129,7 @@ export default function DockerDashboard() {
       const res = await fetch(`/api/docker/logs?id=${id}`);
       const data = await res.json();
       if (data.success) {
-        setCurrentLogs(data.logs || (effectiveLang === 'zh' ? '没有日志' : 'No logs'));
+        setCurrentLogs(data.logs || t.docker.noLogs);
       } else {
         setCurrentLogs(`${t.common.error}: ${data.details || data.error}`);
       }
@@ -157,14 +157,17 @@ export default function DockerDashboard() {
     }
 
     setIsAiAnalyzing(true);
-    setAnalysisResult(t.docker.aiAnalyzing);
+    setAnalysisResult(t.docker.aiAnalyzingStatus);
     setDiagnosisId(id);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为 Docker 专家，分析容器 "${name}" (${id}) 的运行日志。请解释日志中出现的任何异常、报错或警告，并给出具体的排查方向或修复建议。要求使用${effectiveLang === 'zh' ? '中文' : '英文'} Markdown。日志如下：\n\n${currentLogs.slice(-4000)}`,
+          prompt: t.docker.aiLogPrompt
+            .replace('{name}', name)
+            .replace('{id}', id)
+            .replace('{logs}', currentLogs.slice(-4000)),
           systemPrompt: 'You are an expert Docker engineer specializing in container troubleshooting and log analysis.'
         })
       });
@@ -199,14 +202,17 @@ export default function DockerDashboard() {
     }
 
     setIsAiAnalyzing(true);
-    setAnalysisResult(effectiveLang === 'zh' ? `AI 正在分析容器 "${container.Names}" 的异常状态... 🪄` : `AI is analyzing container "${container.Names}" status... 🪄`);
+    setAnalysisResult(`${t.docker.aiAnalyzingStatus} "${container.Names}" ... 🪄`);
     setDiagnosisId(container.ID);
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `容器 "${container.Names}" 目前状态为 "${container.Status}"。镜像是 "${container.Image}"。请分析该状态是否正常，如果处于异常状态（如反复重启、Exited），请根据此状态信息结合你对该常用镜像的了解，推测可能的失败原因并给出诊断建议。要求使用${effectiveLang === 'zh' ? '中文' : '英文'} Markdown。`,
+          prompt: t.docker.aiStatusPrompt
+            .replace('{name}', container.Names)
+            .replace('{status}', container.Status)
+            .replace('{image}', container.Image),
           systemPrompt: 'You are an expert DevOps engineer specializing in Docker container health and status monitoring.'
         })
       });
@@ -232,7 +238,7 @@ export default function DockerDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请根据用户的需求，生成一条或多条 Docker 或 Docker Compose 命令。\n用户需求：${aiDemand}\n\n请直接返回可执行的命令代码，不要包含任何解释。`,
+          prompt: t.docker.aiGenPrompt.replace('{demand}', aiDemand),
           systemPrompt: 'You are an expert Docker command generator. You provide only the shell command text.'
         })
       });
@@ -262,7 +268,7 @@ export default function DockerDashboard() {
             onClick={() => setShowAiInput(!showAiInput)}
             style={{ gap: '0.5rem', height: '36px', color: 'var(--color-primary)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
           >
-            <Sparkles size={18} /> {effectiveLang === 'zh' ? 'AI 启动助手' : 'AI Launch Assistant'}
+            <Sparkles size={18} /> {t.docker.aiAssistant}
           </button>
           {activeTab === 'images' && images.some(img => !img.InUse) && (
             <button
@@ -284,20 +290,20 @@ export default function DockerDashboard() {
         <div className="card glass-panel" style={{ marginBottom: '1rem', padding: '1.25rem', animation: 'slideInDown 0.3s ease', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
             <Wand2 size={18} />
-            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{effectiveLang === 'zh' ? 'AI 一键启动助手' : 'AI One-click Launch'}</span>
+            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{t.docker.aiOneClick}</span>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>{effectiveLang === 'zh' ? '只需描述你的需求，AI 将为你规划命令。' : 'Just describe your needs, AI will generate commands for you.'}</p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>{t.docker.aiDesc}</p>
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: generatedCmd ? '1rem' : 0 }}>
             <input
               className="input"
-              placeholder={effectiveLang === 'zh' ? "例如：启动一个带有密码的 redis..." : "e.g. Start a redis with password..."}
+              placeholder={t.docker.aiPlaceholder}
               style={{ flex: 1 }}
               value={aiDemand}
               onChange={(e) => setAiDemand(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGenerateCmd()}
             />
             <button className="btn btn-primary" onClick={handleGenerateCmd} disabled={isAiGenerating || !aiDemand.trim()}>
-              {isAiGenerating ? (effectiveLang === 'zh' ? '规划中...' : 'Generating...') : (effectiveLang === 'zh' ? '规划命令' : 'Generate')}
+              {isAiGenerating ? t.docker.generating : t.docker.generateCmd}
             </button>
           </div>
           {generatedCmd && (
@@ -309,7 +315,7 @@ export default function DockerDashboard() {
                   className="btn btn-sm btn-ghost"
                   style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
                   onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
-                >{effectiveLang === 'zh' ? '复制' : 'Copy'}</button>
+                >{t.docker.copy}</button>
               </div>
             </div>
           )}
@@ -342,19 +348,19 @@ export default function DockerDashboard() {
       <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', padding: '1rem' }}>
         <div>
           <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {activeTab === 'containers' ? (effectiveLang === 'zh' ? '总容器数' : 'Total Containers') : (effectiveLang === 'zh' ? '总镜像数' : 'Total Images')}
+            {activeTab === 'containers' ? t.docker.totalContainers : t.docker.totalImages}
           </h3>
           <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
             {activeTab === 'containers' ? containers.length : images.length}
           </div>
           {activeTab === 'containers' && (
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-              {effectiveLang === 'zh' ? '运行中' : 'Running'}: {containers.filter(c => c.Status.includes('Up')).length}
+              {t.docker.running}: {containers.filter(c => c.Status.includes('Up')).length}
             </div>
           )}
         </div>
         <div className={`badge ${!error ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem' }}>
-          {!error ? (effectiveLang === 'zh' ? '服务正常' : 'Healthy') : (effectiveLang === 'zh' ? '服务异常' : 'Error')}
+          {!error ? t.docker.healthy : t.docker.errorStatus}
         </div>
       </div>
 
@@ -364,11 +370,11 @@ export default function DockerDashboard() {
             <table className="docker-table">
               <thead>
                 <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
-                  <th className="col-name">{effectiveLang === 'zh' ? '名称 / ID' : 'Name / ID'}</th>
+                  <th className="col-name">{t.docker.nameId}</th>
                   <th className="col-image desktop-only">{t.processes.user}</th>
-                  <th className="col-mappings desktop-only">{effectiveLang === 'zh' ? '映射 (端口/路径)' : 'Mappings'}</th>
-                  <th className="col-status">{effectiveLang === 'zh' ? '状态' : 'Status'}</th>
-                  <th className="col-actions">{effectiveLang === 'zh' ? '操作' : 'Actions'}</th>
+                  <th className="col-mappings desktop-only">{t.docker.mappings}</th>
+                  <th className="col-status">{t.docker.serviceStatus}</th>
+                  <th className="col-actions">{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -451,11 +457,11 @@ export default function DockerDashboard() {
             <table className="docker-table">
               <thead>
                 <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
-                  <th className="col-name">{effectiveLang === 'zh' ? '仓库名 / 标签' : 'Repo / Tag'}</th>
+                  <th className="col-name">{t.docker.repoTag}</th>
                   <th className="col-id desktop-only">ID</th>
-                  <th className="col-size">{effectiveLang === 'zh' ? '大小' : 'Size'}</th>
-                  <th className="col-status">{effectiveLang === 'zh' ? '状态' : 'Status'}</th>
-                  <th className="col-actions">{effectiveLang === 'zh' ? '操作' : 'Actions'}</th>
+                  <th className="col-size">{t.docker.size}</th>
+                  <th className="col-status">{t.docker.serviceStatus}</th>
+                  <th className="col-actions">{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody>
@@ -475,7 +481,7 @@ export default function DockerDashboard() {
                     </td>
                     <td className="col-status">
                       <span className={`badge ${img.InUse ? 'badge-primary' : 'badge-ghost'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}>
-                        {img.InUse ? (effectiveLang === 'zh' ? '使用中' : 'In Use') : (effectiveLang === 'zh' ? '未使用' : 'Idle')}
+                        {img.InUse ? t.docker.inUse : t.docker.idle}
                       </span>
                     </td>
                     <td className="col-actions">
@@ -515,7 +521,7 @@ export default function DockerDashboard() {
                   disabled={isAiAnalyzing || logsLoading}
                 >
                   <Sparkles size={14} className={isAiAnalyzing ? 'animate-pulse' : ''} />
-                  {isAiAnalyzing ? (effectiveLang === 'zh' ? '诊断中...' : 'Analyzing...') : t.common.aiAudit}
+                  {isAiAnalyzing ? t.docker.aiAnalyzingStatus : t.common.aiAudit}
                 </button>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setIsLogsOpen(false)}>{t.common.close}</button>
@@ -547,7 +553,7 @@ export default function DockerDashboard() {
                   borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
                 }}>
                   <Brain size={16} />
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{effectiveLang === 'zh' ? 'AI 容器深度诊断报告' : 'AI Container Diagnosis'}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.docker.aiContainerDiagnosis}</span>
                   <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem 1.25rem', overflowY: 'auto' }}>

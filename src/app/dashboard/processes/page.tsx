@@ -1,5 +1,8 @@
 "use client";
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 import { useEffect, useState, useMemo } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import {
@@ -14,7 +17,8 @@ import {
   Cpu,
   Database,
   Info,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 interface Process {
@@ -35,6 +39,11 @@ export default function ProcessManager() {
   const [filterUser, setFilterUser] = useState<string>('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5000);
+  const [selectedPid, setSelectedPid] = useState<string | null>(null);
+  const [processDetail, setProcessDetail] = useState<any>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const fetchProcesses = async () => {
     setLoading(true);
@@ -51,6 +60,66 @@ export default function ProcessManager() {
     }
   };
 
+  const fetchProcessDetail = async (pid: string) => {
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`/api/system/processes?pid=${pid}`);
+      const data = await res.json();
+      if (data.success) {
+        setProcessDetail(data.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch process detail', e);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleRowClick = (pid: string) => {
+    setSelectedPid(pid);
+    setAiAnalysis(null);
+    fetchProcessDetail(pid);
+  };
+
+  const handleAiAnalyze = async () => {
+    if (!processDetail) return;
+    setAnalyzing(true);
+    setAiAnalysis(null);
+    try {
+      const prompt = t.processes.aiPrompt
+        .replace('{pid}', processDetail.pid)
+        .replace('{ppid}', processDetail.ppid)
+        .replace('{ppidName}', processDetail.ppidName || 'Unknown')
+        .replace('{command}', processDetail.command)
+        .replace('{fullCommand}', processDetail.fullCommand)
+        .replace('{cpu}', processDetail.cpu)
+        .replace('{mem}', processDetail.mem)
+        .replace('{user}', processDetail.user)
+        .replace('{start}', processDetail.start)
+        .replace('{state}', processDetail.state)
+        .replace('{openFiles}', processDetail.openFiles?.slice(0, 10).join('\n') || '');
+
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: language === 'en' ? `Analyze this macOS process: ${prompt}. Answer in English.` : prompt,
+          systemPrompt: "You are a macOS system expert. Analyze the provided process information and provide a helpful diagnosis."
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiAnalysis(data.data);
+      } else {
+        setAiAnalysis("Analysis failed: " + data.error);
+      }
+    } catch (e) {
+      setAiAnalysis("Network error.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   useEffect(() => {
     fetchProcesses();
   }, []);
@@ -62,6 +131,12 @@ export default function ProcessManager() {
     }
     return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval, sortField]);
+
+  const getStateMessage = (state: string) => {
+    const s = state.charAt(0);
+    const messages = t.processes.states;
+    return messages[s as keyof typeof messages] || messages.unknown;
+  };
 
   const toggleSort = (field: 'cpu' | 'mem' | 'pid' | 'command' | 'user') => {
     if (sortField === field) {
@@ -85,7 +160,7 @@ export default function ProcessManager() {
       if (data.success) {
         fetchProcesses();
       } else {
-        alert(`${effectiveLang === 'zh' ? '操作失败' : 'Action failed'}: ${data.error}`);
+        alert(`${t.common.actionFailed}: ${data.error}`);
       }
     } catch (e) {
       alert(t.common.networkError);
@@ -235,7 +310,12 @@ export default function ProcessManager() {
             </thead>
             <tbody>
               {filteredAndSortedProcesses.map((p, i) => (
-                <tr key={p.pid + i} className="process-row hover-scale">
+                <tr
+                  key={p.pid + i}
+                  className={`process-row hover-scale ${selectedPid === p.pid ? 'selected' : ''}`}
+                  onClick={() => handleRowClick(p.pid)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <td className="col-pid">{p.pid}</td>
                   <td className="col-command">
                     <div className="command-text">{p.command}</div>
@@ -253,7 +333,7 @@ export default function ProcessManager() {
                   <td className="col-mem">
                     <span style={{ fontWeight: 500 }}>{p.mem}%</span>
                   </td>
-                  <td className="col-actions">
+                  <td className="col-actions" onClick={(e) => e.stopPropagation()}>
                     <div className="action-buttons">
                       <button
                         className="btn btn-ghost btn-sm"
@@ -292,8 +372,182 @@ export default function ProcessManager() {
 
       <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
         <Info size={14} />
-        <span>SIGTERM will attempt to save data, while SIGKILL stops the process immediately.</span>
+        <span>{t.processes.signalDescription}</span>
       </div>
+
+      {/* Detail Modal */}
+      {selectedPid && (
+        <div className="modal-overlay" onClick={() => setSelectedPid(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+            {/* Modal Header */}
+            <div className="flex-between" style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--color-surface-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
+                  <Info size={20} color="var(--color-primary)" />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{t.processes.details}</h2>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>PID: {selectedPid}</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {processDetail && !loadingDetail && !aiAnalysis && !analyzing && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ gap: '0.4rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                    onClick={() => handleAiAnalyze()}
+                  >
+                    <Sparkles size={14} />
+                    {t.processes.aiAnalyze}
+                  </button>
+                )
+                }
+                <button className="btn btn-ghost" onClick={() => setSelectedPid(null)} style={{ padding: '0.5rem' }}>
+                  <XOctagon size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem' }}>
+              {loadingDetail ? (
+                <div className="flex-center" style={{ padding: '4rem', flexDirection: 'column', gap: '1rem' }}>
+                  <RefreshCw size={32} className="animate-spin" color="var(--color-primary)" />
+                  <p>{t.common.loading}</p>
+                </div>
+              ) : processDetail ? (
+                <>
+                  {/* AI Analysis Result Section - Show only if analyzing or has result */}
+                  {(aiAnalysis || analyzing) && (
+                    <div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px dashed var(--color-surface-border)' }}>
+                      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%)', padding: '1.25rem', border: '1px solid rgba(59, 130, 246, 0.1)', borderRadius: 'var(--radius-md)' }}>
+                        <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
+                          <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-primary)' }}>
+                            <Sparkles size={18} />
+                            <span style={{ fontWeight: 600 }}>{t.processes.aiAnalysisTitle}</span>
+                          </div>
+                          {analyzing && <RefreshCw size={16} className="animate-spin" color="var(--color-primary)" />}
+                        </div>
+                        {analyzing ? (
+                          <div className="flex-center" style={{ padding: '1.5rem', flexDirection: 'column', gap: '0.5rem' }}>
+                            <RefreshCw size={24} className="animate-spin" color="var(--color-primary)" style={{ opacity: 0.5 }} />
+                            <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0, color: 'var(--color-text-muted)' }}>{t.processes.aiAnalyzing}</p>
+                          </div>
+                        ) : (
+                          <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.9rem', color: 'var(--color-text)', lineHeight: 1.6, maxHeight: '300px', overflowY: 'auto' }}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="detail-grid">
+                    <div className="detail-item full-width">
+                      <label>{t.processes.name}</label>
+                      <div className="value" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: '1.1rem', wordBreak: 'break-all' }}>{processDetail.command}</div>
+                    </div>
+                    <div className="detail-item">
+                      <label>{t.processes.user}</label>
+                      <div className="value">{processDetail.user}</div>
+                    </div>
+                    <div className="detail-item">
+                      <label>{t.processes.parentPid}</label>
+                      <div className="value">
+                        {(!processDetail.ppid || processDetail.ppid === '0' || processDetail.ppid === '1') ? (
+                          <span>{processDetail.ppid} (System)</span>
+                        ) : (
+                          <button
+                            onClick={() => handleRowClick(processDetail.ppid)}
+                            className="btn-link"
+                            title={t.common.details}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              margin: 0,
+                              font: 'inherit',
+                              color: 'var(--color-primary)',
+                              cursor: 'pointer',
+                              textDecoration: 'underline',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem'
+                            }}
+                          >
+                            {processDetail.ppid}
+                            {processDetail.ppidName && (
+                              <span style={{ fontSize: '0.85rem', color: 'inherit', opacity: 0.8 }}>
+                                ({processDetail.ppidName})
+                              </span>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="detail-item">
+                      <label>{t.processes.state}</label>
+                      <div className="value" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="badge badge-info">{processDetail.state}</span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                          ({getStateMessage(processDetail.state)})
+                        </span>
+                      </div>
+                    </div>
+                    <div className="detail-item">
+                      <label>{t.processes.startTime} / {t.processes.cpuTime}</label>
+                      <div className="value">
+                        {processDetail.start} <span style={{ color: 'var(--color-text-muted)', margin: '0 0.3rem', opacity: 0.5 }}>|</span> {processDetail.time}
+                      </div>
+                    </div>
+                    <div className="detail-item full-width">
+                      <label>{t.processes.fullCommand}</label>
+                      <div className="value code-block" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem' }}>
+                        {processDetail.fullCommand}
+                      </div>
+                    </div>
+                    <div className="detail-item full-width">
+                      <label>{t.processes.openFiles}</label>
+                      <div className="value code-block" style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '0.8rem' }}>
+                        {processDetail.openFiles && processDetail.openFiles.length > 0 ? (
+                          processDetail.openFiles.map((f: string, idx: number) => (
+                            <div key={idx} style={{ padding: '0.2rem 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>{f}</div>
+                          ))
+                        ) : (
+                          <span style={{ color: 'var(--color-text-muted)' }}>{t.common.none}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-center" style={{ padding: '3rem' }}>
+                  <p style={{ color: 'var(--color-danger)' }}>{t.common.fetchFailed}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer - Fixed */}
+            <div className="flex-center" style={{ padding: '1.5rem 2rem', gap: '1rem', borderTop: '1px solid var(--color-surface-border)', background: '#fcfcfc' }}>
+              <button
+                className="btn btn-outline"
+                style={{ flex: 1, borderColor: 'var(--color-warning)', color: 'var(--color-warning)' }}
+                onClick={() => handleAction(selectedPid, 'term')}
+              >
+                {t.processes.terminate}
+              </button>
+              <button
+                className="btn btn-outline"
+                style={{ flex: 1, borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
+                onClick={() => handleAction(selectedPid, 'kill')}
+              >
+                {t.processes.forceKill}
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+      }
 
       <style jsx>{`
         .process-table-container {
@@ -304,7 +558,7 @@ export default function ProcessManager() {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
-          min-width: 600px;
+          min-width: 800px;
         }
         .process-table th, .process-table td {
           padding: 1rem;
@@ -314,11 +568,11 @@ export default function ProcessManager() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .col-pid { width: 80px; font-family: monospace; }
-        .col-command { width: auto; font-weight: 600; }
-        .col-user { width: 100px; color: var(--color-text-muted); }
-        .col-cpu { width: 90px; }
-        .col-mem { width: 90px; }
+        .col-pid { width: 90px; font-family: monospace; }
+        .col-command { width: 35%; font-weight: 600; }
+        .col-user { width: 120px; color: var(--color-text-muted); }
+        .col-cpu { width: 100px; }
+        .col-mem { width: 100px; }
         .col-actions { width: 100px; text-align: right; }
         
         .sortable { cursor: pointer; transition: background 0.2s; }
@@ -331,9 +585,10 @@ export default function ProcessManager() {
         }
 
         .command-text {
-          max-width: 250px;
+          width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
+          display: block;
         }
 
         .mobile-only-details {
@@ -348,6 +603,11 @@ export default function ProcessManager() {
         .process-row {
           border-bottom: 1px solid rgba(0,0,0,0.03);
           transition: all 0.2s;
+        }
+
+        .process-row.selected {
+          background: var(--color-primary-light);
+          border-left: 3px solid var(--color-primary);
         }
         
         @media (max-width: 768px) {
@@ -383,7 +643,101 @@ export default function ProcessManager() {
           background: rgba(59, 130, 246, 0.03);
           transform: translateX(4px);
         }
+
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 1rem;
+        }
+
+        .modal-content {
+          padding: 2rem;
+          background: #ffffff;
+          border-radius: var(--radius-lg);
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+          animation: slideUp 0.3s ease-out;
+          border: 1px solid var(--color-surface-border);
+          position: relative;
+        }
+
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
+        .detail-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1.5rem;
+        }
+
+        .detail-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .detail-item.full-width {
+          grid-column: span 2;
+        }
+
+        .detail-item label {
+          font-size: 0.75rem;
+          color: var(--color-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .detail-item .value {
+          font-size: 0.95rem;
+          word-break: break-all;
+        }
+
+        .code-block {
+          background: var(--color-primary-light);
+          padding: 0.75rem;
+          border-radius: var(--radius-md);
+          font-family: monospace;
+          border: 1px solid var(--color-surface-border);
+        }
+
+        @media (max-width: 600px) {
+          .detail-grid {
+            grid-template-columns: 1fr;
+          }
+          .detail-item.full-width {
+            grid-column: span 1;
+          }
+        }
+        .markdown-body :global(ul), .markdown-body :global(ol) {
+          padding-left: 1.5rem;
+          margin: 0.5rem 0;
+        }
+        .markdown-body :global(li) {
+          margin: 0.25rem 0;
+        }
+        .markdown-body :global(p) {
+          margin: 0.5rem 0;
+        }
+        .markdown-body :global(code) {
+          background: rgba(0,0,0,0.05);
+          padding: 0.1rem 0.3rem;
+          border-radius: 3px;
+          font-family: monospace;
+        }
+        .markdown-body :global(strong) {
+          color: var(--color-primary);
+        }
       `}</style>
-    </div>
+    </div >
   );
 }

@@ -37,12 +37,28 @@ export default function ConfigsDashboard() {
     setShowAiPanel(false);
   }, [editingId]);
 
+  const getErrorMessage = (errorKey: string, details?: string) => {
+    const errorMap: Record<string, string> = {
+      'FETCH_FAILED': t.configs.fetchFailed,
+      'NOT_FOUND': t.configs.configNotFound,
+      'READ_FAILED': t.configs.readFailed,
+      'WRITE_FAILED': t.configs.writeFailed,
+      'PERMISSION_DENIED': t.configs.permissionDenied,
+      'UNKNOWN_ACTION': t.configs.unknownAction,
+      'ACTION_FAILED': t.configs.actionFailed,
+    };
+    const msg = errorMap[errorKey] || errorKey || t.common.unknownError;
+    return details ? `${msg} (${details})` : msg;
+  };
+
   const fetchConfigs = async () => {
     try {
       const res = await fetch('/api/configs');
       const data = await res.json();
       if (data.success) {
         setConfigs(data.data || []);
+      } else {
+        console.error('Fetch failed', data.error);
       }
     } catch (e) {
       console.error('Fetch failed', e);
@@ -65,7 +81,7 @@ export default function ConfigsDashboard() {
       if (data.success) {
         setContent(data.content);
       } else {
-        setContent(`${t.common.error}: ${data.details || data.error}`);
+        setContent(`${t.common.error}: ${getErrorMessage(data.error, data.details)}`);
       }
     } catch (e) {
       setContent(t.common.networkError);
@@ -76,7 +92,7 @@ export default function ConfigsDashboard() {
 
   const handleSave = async () => {
     if (!editingId) return;
-    setSaveStatus(effectiveLang === 'zh' ? '保存中...' : 'Saving...');
+    setSaveStatus(t.common.saving);
     try {
       const res = await fetch('/api/configs', {
         method: 'POST',
@@ -88,7 +104,7 @@ export default function ConfigsDashboard() {
         setSaveStatus(t.common.saveSuccess);
         setTimeout(() => setSaveStatus(''), 2000);
       } else {
-        setSaveStatus(`${t.common.saveFailed}: ${data.details || data.error}`);
+        setSaveStatus(`${t.common.saveFailed}: ${getErrorMessage(data.error, data.details)}`);
       }
     } catch (e) {
       setSaveStatus(t.common.networkError);
@@ -99,21 +115,24 @@ export default function ConfigsDashboard() {
     if (!content || readLoading || isAiEditing || !aiDemand.trim()) return;
 
     setIsAiEditing(true);
-    setSaveStatus(effectiveLang === 'zh' ? 'AI 正在修改中... 🪄' : 'AI is editing... 🪄');
+    setSaveStatus(t.configs.aiEditing);
     try {
-      const configName = configs.find(c => c.id === editingId)?.name || 'Configuration';
+      const configName = (t.configs.names as any)[editingId || ''] || configs.find(c => c.id === editingId)?.name || 'Configuration';
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `As a system expert, help me modify the configuration file "${configName}".\nUser requirement: ${aiDemand}\n\nCurrent file content:\n${content}\n\nNote: Return the full modified content ONLY without markdown blocks or extra explanation.`,
+          prompt: t.configs.aiEditPrompt
+            .replace('{name}', configName)
+            .replace('{demand}', aiDemand)
+            .replace('{content}', content),
           systemPrompt: 'You are an expert system administrator.'
         })
       });
       const data = await res.json();
       if (data.success) {
         setContent(data.data);
-        setSaveStatus(effectiveLang === 'zh' ? 'AI 修改完成，请检查并保存' : 'AI modification completed, please review and save');
+        setSaveStatus(t.configs.aiEditDone);
         setAiDemand('');
         setShowAiPanel(false);
         setTimeout(() => setSaveStatus(''), 5000);
@@ -144,12 +163,15 @@ export default function ConfigsDashboard() {
     setIsAiAnalyzing(true);
     setAnalysisResult(t.configs.aiExplaining);
     try {
-      const configName = configs.find(c => c.id === editingId)?.name || 'Configuration';
+      const configName = (t.configs.names as any)[editingId || ''] || configs.find(c => c.id === editingId)?.name || 'Configuration';
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `As a system expert, analyze the configuration file "${configName}". Explain its purpose, security risks, and optimization suggestions. Format in Markdown, language: ${effectiveLang === 'zh' ? 'Chinese' : 'English'}.\n\nContent:\n${content}`,
+          prompt: t.configs.aiAuditPrompt
+            .replace('{name}', configName)
+            .replace('{lang}', t.configs.promptLang)
+            .replace('{content}', content),
           systemPrompt: 'You are an expert system administrator.'
         })
       });
@@ -179,7 +201,7 @@ export default function ConfigsDashboard() {
           <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.configs.title}</h1>
         </div>
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }} className="desktop-only">
-          {effectiveLang === 'zh' ? '快速修改系统和终端配置文件' : 'Quickly modify system and terminal config files'}
+          {t.configs.quickModify}
         </div>
       </div>
 
@@ -187,7 +209,7 @@ export default function ConfigsDashboard() {
         <div className="configs-sidebar card glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="flex-between" style={{ marginBottom: '1rem' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>
-              {effectiveLang === 'zh' ? '可用配置文件' : 'Available config files'}
+              {t.configs.availableConfigs}
             </h3>
             <button className="btn btn-ghost btn-sm" onClick={fetchConfigs} disabled={loading} style={{ height: '24px', padding: '0 0.4rem' }}>
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -214,10 +236,10 @@ export default function ConfigsDashboard() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 600, color: editingId === config.id ? 'var(--color-primary)' : 'inherit' }}>
-                      {config.name}
+                      {(t.configs.names as any)[config.id] || config.name}
                     </span>
                     <span className={`badge ${config.type === 'system' ? 'badge-danger' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                      {config.type === 'system' ? (effectiveLang === 'zh' ? '系统' : 'System') : (effectiveLang === 'zh' ? '用户' : 'User')}
+                      {config.type === 'system' ? t.configs.system : t.configs.user}
                     </span>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -244,7 +266,7 @@ export default function ConfigsDashboard() {
                   </button>
                   <FileText size={24} color="var(--color-primary)" className="desktop-only" />
                   <h3 style={{ margin: 0, fontSize: '1rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {configs.find(c => c.id === editingId)?.name}
+                    {(t.configs.names as any)[editingId] || configs.find(c => c.id === editingId)?.name}
                   </h3>
                 </div>
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -263,11 +285,11 @@ export default function ConfigsDashboard() {
                     className="btn btn-ghost btn-sm"
                     onClick={() => setShowAiPanel(!showAiPanel)}
                     disabled={readLoading || isAiEditing || !content}
-                    title={effectiveLang === 'zh' ? 'AI 智能编辑' : 'AI Edit'}
+                    title={t.configs.aiEditTitle}
                     style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}
                   >
                     <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiEditing ? 'animate-pulse' : ''} />
-                    {isAiEditing ? (effectiveLang === 'zh' ? 'AI 编辑中...' : 'AI Editing...') : t.common.aiAdjust}
+                    {isAiEditing ? t.configs.aiEditingBtn : t.common.aiAdjust}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId!); setSaveStatus(''); setAnalysisResult(''); }} title={t.common.refresh}>
                     <RefreshCw size={14} className={readLoading ? 'animate-spin' : ''} />
@@ -279,11 +301,11 @@ export default function ConfigsDashboard() {
                 <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
                     <Sparkles size={14} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{effectiveLang === 'zh' ? 'AI 智能编辑助手' : 'AI Edit Assistant'}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t.configs.aiEditAssistant}</span>
                   </div>
                   <textarea
                     className="input"
-                    placeholder={effectiveLang === 'zh' ? "描述你想要进行的修改..." : "Describe changes you want..."}
+                    placeholder={t.configs.aiEditPlaceholder}
                     value={aiDemand}
                     onChange={(e) => setAiDemand(e.target.value)}
                     style={{ minHeight: '100px', fontSize: '0.85rem', width: '100%' }}
@@ -291,7 +313,7 @@ export default function ConfigsDashboard() {
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setShowAiPanel(false)}>{t.common.cancel}</button>
                     <button className="btn btn-primary btn-sm" onClick={handleAiEdit} disabled={!aiDemand.trim() || isAiEditing}>
-                      {isAiEditing ? (effectiveLang === 'zh' ? '处理中...' : 'Processing...') : (effectiveLang === 'zh' ? '开始执行修改' : 'Apply changes')}
+                      {isAiEditing ? t.configs.aiProcessing : t.configs.aiApply}
                     </button>
                   </div>
                 </div>
@@ -371,7 +393,7 @@ export default function ConfigsDashboard() {
                 </button>
               </div>
               <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                💡 {effectiveLang === 'zh' ? '某些系统文件（如 hosts）可能需要管理员权限。如果保存失败，请确保监控程序具有足够的权限。' : 'Some system files (like hosts) may require admin privileges. Ensure the agent has sufficient permissions if saving fails.'}
+                💡 {t.configs.permissionNote}
               </p>
             </>
           ) : (
@@ -383,7 +405,7 @@ export default function ConfigsDashboard() {
                 <line x1="16" y1="17" x2="8" y2="17"></line>
                 <polyline points="10 9 9 9 8 9"></polyline>
               </svg>
-              <p>{effectiveLang === 'zh' ? '请从左侧选择一个配置文件进行查看或编辑' : 'Please select a config file to view or edit'}</p>
+              <p>{t.configs.selectConfig}</p>
             </div>
           )}
         </div>

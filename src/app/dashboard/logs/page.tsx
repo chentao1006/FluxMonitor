@@ -20,16 +20,16 @@ export default function LogsPage() {
   const [isExplaining, setIsExplaining] = useState(false);
   const aiCacheRef = useRef<Record<string, string>>({});
 
-  const [activeCategory, setActiveCategory] = useState<string>('全部');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  const internalCategories = ['全部', '系统', '服务', '应用', '其他'];
-  const categoryLabels = [
-    t.logs.category,
-    effectiveLang === 'zh' ? '系统' : 'System',
-    effectiveLang === 'zh' ? '服务' : 'Services',
-    effectiveLang === 'zh' ? '应用' : 'Apps',
-    effectiveLang === 'zh' ? '其他' : 'Other'
-  ];
+  const internalCategories = ['all', 'system', 'service', 'app', 'other'];
+  const categoryLabels: Record<string, string> = {
+    all: t.logs.all,
+    system: t.logs.system,
+    service: t.logs.service,
+    app: t.logs.app,
+    other: t.logs.other
+  };
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -74,7 +74,7 @@ export default function LogsPage() {
   const clearLog = async (targetFile?: string, password?: string) => {
     const fileToClear = targetFile || activeFile;
     if (!fileToClear) return;
-    if (!password && !window.confirm(`${effectiveLang === 'zh' ? '确定要清理日志文件吗？' : 'Clear log file?'} ${fileToClear.split('/').pop()}`)) return;
+    if (!password && !window.confirm(`${t.logs.clearConfirm} ${fileToClear.split('/').pop()}`)) return;
 
     try {
       const res = await fetch('/api/logs', {
@@ -87,7 +87,7 @@ export default function LogsPage() {
         if (fileToClear === activeFile) setContent('');
         fetchFiles();
       } else if (data.requiresPassword) {
-        const pass = window.prompt(effectiveLang === 'zh' ? '该操作需要系统权限，请输入 sudo 密码:' : 'Admin password is required:');
+        const pass = window.prompt(t.logs.requireSudo);
         if (pass) clearLog(fileToClear, pass);
       } else {
         alert(`${t.common.error}: ${data.error}`);
@@ -116,7 +116,7 @@ export default function LogsPage() {
         }
         fetchFiles();
       } else if (data.requiresPassword) {
-        const pass = window.prompt(effectiveLang === 'zh' ? '该操作需要系统权限，请输入 sudo 密码:' : 'Admin password is required:');
+        const pass = window.prompt(t.logs.requireSudo);
         if (pass) deleteFile(fileToDelete, pass);
       } else {
         alert(`${t.common.error}: ${data.error}`);
@@ -143,11 +143,15 @@ export default function LogsPage() {
     setIsExplaining(true);
     setLogExplanation(t.logs.aiProcess);
     try {
+      const prompt = t.logs.aiPrompt
+        .replace('{filename}', activeFile.split('/').pop() || '')
+        .replace('{content}', content.slice(-4000));
+
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `请作为资深系统专家，分析以下日志文件 "${activeFile.split('/').pop()}" 的内容。请解释当前系统的状态、是否有异常情况。要求使用${effectiveLang === 'zh' ? '中文' : '英文'}，结构清晰。日志内容如下：\n\n${content.slice(-4000)}`,
+          prompt: prompt,
           systemPrompt: 'You are an expert system administrator and software engineer specializing in macOS and Linux system logs.'
         })
       });
@@ -186,7 +190,7 @@ export default function LogsPage() {
     const filtered = files.filter(f => {
       const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         f.path.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = activeCategory === '全部' || f.category === activeCategory;
+      const matchesCategory = activeCategory === 'all' || f.category === activeCategory;
       return matchesSearch && matchesCategory;
     });
     setFilteredFiles(filtered);
@@ -244,7 +248,7 @@ export default function LogsPage() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  {categoryLabels[idx]} ({cat === '全部' ? files.length : files.filter(f => f.category === cat).length})
+                  {categoryLabels[cat]} ({cat === 'all' ? files.length : files.filter(f => f.category === cat).length})
                 </button>
               ))}
             </div>
@@ -290,7 +294,7 @@ export default function LogsPage() {
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             <span>{(file.size / 1024).toFixed(1)} KB</span>
                             <span>•</span>
-                            <span>{new Date(file.mtime).toLocaleString(effectiveLang === 'zh' ? 'zh-CN' : 'en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>{new Date(file.mtime).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
 
                           <div className="log-item-actions" style={{ display: 'flex', gap: '0.15rem', opacity: 0, transition: 'opacity 0.2s' }}>
@@ -298,7 +302,7 @@ export default function LogsPage() {
                               className="btn btn-ghost"
                               onClick={(e) => { e.stopPropagation(); clearLog(file.path); }}
                               style={{ padding: '0.15rem', color: 'var(--color-warning)', minHeight: 'auto', background: 'transparent' }}
-                              title={effectiveLang === 'zh' ? '清空' : 'Clear'}
+                              title={t.common.clear}
                             >
                               <Eraser size={12} />
                             </button>
@@ -328,15 +332,15 @@ export default function LogsPage() {
                 className="btn btn-ghost mobile-back-btn"
                 onClick={() => setActiveFile(null)}
                 style={{ padding: '0.4rem', borderRadius: 'var(--radius-sm)' }}
-                title={effectiveLang === 'zh' ? '返回列表' : 'Back to list'}
+                title={t.common.back}
               >
                 <ArrowLeft size={18} />
               </button>
               <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <span>{activeFile ? activeFile.split('/').pop() : (effectiveLang === 'zh' ? '未选择文件' : 'No file selected')}</span>
+                <span>{activeFile ? activeFile.split('/').pop() : t.logs.noFileSel}</span>
                 {activeFile && (
                   <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                    {effectiveLang === 'zh' ? '路径' : 'Path'}: {activeFile}
+                    {t.logs.pathLabel}: {activeFile}
                   </span>
                 )}
               </div>
@@ -365,7 +369,7 @@ export default function LogsPage() {
                 onClick={() => clearLog()}
                 disabled={!activeFile}
                 style={{ color: 'var(--color-warning)', padding: '0.5rem' }}
-                title={effectiveLang === 'zh' ? '清空' : 'Clear'}
+                title={t.common.clear}
               >
                 <Eraser size={18} />
               </button>
@@ -442,7 +446,7 @@ export default function LogsPage() {
                 </div>
               ) : (
                 <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
-                  {effectiveLang === 'zh' ? '请从左侧选择一个日志文件进行查看' : 'Please select a log file to view'}
+                  {t.logs.noFileLeft}
                 </div>
               ))}
             </pre>

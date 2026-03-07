@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const { prompt, systemPrompt } = await request.json();
 
     if (!prompt) {
-      return NextResponse.json({ error: '缺少 Prompt' }, { status: 400 });
+      return NextResponse.json({ error: 'MISSING_PROMPT' }, { status: 400 });
     }
 
     const configPath = path.join(process.cwd(), 'config.json');
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     if (!res.ok) {
       const text = await res.text();
-      return NextResponse.json({ error: `AI 请求失败: ${res.status} ${text}` }, { status: 500 });
+      return NextResponse.json({ error: 'AI_REQUEST_FAILED', details: `${res.status} ${text}` }, { status: 500 });
     }
 
     const data = await res.json();
@@ -59,6 +59,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: content.trim() });
   } catch (error: unknown) {
     const err = error as Error;
-    return NextResponse.json({ error: 'AI 请求执行失败', details: err?.message }, { status: 500 });
+    return NextResponse.json({ error: 'AI_EXECUTION_FAILED', details: err?.message }, { status: 500 });
   }
 }

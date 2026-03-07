@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
     if (action === 'get_config') {
       if (!fs.existsSync(CONFIG_PATH)) {
-        return NextResponse.json({ success: true, content: '{}', message: '配置文件不存在，已返回空配置' });
+        return NextResponse.json({ success: true, content: '{}', message: 'CONFIG_NOT_FOUND' });
       }
       const data = fs.readFileSync(CONFIG_PATH, 'utf-8');
       return NextResponse.json({ success: true, content: data });
@@ -103,20 +103,20 @@ export async function POST(request: Request) {
 
     if (action === 'read_memory') {
       if (!targetPath || !fs.existsSync(targetPath)) {
-        return NextResponse.json({ error: '文件不存在' }, { status: 404 });
+        return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
       }
       // Security check: ensure path is within .openclaw
       if (!targetPath.includes('.openclaw')) {
-        return NextResponse.json({ error: '非法路径' }, { status: 403 });
+        return NextResponse.json({ error: 'INVALID_PATH' }, { status: 403 });
       }
       const data = fs.readFileSync(targetPath, 'utf-8');
       return NextResponse.json({ success: true, content: data });
     }
 
     if (action === 'save_memory') {
-      if (!targetPath) return NextResponse.json({ error: '未指定路径' }, { status: 400 });
+      if (!targetPath) return NextResponse.json({ error: 'PATH_REQUIRED' }, { status: 400 });
       if (!targetPath.includes('.openclaw')) {
-        return NextResponse.json({ error: '非法路径' }, { status: 403 });
+        return NextResponse.json({ error: 'INVALID_PATH' }, { status: 403 });
       }
       const dir = path.dirname(targetPath);
       if (!fs.existsSync(dir)) {
@@ -127,12 +127,12 @@ export async function POST(request: Request) {
     }
 
     if (action === 'delete_memory') {
-      if (!targetPath) return NextResponse.json({ error: '未指定路径' }, { status: 400 });
+      if (!targetPath) return NextResponse.json({ error: 'PATH_REQUIRED' }, { status: 400 });
       if (!targetPath.includes('.openclaw')) {
-        return NextResponse.json({ error: '非法路径' }, { status: 403 });
+        return NextResponse.json({ error: 'INVALID_PATH' }, { status: 403 });
       }
       if (!fs.existsSync(targetPath)) {
-        return NextResponse.json({ error: '文件不存在' }, { status: 404 });
+        return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
       }
       fs.unlinkSync(targetPath);
       return NextResponse.json({ success: true });
@@ -169,7 +169,8 @@ export async function POST(request: Request) {
       if (!fs.existsSync(targetPath)) {
         return NextResponse.json({
           success: false,
-          error: `日志文件不存在: ${targetPath}`,
+          error: 'LOG_NOT_FOUND',
+          path: targetPath,
           searched: [path.join(OPENCLAW_DIR, 'logs', 'gateway.log'), path.join(OPENCLAW_DIR, 'logs', 'gateway.err.log')]
         }, { status: 404 });
       }
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
           time: new Date().toISOString()
         });
       } catch (e: any) {
-        return NextResponse.json({ success: false, error: `无法读取日志: ${e.message}` }, { status: 500 });
+        return NextResponse.json({ success: false, error: 'READ_FAILED', details: e.message }, { status: 500 });
       }
     }
 
@@ -272,11 +273,11 @@ export async function POST(request: Request) {
 
     if (action === 'command') {
       if (!command || !command.startsWith('openclaw')) {
-        return NextResponse.json({ error: '出于安全原因，命令必须以 openclaw 开头' }, { status: 400 });
+        return NextResponse.json({ error: 'SECURITY_VIOLATION', details: 'Command must start with openclaw' }, { status: 400 });
       }
 
       if (command.includes('--follow') || command.includes('-f ')) {
-        return NextResponse.json({ error: '出于安全原因，不支持 --follow 等交互式命令。请在终端直接运行。' }, { status: 400 });
+        return NextResponse.json({ error: 'INTERACTIVE_NOT_SUPPORTED' }, { status: 400 });
       }
 
       try {
@@ -313,11 +314,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
-    return NextResponse.json({ error: '无效的操作' }, { status: 400 });
+    return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({
-      error: 'OpenClaw 操作失败',
-      details: error?.message || '未知错误'
+      error: 'ACTION_FAILED',
+      details: error?.message || 'UNKNOWN_ERROR'
     }, { status: 500 });
   }
 }

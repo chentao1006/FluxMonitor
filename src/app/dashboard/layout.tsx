@@ -15,27 +15,24 @@ export default function DashboardLayout({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [features, setFeatures] = useState<any>({
-    monitor: true,
-    processes: true,
-    logs: true,
-    configs: true,
-    launchagent: true,
-    docker: true,
-    nginx: true,
-    openclaw: true
-  });
+  const [features, setFeatures] = useState<any>(null);
 
   useEffect(() => {
-    setMounted(true);
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.features) {
           setFeatures(data.data.features);
+        } else {
+          setFeatures({});
         }
+        setMounted(true);
       })
-      .catch(err => console.error('Load features failed', err));
+      .catch(err => {
+        console.error('Load features failed', err);
+        setFeatures({});
+        setMounted(true);
+      });
   }, []);
 
   // Close menu on escape key
@@ -77,8 +74,8 @@ export default function DashboardLayout({
             </svg>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1 }}>FLUX</h2>
-            <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.2em', marginTop: '2px' }}>浮光</span>
+            <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1 }}>{t.login.title}</h2>
+            <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.2em', marginTop: '2px' }}>{t.login.logoText}</span>
           </div>
         </div>
         <div className="mobile-menu-btn" aria-label="Toggle menu">
@@ -102,22 +99,22 @@ export default function DashboardLayout({
               </svg>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, letterSpacing: '0.1em', lineHeight: 1 }}>FLUX</h2>
-              <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.4em', marginTop: '4px', textIndent: '0.2em' }}>浮光</span>
+              <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, letterSpacing: '0.1em', lineHeight: 1 }}>{t.login.title}</h2>
+              <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.4em', marginTop: '4px', textIndent: '0.2em' }}>{t.login.logoText}</span>
             </div>
           </div>
         </div>
 
         <div className="app-sidebar-content">
           <nav className="nav-list no-scrollbar">
-            {features.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>{t.sidebar.monitor}</NavLink>}
-            {features.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>{t.sidebar.processes}</NavLink>}
-            {features.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>{t.sidebar.logs}</NavLink>}
-            {features.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>{t.sidebar.configs}</NavLink>}
-            {features.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>{t.sidebar.launchagent}</NavLink>}
-            {features.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>{t.sidebar.docker}</NavLink>}
-            {features.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>{t.sidebar.nginx}</NavLink>}
-            {features.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>{t.sidebar.openclaw}</NavLink>}
+            {features?.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>{t.sidebar.monitor}</NavLink>}
+            {features?.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>{t.sidebar.processes}</NavLink>}
+            {features?.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>{t.sidebar.logs}</NavLink>}
+            {features?.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>{t.sidebar.configs}</NavLink>}
+            {features?.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>{t.sidebar.launchagent}</NavLink>}
+            {features?.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>{t.sidebar.docker}</NavLink>}
+            {features?.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>{t.sidebar.nginx}</NavLink>}
+            {features?.openclaw !== false && <NavLink href="/dashboard/openclaw" icon="lobster" onClick={() => setIsMenuOpen(false)}>{t.sidebar.openclaw}</NavLink>}
           </nav>
 
           <div className="sidebar-footer">
@@ -127,7 +124,7 @@ export default function DashboardLayout({
                 <button
                   className="btn btn-ghost icon-only-btn"
                   onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                  title={effectiveLang === 'zh' ? '语言切换 / Language' : 'Language / 语言切换'}
+                  title={t.common.toggleLanguage}
                 >
                   <Languages size={20} />
                 </button>
@@ -155,10 +152,10 @@ export default function DashboardLayout({
                         style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
                         onClick={() => { setLanguage('auto'); setIsLangMenuOpen(false); }}
                       >
-                        {effectiveLang === 'zh' ? '系统默认' : 'System Default'}
+                        {t.common.systemDefault}
                       </button>
                       <button
-                        className={`btn btn-sm ${effectiveLang === 'zh' ? 'btn-primary' : 'btn-ghost'}`}
+                        className={`btn btn-sm ${language === 'zh' ? 'btn-primary' : 'btn-ghost'}`}
                         style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
                         onClick={() => { setLanguage('zh'); setIsLangMenuOpen(false); }}
                       >

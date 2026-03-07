@@ -32,11 +32,11 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ### 功能
 
-- **系统监控**: 显示 CPU、内存、磁盘使用率及网络流量。
+- **系统概览**: 显示 CPU、内存、磁盘使用率及网络流量。
 - **进程管理**: 展示运行进程及其资源消耗。
 - **日志分析**: 查看系统日志（支持选配 AI 诊断）。
-- **配置管理**: 编辑并管理系统配置文件。
-- **LaunchAgent**: 管理 macOS 的 LaunchAgents 与 LaunchDaemons 服务。
+- **配置文件管理**: 编辑并管理系统配置文件。
+- **自启服务管理**: 管理 macOS 的 LaunchAgents 与 LaunchDaemons 服务。
 - **Docker**: 管理容器与镜像。
 - **Nginx**: 管理站点及全局配置。
 - **OpenClaw**: 查看进程及内存统计信息。

@@ -29,7 +29,7 @@ export async function POST() {
     console.error('Screenshot error:', error);
     return NextResponse.json({
       success: false,
-      error: '无法获取屏幕截图',
+      error: 'SCREENSHOT_FAILED',
       details: error.message
     }, { status: 500 });
   }

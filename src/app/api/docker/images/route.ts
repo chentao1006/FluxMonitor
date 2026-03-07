@@ -61,8 +61,8 @@ export async function GET() {
   } catch (error: unknown) {
     const err = error as Error;
     return NextResponse.json({
-      error: '获取镜像列表失败',
-      details: err?.message || '未知错误'
+      error: 'FETCH_FAILED',
+      details: err?.message || 'UNKNOWN_ERROR'
     }, { status: 500 });
   }
 }

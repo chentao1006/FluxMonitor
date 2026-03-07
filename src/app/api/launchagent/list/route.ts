@@ -43,6 +43,6 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: enrichedPlists });
   } catch (error: any) {
-    return NextResponse.json({ error: '无法获取 LaunchAgents 列表', details: error?.message }, { status: 500 });
+    return NextResponse.json({ error: 'FETCH_FAILED', details: error?.message }, { status: 500 });
   }
 }
