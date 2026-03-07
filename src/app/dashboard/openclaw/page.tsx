@@ -62,6 +62,9 @@ export default function OpenClawMain() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [logExplanation, setLogExplanation] = useState('');
   const [isExplainingLogs, setIsExplainingLogs] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [cmdAnalysis, setCmdAnalysis] = useState('');
+  const [isAnalyzingCmd, setIsAnalyzingCmd] = useState(false);
   const aiCacheRef = useRef<Record<string, string>>({});
 
   // Auto scroll logs to bottom
@@ -80,7 +83,10 @@ export default function OpenClawMain() {
   // Context switch auto-hide
   useEffect(() => {
     if (activeTab !== 'monitor') setLogExplanation('');
-    if (activeTab !== 'command') setCmdResult('');
+    if (activeTab !== 'command') {
+      setCmdResult('');
+      setCmdAnalysis('');
+    }
     if (activeTab !== 'memory') setMemorySummary('');
   }, [activeTab]);
 
@@ -90,6 +96,7 @@ export default function OpenClawMain() {
 
   useEffect(() => {
     setCmdResult('');
+    setCmdAnalysis('');
   }, [cmd]);
 
   // Config helpers
@@ -374,6 +381,7 @@ export default function OpenClawMain() {
   const executeCommand = async (e: React.FormEvent) => {
     e.preventDefault();
     setCmdResult(t.common.loading);
+    setCmdAnalysis('');
     try {
       const res = await fetch('/api/openclaw/action', {
         method: 'POST',
@@ -384,6 +392,71 @@ export default function OpenClawMain() {
       setCmdResult(data.success ? (data.stdout || data.stderr || t.common.success) : `Error: ${getOpenClawError(data.error, data.details)}`);
       fetchAll();
     } catch (e) { setCmdResult(t.common.networkError); }
+  };
+
+  const translateAICommand = async () => {
+    if (!cmd) return;
+    setIsTranslating(true);
+    setCmdResult(t.monitor.aiTranslating);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: t.monitor.aiTranslatePrompt.replace('{demand}', cmd)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCmd(data.data);
+        setCmdResult(t.monitor.aiTranslateDone);
+      } else {
+        setCmdResult(`${t.monitor.aiTranslateFailed}: ${data.error || data.details}`);
+      }
+    } catch {
+      setCmdResult(t.common.networkError);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const analyzeCmdOutput = async () => {
+    if (!cmdResult || cmdResult.includes('...') || cmdResult.includes('AI is translating')) return;
+
+    if (cmdAnalysis) {
+      setCmdAnalysis('');
+      return;
+    }
+
+    const cacheKey = `cmd_analysis:${cmdResult.slice(-2000)}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setCmdAnalysis(aiCacheRef.current[cacheKey]);
+      return;
+    }
+
+    setIsAnalyzingCmd(true);
+    setCmdAnalysis(`${t.common.analyzing}... 🪄`);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: t.monitor.aiAnalyzeOutputPrompt.replace('{lang}', language).replace('{output}', cmdResult.slice(-4000)),
+          systemPrompt: 'You are an expert system administrator.'
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCmdAnalysis(data.data);
+        aiCacheRef.current[cacheKey] = data.data;
+      } else {
+        setCmdAnalysis(`${t.monitor.aiAnalyzeFailed}: ${data.error}`);
+      }
+    } catch (e) {
+      setCmdAnalysis(t.common.networkError);
+    } finally {
+      setIsAnalyzingCmd(false);
+    }
   };
 
   const readMemory = async (file: any) => {
@@ -1132,7 +1205,9 @@ export default function OpenClawMain() {
                 { label: t.openclaw.command.labels.agents, cmd: 'openclaw agents list' },
                 { label: t.openclaw.command.labels.plugins, cmd: 'openclaw plugins list' },
                 { label: t.openclaw.command.labels.logs, cmd: 'openclaw logs --follow' },
-                { label: t.openclaw.command.labels.config, cmd: 'openclaw config check' },
+                { label: t.openclaw.command.labels.config, cmd: 'openclaw config validate' },
+                { label: t.openclaw.command.labels.devices, cmd: 'openclaw devices list' },
+                { label: t.openclaw.command.labels.approve, cmd: 'openclaw devices approve --latest' },
               ].map(item => (
                 <button
                   key={item.label}
@@ -1154,7 +1229,57 @@ export default function OpenClawMain() {
                 style={{ flex: 1 }}
               />
               <button type="submit" className="btn btn-primary">{t.openclaw.command.executeBtn}</button>
+
+              <button
+                type="button"
+                className="btn"
+                style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+                onClick={translateAICommand}
+                disabled={isTranslating || !cmd}
+              >
+                <Sparkles size={16} className={isTranslating ? 'animate-pulse' : ''} />
+                {isTranslating ? t.monitor.translating : t.openclaw.command.labels.aiTranslate}
+              </button>
+
+              {cmdResult && !cmdResult.includes('...') && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={analyzeCmdOutput}
+                  disabled={isAnalyzingCmd}
+                  style={{
+                    background: 'white',
+                    border: '1px solid var(--color-primary)',
+                    color: 'var(--color-primary)',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Sparkles size={14} className={isAnalyzingCmd ? 'animate-pulse' : ''} />
+                  {isAnalyzingCmd ? t.common.analyzing : t.openclaw.command.labels.aiAnalyze}
+                </button>
+              )}
             </form>
+
+            {cmdAnalysis && (
+              <div className="ai-output-block" style={{ background: 'rgba(59, 130, 246, 0.03)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.1)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', color: 'var(--color-primary)', background: 'rgba(240, 247, 255, 0.95)', backdropFilter: 'blur(8px)', zIndex: 5, borderBottom: '1px solid rgba(59, 130, 246, 0.05)' }}>
+                  <Brain size={18} /> <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.monitor.aiAdvice}</span>
+                  <button onClick={() => setCmdAnalysis('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>&times;</button>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', maxHeight: '350px', overflowY: 'auto' }}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{cmdAnalysis}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+
             <div
               ref={cmdResultRef}
               style={{ padding: '1.25rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid var(--color-surface-border)', height: '400px', overflowY: 'auto', fontSize: '0.85rem', fontFamily: 'monospace', color: 'var(--color-primary)', whiteSpace: 'pre-wrap' }}

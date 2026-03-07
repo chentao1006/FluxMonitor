@@ -307,13 +307,13 @@ export default function DockerDashboard() {
             </button>
           </div>
           {generatedCmd && (
-            <div style={{ marginTop: '1rem', background: '#0f172a', padding: '1.25rem', borderRadius: 'var(--radius-sm)', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600 }}>GENERATED COMMAND</div>
-              <code style={{ color: '#38bdf8', fontSize: '0.85rem', fontFamily: 'monospace' }}>{generatedCmd}</code>
+            <div style={{ marginTop: '1rem', background: '#f8fafc', padding: '1.25rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>GENERATED COMMAND</div>
+              <code style={{ color: 'var(--color-primary)', fontSize: '0.85rem', fontFamily: 'monospace' }}>{generatedCmd}</code>
               <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
                 <button
                   className="btn btn-sm btn-ghost"
-                  style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+                  style={{ color: 'var(--color-text-header)', border: '1px solid rgba(0,0,0,0.1)' }}
                   onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
                 >{t.docker.copy}</button>
               </div>
@@ -564,10 +564,11 @@ export default function DockerDashboard() {
             <div
               ref={logRef}
               style={{
-                flex: 1, backgroundColor: '#0f172a', color: '#e2e8f0',
+                flex: 1, backgroundColor: '#ffffff', color: '#1e293b',
                 fontFamily: 'monospace', padding: '1rem', overflowY: 'auto',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
-                lineHeight: '1.6'
+                lineHeight: '1.6', border: '1px solid var(--color-surface-border)',
+                borderRadius: '0 0 var(--radius-sm) var(--radius-sm)'
               }}
             >
               {logsLoading ? (

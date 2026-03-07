@@ -289,8 +289,8 @@ export default function DashboardOverview() {
           className="screenshot-modal-overlay"
           onClick={() => setShowScreenshot(false)}
           style={{
-            position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex',
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(12px)', zIndex: 1000, display: 'flex',
             alignItems: 'flex-start', justifyContent: 'center', padding: '4rem 1rem 1rem 1rem',
             animation: 'fadeIn 0.3s ease'
           }}
