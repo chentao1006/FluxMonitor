@@ -16,10 +16,16 @@ export async function GET() {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    const files = await fs.readdir(agentsDir);
-    const plists = files.filter(f => f.endsWith('.plist')).map(f => ({
-      name: f,
-      path: path.join(agentsDir, f)
+    const files = (await fs.readdir(agentsDir)).filter(f => f.endsWith('.plist'));
+    const plists = await Promise.all(files.map(async f => {
+      const fullPath = path.join(agentsDir, f);
+      const stat = await fs.stat(fullPath);
+      return {
+        name: f,
+        path: fullPath,
+        size: stat.size,
+        mtime: stat.mtime.getTime()
+      };
     }));
 
     // Get loaded services

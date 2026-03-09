@@ -1,26 +1,47 @@
 "use client";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { RefreshCw, Trash2, FileText, ChevronRight, Search, Eraser, ArrowLeft, Sparkles, Brain } from 'lucide-react';
+import { Activity, FileText, ChevronLeft, RefreshCw, Search, X, Sparkles, Brain, Trash2, Eraser, Lock } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+interface LogFile {
+  name: string;
+  path: string;
+  size: number;
+  category: string;
+  mtime: number;
+}
+
+type ActionType = 'clear' | 'delete';
+
+interface SudoModalState {
+  isOpen: boolean;
+  filePath: string;
+  action: ActionType;
+  password: string;
+  loading: boolean;
+  error: string;
+}
 
 export default function LogsPage() {
-  const { t, language, effectiveLang } = useLanguage();
-  const [files, setFiles] = useState<any[]>([]);
-  const [filteredFiles, setFilteredFiles] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeFile, setActiveFile] = useState<string | null>(null);
-  const [content, setContent] = useState<string>('');
+  const { t } = useLanguage();
+  const [files, setFiles] = useState<LogFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [contentLoading, setContentLoading] = useState(false);
-  const contentRef = useRef<HTMLPreElement>(null);
-  const [logExplanation, setLogExplanation] = useState('');
+  const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [content, setContent] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [readLoading, setReadLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState('');
   const [isExplaining, setIsExplaining] = useState(false);
-  const aiCacheRef = useRef<Record<string, string>>({});
-
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [actionLoadingPath, setActionLoadingPath] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; filePath: string; action: ActionType } | null>(null);
+  const [sudoModal, setSudoModal] = useState<SudoModalState>({
+    isOpen: false, filePath: '', action: 'clear', password: '', loading: false, error: ''
+  });
+  const sudoInputRef = useRef<HTMLInputElement>(null);
 
   const internalCategories = ['all', 'system', 'service', 'app', 'other'];
   const categoryLabels: Record<string, string> = {
@@ -31,6 +52,25 @@ export default function LogsPage() {
     other: t.logs.other
   };
 
+  const formatSize = (bytes: any) => {
+    const b = parseInt(bytes);
+    if (isNaN(b) || b === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const formatAbsoluteTime = (timestamp: number) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const h = String(date.getHours()).padStart(2, '0');
+    const i = String(date.getMinutes()).padStart(2, '0');
+    return `${m}-${d} ${h}:${i}`;
+  };
+
   const fetchFiles = async () => {
     setLoading(true);
     try {
@@ -38,8 +78,9 @@ export default function LogsPage() {
       const data = await res.json();
       if (data.success) {
         setFiles(data.data);
-        if (data.data.length > 0 && !activeFile && typeof window !== 'undefined' && window.innerWidth > 768) {
-          setActiveFile(data.data[0].path);
+        // Auto-select first one on big screens if none selected
+        if (data.data && data.data.length > 0 && !activeFile && typeof window !== 'undefined' && window.innerWidth > 768) {
+          openLog(data.data[0].path);
         }
       }
     } catch (e) {
@@ -49,483 +90,469 @@ export default function LogsPage() {
     }
   };
 
-  const fetchContent = async (path: string) => {
-    setContentLoading(true);
+  useEffect(() => {
+    fetchFiles();
+  }, []);
+
+  const openLog = async (path: string) => {
+    setActiveFile(path);
+    setReadLoading(true);
+    setAnalysisResult('');
     try {
       const res = await fetch(`/api/logs?file=${encodeURIComponent(path)}`);
       const data = await res.json();
       if (data.success) {
         setContent(data.data);
-        setTimeout(() => {
-          if (contentRef.current) {
-            contentRef.current.scrollTop = contentRef.current.scrollHeight;
-          }
-        }, 100);
       } else {
-        setContent(`${t.common.error}: ${data.error}`);
+        setContent(t.common.fetchFailed);
       }
     } catch (e) {
-      setContent(t.common.loading + ' failed');
+      setContent(t.common.networkError);
     } finally {
-      setContentLoading(false);
+      setReadLoading(false);
     }
   };
 
-  const clearLog = async (targetFile?: string, password?: string) => {
-    const fileToClear = targetFile || activeFile;
-    if (!fileToClear) return;
-    if (!password && !window.confirm(`${t.logs.clearConfirm} ${fileToClear.split('/').pop()}`)) return;
-
-    try {
-      const res = await fetch('/api/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'clear', file: fileToClear, password })
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (fileToClear === activeFile) setContent('');
-        fetchFiles();
-      } else if (data.requiresPassword) {
-        const pass = window.prompt(t.logs.requireSudo);
-        if (pass) clearLog(fileToClear, pass);
-      } else {
-        alert(`${t.common.error}: ${data.error}`);
-      }
-    } catch (e) {
-      alert(t.common.networkError);
-    }
-  };
-
-  const deleteFile = async (targetFile?: string, password?: string) => {
-    const fileToDelete = targetFile || activeFile;
-    if (!fileToDelete) return;
-    if (!password && !window.confirm(t.common.deleteConfirm)) return;
-
-    try {
-      const res = await fetch('/api/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', file: fileToDelete, password })
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (fileToDelete === activeFile) {
-          setActiveFile(null);
-          setContent('');
-        }
-        fetchFiles();
-      } else if (data.requiresPassword) {
-        const pass = window.prompt(t.logs.requireSudo);
-        if (pass) deleteFile(fileToDelete, pass);
-      } else {
-        alert(`${t.common.error}: ${data.error}`);
-      }
-    } catch (e) {
-      alert(t.common.networkError);
-    }
-  };
-
-  const explainLog = async () => {
-    if (!content || contentLoading || !activeFile) return;
-
-    if (logExplanation) {
-      setLogExplanation('');
-      return;
-    }
-
-    const cacheKey = `${activeFile}:${content.slice(-2000)}`;
-    if (aiCacheRef.current[cacheKey]) {
-      setLogExplanation(aiCacheRef.current[cacheKey]);
-      return;
-    }
-
+  const handleExplain = async () => {
+    if (!content || isExplaining) return;
     setIsExplaining(true);
-    setLogExplanation(t.logs.aiProcess);
     try {
-      const prompt = t.logs.aiPrompt
-        .replace('{filename}', activeFile.split('/').pop() || '')
-        .replace('{content}', content.slice(-4000));
-
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: prompt,
-          systemPrompt: 'You are an expert system administrator and software engineer specializing in macOS and Linux system logs.'
+          prompt: t.logs.explainPrompt.replace('{content}', content)
         })
       });
       const data = await res.json();
       if (data.success) {
-        setLogExplanation(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else {
-        setLogExplanation(`${t.common.error}: ${data.error}`);
+        setAnalysisResult(data.data);
       }
     } catch (e) {
-      setLogExplanation(t.common.networkError);
+      console.error(e);
     } finally {
       setIsExplaining(false);
     }
   };
 
-  useEffect(() => {
-    fetchFiles();
-  }, []);
+  // Execute clear/delete action
+  const executeAction = async (filePath: string, action: ActionType, password?: string) => {
+    setActionLoadingPath(filePath);
+    try {
+      const body: any = { file: filePath, action };
+      if (password) body.password = password;
 
-  useEffect(() => {
-    if (activeFile) {
-      fetchContent(activeFile);
-      setLogExplanation('');
+      const res = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if (data.requiresPassword) {
+        // Need sudo password
+        setSudoModal({ isOpen: true, filePath, action, password: '', loading: false, error: '' });
+        setTimeout(() => sudoInputRef.current?.focus(), 100);
+        return;
+      }
+
+      if (!data.success) {
+        if (res.status === 401) {
+          setSudoModal(prev => ({ ...prev, error: t.common.actionFailed, loading: false }));
+        }
+        return;
+      }
+
+      // Success
+      if (action === 'delete') {
+        // Remove from list, clear viewer if this was active
+        setFiles(prev => prev.filter(f => f.path !== filePath));
+        if (activeFile === filePath) {
+          setActiveFile(null);
+          setContent('');
+        }
+      } else if (action === 'clear') {
+        // Reload file content if viewing it
+        if (activeFile === filePath) {
+          setContent('');
+        }
+        // Refresh file list to update size
+        fetchFiles();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActionLoadingPath(null);
     }
-  }, [activeFile]);
+  };
 
-  useEffect(() => {
-    if (content && contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
-    }
-  }, [content]);
+  // Confirm modal handler
+  const handleActionClick = (e: React.MouseEvent, filePath: string, action: ActionType) => {
+    e.stopPropagation();
+    setConfirmModal({ isOpen: true, filePath, action });
+  };
 
-  useEffect(() => {
-    const filtered = files.filter(f => {
-      const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.path.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = activeCategory === 'all' || f.category === activeCategory;
-      return matchesSearch && matchesCategory;
-    });
-    setFilteredFiles(filtered);
-  }, [searchTerm, files, activeCategory]);
+  const handleConfirm = async () => {
+    if (!confirmModal) return;
+    const { filePath, action } = confirmModal;
+    setConfirmModal(null);
+    await executeAction(filePath, action);
+  };
+
+  const handleSudoSubmit = async () => {
+    setSudoModal(prev => ({ ...prev, loading: true, error: '' }));
+    const { filePath, action, password } = sudoModal;
+    setSudoModal(prev => ({ ...prev, isOpen: false }));
+    await executeAction(filePath, action, password);
+  };
+
+  const filteredFiles = files.filter(f => {
+    const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      f.path.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeCategory === 'all' || f.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const currentFile = files.find(f => f.path === activeFile);
 
   if (loading && files.length === 0) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
-    <div className="grid animate-fade-in">
-      <div className="flex-between logs-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+    <div className="page-shell grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
-            <FileText size={24} color="var(--color-primary)" />
+            <Activity size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title log-title" style={{ margin: 0, fontSize: '1.5rem' }}>{t.logs.title}</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.sidebar.logs}</h1>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-ghost" onClick={fetchFiles} title={t.common.refresh}>
-            <RefreshCw size={18} />
-          </button>
-        </div>
+        <button className="btn btn-ghost" style={{ padding: '0.6rem 1rem', border: '1px solid var(--color-surface-border)' }} onClick={fetchFiles}>
+          <RefreshCw size={16} style={{ marginRight: '8px' }} />
+          {t.common.refresh}
+        </button>
       </div>
 
       <div className={`logs-layout ${activeFile ? 'showing-content' : 'showing-list'}`}>
-        <div className="logs-sidebar card glass-panel" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
-          <div style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                className="input"
-                placeholder={t.common.search}
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                style={{ paddingLeft: '2.5rem', fontSize: '0.9rem', width: '100%' }}
-              />
-              <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.25rem', overflowX: 'auto', paddingBottom: '2px', scrollbarWidth: 'none' }}>
-              {internalCategories.map((cat, idx) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    borderRadius: '20px',
-                    fontSize: '0.75rem',
-                    whiteSpace: 'nowrap',
-                    border: '1px solid',
-                    borderColor: activeCategory === cat ? 'var(--color-primary)' : 'transparent',
-                    background: activeCategory === cat ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)',
-                    color: activeCategory === cat ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                    cursor: 'pointer',
-                    fontWeight: activeCategory === cat ? 600 : 400,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {categoryLabels[cat]} ({cat === 'all' ? files.length : files.filter(f => f.category === cat).length})
-                </button>
-              ))}
-            </div>
+        <div className="logs-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <div style={{ position: 'relative', marginBottom: '1rem' }}>
+            <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              className="input"
+              placeholder={t.logs.searchLogs}
+              style={{ paddingLeft: '2.5rem', fontSize: '0.85rem' }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
-            {filteredFiles.length === 0 ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                {t.common.none}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {[...filteredFiles]
-                  .sort((a, b) => b.mtime - a.mtime)
-                  .map((file) => (
-                    <div
-                      key={file.path}
-                      onClick={() => setActiveFile(file.path)}
-                      className={`log-tab ${activeFile === file.path ? 'active' : ''}`}
-                      style={{
-                        padding: '0.85rem 1rem',
-                        cursor: 'pointer',
-                        borderRadius: 'var(--radius-sm)',
-                        marginBottom: '0.25rem',
-                        transition: 'all 0.2s',
-                        background: activeFile === file.path ? 'var(--color-primary-light)' : 'transparent',
-                        color: activeFile === file.path ? 'var(--color-primary)' : 'inherit',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        fontSize: '0.85rem',
-                        border: activeFile === file.path ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid transparent'
-                      }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, gap: '0.15rem' }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: activeFile === file.path ? 600 : 400, fontSize: '0.9rem' }}>
-                          {file.name}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {file.dir}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-primary)', opacity: activeFile === file.path ? 1 : 0.6, display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <span>{(file.size / 1024).toFixed(1)} KB</span>
-                            <span>•</span>
-                            <span>{new Date(file.mtime).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
+          <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+            {internalCategories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                style={{
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '100px',
+                  fontSize: '0.75rem',
+                  whiteSpace: 'nowrap',
+                  border: '1px solid',
+                  borderColor: activeCategory === cat ? 'var(--color-primary)' : 'transparent',
+                  background: activeCategory === cat ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)',
+                  color: activeCategory === cat ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: activeCategory === cat ? 600 : 400,
+                  transition: 'all 0.2s'
+                }}
+              >
+                {categoryLabels[cat]} ({cat === 'all' ? files.length : files.filter(f => f.category === cat).length})
+              </button>
+            ))}
+          </div>
 
-                          <div className="log-item-actions" style={{ display: 'flex', gap: '0.15rem', opacity: 0, transition: 'opacity 0.2s' }}>
-                            <button
-                              className="btn btn-ghost"
-                              onClick={(e) => { e.stopPropagation(); clearLog(file.path); }}
-                              style={{ padding: '0.15rem', color: 'var(--color-warning)', minHeight: 'auto', background: 'transparent' }}
-                              title={t.common.clear}
-                            >
-                              <Eraser size={12} />
-                            </button>
-                            <button
-                              className="btn btn-ghost"
-                              onClick={(e) => { e.stopPropagation(); deleteFile(file.path); }}
-                              style={{ padding: '0.15rem', color: 'var(--color-danger)', minHeight: 'auto', background: 'transparent' }}
-                              title={t.common.delete}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%' }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {filteredFiles.map(file => {
+                const isActive = activeFile === file.path;
+                const isActioning = actionLoadingPath === file.path;
+                return (
+                  <li
+                    key={file.path}
+                    className={`log-item ${isActive ? 'active' : ''}`}
+                    onClick={() => openLog(file.path)}
+                    style={{
+                      padding: '0.85rem',
+                      marginBottom: '0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      background: isActive ? 'var(--color-primary-light)' : 'rgba(255,255,255,0.3)',
+                      border: isActive ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
+                      transition: 'all 0.2s',
+                      minWidth: 0,
+                      position: 'relative',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem', minWidth: 0 }}>
+                      <FileText size={14} style={{ flexShrink: 0 }} color={isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem', color: isActive ? 'var(--color-primary)' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{file.name}</span>
+                      {/* Action buttons - hover visible */}
+                      <div
+                        className="log-actions"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}
+                      >
+                        <button
+                          className="log-action-btn"
+                          title={t.common.clear}
+                          disabled={isActioning}
+                          onClick={(e) => handleActionClick(e, file.path, 'clear')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0.2rem',
+                            borderRadius: '4px',
+                            color: 'var(--color-text-muted)',
+                            transition: 'color 0.15s, background 0.15s',
+                            opacity: isActioning ? 0.4 : 1,
+                            display: 'flex', alignItems: 'center'
+                          }}
+                        >
+                          <Eraser size={13} />
+                        </button>
+                        <button
+                          className="log-action-btn log-action-btn-danger"
+                          title={t.common.delete}
+                          disabled={isActioning}
+                          onClick={(e) => handleActionClick(e, file.path, 'delete')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '0.2rem',
+                            borderRadius: '4px',
+                            color: 'var(--color-text-muted)',
+                            transition: 'color 0.15s, background 0.15s',
+                            opacity: isActioning ? 0.4 : 1,
+                            display: 'flex', alignItems: 'center'
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
-                      {activeFile === file.path && <ChevronRight size={14} style={{ flexShrink: 0, opacity: 0.5 }} />}
                     </div>
-                  ))}
-              </div>
-            )}
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8, marginBottom: '0.35rem', fontFamily: 'monospace' }}>
+                      {file.path.length > 40 ? '...' + file.path.slice(-37) : file.path}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between', fontWeight: 500, opacity: 0.7 }}>
+                      <span>{formatSize(file.size || 0)}</span>
+                      <span>{formatAbsoluteTime(file.mtime || 0)}</span>
+                    </div>
+                    {isActioning && (
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.6)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>{t.common.loading}</span>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+              {filteredFiles.length === 0 && (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{t.common.none}</div>
+              )}
+            </ul>
           </div>
         </div>
 
-        <div className="logs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
-          <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)', flexWrap: 'nowrap' }}>
-            <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-              <button
-                className="btn btn-ghost mobile-back-btn"
-                onClick={() => setActiveFile(null)}
-                style={{ padding: '0.4rem', borderRadius: 'var(--radius-sm)' }}
-                title={t.common.back}
-              >
-                <ArrowLeft size={18} />
-              </button>
-              <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <span>{activeFile ? activeFile.split('/').pop() : t.logs.noFileSel}</span>
-                {activeFile && (
-                  <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                    {t.logs.pathLabel}: {activeFile}
-                  </span>
+        <div className="logs-viewer card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
+          {activeFile && currentFile ? (
+            <>
+              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
+                  <button className="btn btn-ghost mobile-only" onClick={() => setActiveFile(null)}><ChevronLeft size={20} /></button>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{currentFile.name}</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', background: 'rgba(0,0,0,0.05)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 500 }}>
+                        {formatSize(currentFile.size)} · {formatAbsoluteTime(currentFile.mtime)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', opacity: 0.6 }}>{currentFile.path}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', height: '32px', gap: '6px' }} onClick={handleExplain} disabled={isExplaining}>
+                    <Sparkles size={15} className={isExplaining ? 'animate-pulse' : ''} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{isExplaining ? t.common.analyzing : t.common.analyze}</span>
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    title={t.common.clear}
+                    style={{ color: 'var(--color-warning, #f59e0b)', background: 'rgba(245,158,11,0.08)', height: '32px', padding: '0 0.7rem' }}
+                    onClick={(e) => handleActionClick(e, currentFile.path, 'clear')}
+                    disabled={!!actionLoadingPath}
+                  >
+                    <Eraser size={15} />
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    title={t.common.delete}
+                    style={{ color: '#ef4444', background: 'rgba(239,68,68,0.08)', height: '32px', padding: '0 0.7rem' }}
+                    onClick={(e) => handleActionClick(e, currentFile.path, 'delete')}
+                    disabled={!!actionLoadingPath}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {analysisResult && (
+                <div className="ai-panel" style={{ background: 'rgba(59,130,246,0.03)', borderBottom: '1px solid rgba(59,130,246,0.1)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(240,247,255,0.9)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
+                    <Brain size={16} color="var(--color-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>AI {t.logs.analyzeTitle}</span>
+                    <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setAnalysisResult('')}><X size={14} /></button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', fontSize: '0.85rem', lineHeight: 1.6 }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '1rem' }}>
+                {readLoading ? (
+                  <div className="flex-center" style={{ height: '100%' }}>{t.common.loading}</div>
+                ) : (
+                  <textarea
+                    readOnly
+                    className="no-scrollbar"
+                    style={{
+                      width: '100%', height: '100%', border: 'none', outline: 'none',
+                      background: 'transparent', fontFamily: 'monospace', fontSize: '0.8rem',
+                      resize: 'none', color: '#1e293b', lineHeight: 1.5
+                    }}
+                    value={content}
+                  />
                 )}
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                className="btn btn-ghost"
-                onClick={explainLog}
-                disabled={!activeFile || contentLoading || isExplaining}
-                title={t.common.analyze}
-                style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', padding: '0.5rem', fontWeight: 600 }}
-              >
-                <Sparkles size={18} className={isExplaining ? 'animate-pulse' : ''} />
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => activeFile && fetchContent(activeFile)}
-                disabled={!activeFile || contentLoading}
-                title={t.common.refresh}
-                style={{ padding: '0.5rem' }}
-              >
-                <RefreshCw size={18} className={contentLoading ? 'animate-spin' : ''} />
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => clearLog()}
-                disabled={!activeFile}
-                style={{ color: 'var(--color-warning)', padding: '0.5rem' }}
-                title={t.common.clear}
-              >
-                <Eraser size={18} />
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => deleteFile()}
-                disabled={!activeFile}
-                style={{ color: 'var(--color-danger)', padding: '0.5rem' }}
-                title={t.common.delete}
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          </div>
-
-          {logExplanation && (
-            <div className="ai-output-block" style={{
-              padding: 0,
-              background: 'rgba(59, 130, 246, 0.03)',
-              borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
-              animation: 'slideInDown 0.3s ease',
-              maxHeight: '300px',
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.25rem',
-                color: 'var(--color-primary)',
-                position: 'sticky',
-                top: 0,
-                background: 'rgba(240, 247, 255, 0.95)',
-                backdropFilter: 'blur(8px)',
-                zIndex: 5,
-                borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
-              }}>
-                <Brain size={18} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.logs.aiSuggest}</span>
-                <button onClick={() => setLogExplanation('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
-              </div>
-              <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{logExplanation}</ReactMarkdown>
-              </div>
+            </>
+          ) : (
+            <div className="flex-center" style={{ flex: 1, flexDirection: 'column', color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem' }}>
+              <Activity size={64} style={{ marginBottom: '1.5rem', opacity: 0.1, strokeWidth: 1 }} />
+              <p style={{ fontSize: '0.9rem', maxWidth: '300px' }}>{t.logs.noFileLeft}</p>
             </div>
           )}
-
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--color-surface)', borderTop: '1px solid var(--color-surface-border)' }}>
-            <pre
-              ref={contentRef}
-              style={{
-                height: '100%',
-                margin: 0,
-                padding: '1.5rem',
-                color: 'var(--color-text)',
-                fontFamily: '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-                fontSize: '0.85rem',
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all',
-                lineHeight: '1.6'
-              }}
-            >
-              {contentLoading ? (
-                <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
-                  <RefreshCw size={24} className="animate-spin" style={{ marginRight: '1rem' }} />
-                  {t.common.loading}
-                </div>
-              ) : content || (activeFile ? (
-                <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
-                  {t.common.none}
-                </div>
-              ) : (
-                <div className="flex-center" style={{ height: '100%', color: 'var(--color-text-muted)' }}>
-                  {t.logs.noFileLeft}
-                </div>
-              ))}
-            </pre>
-          </div>
         </div>
       </div>
 
+      {/* Confirm Modal */}
+      {confirmModal?.isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', maxWidth: '380px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              {confirmModal.action === 'delete' ? (
+                <div style={{ background: 'rgba(239,68,68,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
+                  <Trash2 size={20} color="#ef4444" />
+                </div>
+              ) : (
+                <div style={{ background: 'rgba(245,158,11,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
+                  <Eraser size={20} color="#f59e0b" />
+                </div>
+              )}
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                  {confirmModal.action === 'delete' ? t.common.delete : t.common.clear}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                  {files.find(f => f.path === confirmModal.filePath)?.name}
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+              {confirmModal.action === 'delete' ? t.common.deleteConfirm : t.logs.clearConfirm}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setConfirmModal(null)}>{t.common.cancel}</button>
+              <button
+                className="btn"
+                style={{ background: confirmModal.action === 'delete' ? '#ef4444' : '#f59e0b', color: '#fff', border: 'none' }}
+                onClick={handleConfirm}
+              >
+                {confirmModal.action === 'delete' ? t.common.delete : t.common.clear}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sudo Password Modal */}
+      {sudoModal.isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', maxWidth: '380px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ background: 'rgba(99,102,241,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
+                <Lock size={20} color="#6366f1" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{t.logs.requireSudo}</div>
+            </div>
+            {sudoModal.error && (
+              <div style={{ padding: '0.6rem 0.75rem', background: 'rgba(239,68,68,0.08)', borderRadius: '6px', color: '#ef4444', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                {sudoModal.error}
+              </div>
+            )}
+            <input
+              ref={sudoInputRef}
+              type="password"
+              className="input"
+              placeholder="••••••••"
+              value={sudoModal.password}
+              onChange={(e) => setSudoModal(prev => ({ ...prev, password: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && handleSudoSubmit()}
+              style={{ marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setSudoModal(prev => ({ ...prev, isOpen: false }))}>{t.common.cancel}</button>
+              <button
+                className="btn"
+                style={{ background: 'var(--color-primary)', color: '#fff', border: 'none' }}
+                disabled={sudoModal.loading || !sudoModal.password}
+                onClick={handleSudoSubmit}
+              >
+                {sudoModal.loading ? t.common.loading : t.common.confirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
-        .logs-layout {
-          display: grid;
-          grid-template-columns: minmax(300px, 1fr) 3fr;
-          gap: 1.5rem;
-          align-items: start;
-        }
+        .logs-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) 3fr; gap: 1.5rem; align-items: start; width: 100%; max-width: 100%; box-sizing: border-box; }
+        .log-item:hover { background: rgba(59, 130, 246, 0.05) !important; }
+        .log-item .log-actions { opacity: 0; transition: opacity 0.15s; }
+        .log-item:hover .log-actions { opacity: 1; }
+        .log-item.active .log-actions { opacity: 1; }
+        .log-action-btn:hover { color: var(--color-primary) !important; background: rgba(59,130,246,0.1) !important; }
+        .log-action-btn-danger:hover { color: #ef4444 !important; background: rgba(239,68,68,0.1) !important; }
 
-        .log-title {
-          font-size: 1.75rem;
-          margin-bottom: 0;
-        }
-
-        .logs-header {
-          flex-wrap: wrap;
-          gap: 1rem;
-        }
-
-        .mobile-back-btn {
-          display: none;
-        }
-
-        .log-tab:hover {
-          background: rgba(59, 130, 246, 0.05) !important;
-        }
-        .log-tab:hover .log-item-actions {
-          opacity: 1 !important;
-        }
-        .log-tab.active:hover {
-          background: var(--color-primary-light) !important;
-        }
-        
-        @media (max-width: 1024px) {
-          .logs-layout {
-            grid-template-columns: 300px 1fr;
-            gap: 1rem;
-          }
-        }
+        .mobile-only { display: none; }
+        .desktop-only { display: flex; }
 
         @media (max-width: 768px) {
-          .logs-layout {
-            grid-template-columns: 1fr;
-            gap: 0;
+          .page-shell { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+          .logs-layout { flex: 1 !important; min-height: 0; display: flex !important; flex-direction: column; height: auto !important; width: 100%; max-width: 100%; overflow-x: hidden; }
+          .showing-content .logs-sidebar { display: none !important; }
+          .showing-list .logs-viewer { display: none !important; }
+          .mobile-only { display: flex !important; }
+          .desktop-only { display: none !important; }
+          .logs-sidebar, .logs-viewer {
+            flex: 1 !important;
+            min-height: 0;
+            height: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow-x: hidden !important;
           }
-
-          .log-title {
-            font-size: 1.25rem;
-          }
-
-          .logs-sidebar, .logs-content {
-            height: calc(100vh - 160px) !important;
-          }
-
-          .showing-content .logs-sidebar {
-            display: none !important;
-          }
-          
-          .showing-list .logs-content {
-            display: none !important;
-          }
-
-          .mobile-back-btn {
-            display: flex;
-          }
-        }
-
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
+          .log-item .log-actions { opacity: 1; }
         }
       `}</style>
     </div>

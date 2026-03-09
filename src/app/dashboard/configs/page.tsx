@@ -4,87 +4,107 @@ import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles } from 'lucide-react';
+import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain } from 'lucide-react';
 
 interface ConfigItem {
   id: string;
   name: string;
   path: string;
   type: 'system' | 'user';
+  category: string;
+  size?: number;
+  mtime?: number;
 }
 
 export default function ConfigsDashboard() {
-  const { t, language, effectiveLang } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const formatSize = (bytes?: number) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const formatAbsoluteTime = (timestamp?: number) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const h = String(date.getHours()).padStart(2, '0');
+    const i = String(date.getMinutes()).padStart(2, '0');
+    return `${m}-${d} ${h}:${i}`;
+  };
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [content, setContent] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
-  const [aiDemand, setAiDemand] = useState('');
-  const [showAiPanel, setShowAiPanel] = useState(false);
   const [readLoading, setReadLoading] = useState(false);
   const [isAiEditing, setIsAiEditing] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState('');
+  const [aiDemand, setAiDemand] = useState('');
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const aiCacheRef = useRef<Record<string, string>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [homePath, setHomePath] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  useEffect(() => {
-    fetchConfigs();
-  }, []);
-
-  useEffect(() => {
-    setAnalysisResult('');
-    setShowAiPanel(false);
-  }, [editingId]);
-
-  const getErrorMessage = (errorKey: string, details?: string) => {
-    const errorMap: Record<string, string> = {
-      'FETCH_FAILED': t.configs.fetchFailed,
-      'NOT_FOUND': t.configs.configNotFound,
-      'READ_FAILED': t.configs.readFailed,
-      'WRITE_FAILED': t.configs.writeFailed,
-      'PERMISSION_DENIED': t.configs.permissionDenied,
-      'UNKNOWN_ACTION': t.configs.unknownAction,
-      'ACTION_FAILED': t.configs.actionFailed,
-    };
-    const msg = errorMap[errorKey] || errorKey || t.common.unknownError;
-    return details ? `${msg} (${details})` : msg;
-  };
+  const configCategories = [
+    { id: 'all', label: t.configs.categories.all },
+    { id: 'Shell & CLI', label: t.configs.categories.shell },
+    { id: 'Web Server', label: t.configs.categories.web },
+    { id: 'Database', label: t.configs.categories.db },
+    { id: 'Dev Tools', label: t.configs.categories.dev },
+    { id: 'System', label: t.configs.categories.sys }
+  ];
 
   const fetchConfigs = async () => {
+    setLoading(true);
     try {
       const res = await fetch('/api/configs');
       const data = await res.json();
       if (data.success) {
         setConfigs(data.data || []);
-      } else {
-        console.error('Fetch failed', data.error);
+        if (data.home) setHomePath(data.home);
+
+        // Auto-select first one on big screens if none selected
+        if (data.data && data.data.length > 0 && !editingId && typeof window !== 'undefined' && window.innerWidth > 768) {
+          openConfig(data.data[0]);
+        }
       }
     } catch (e) {
-      console.error('Fetch failed', e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = async (id: string) => {
-    setEditingId(id);
+  useEffect(() => {
+    fetchConfigs();
+  }, []);
+
+  const openConfig = async (config: ConfigItem) => {
+    setEditingId(config.id);
     setReadLoading(true);
-    setSaveStatus('');
+    setAnalysisResult('');
+    setAiDemand('');
+    setShowAiPanel(false);
     try {
       const res = await fetch('/api/configs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'read', id }),
+        body: JSON.stringify({ action: 'read', id: config.id }),
       });
       const data = await res.json();
       if (data.success) {
-        setContent(data.content);
-      } else {
-        setContent(`${t.common.error}: ${getErrorMessage(data.error, data.details)}`);
+        setContent(data.content || '');
       }
     } catch (e) {
-      setContent(t.common.networkError);
+      console.error(e);
+      setContent(t.common.fetchFailed);
     } finally {
       setReadLoading(false);
     }
@@ -92,6 +112,7 @@ export default function ConfigsDashboard() {
 
   const handleSave = async () => {
     if (!editingId) return;
+
     setSaveStatus(t.common.saving);
     try {
       const res = await fetch('/api/configs', {
@@ -104,371 +125,267 @@ export default function ConfigsDashboard() {
         setSaveStatus(t.common.saveSuccess);
         setTimeout(() => setSaveStatus(''), 2000);
       } else {
-        setSaveStatus(`${t.common.saveFailed}: ${getErrorMessage(data.error, data.details)}`);
+        setSaveStatus(t.common.saveFailed);
       }
     } catch (e) {
       setSaveStatus(t.common.networkError);
     }
   };
 
-  const handleAiEdit = async () => {
-    if (!content || readLoading || isAiEditing || !aiDemand.trim()) return;
+  const handleAiAction = async (action: 'edit' | 'analyze') => {
+    const config = configs.find(c => c.id === editingId);
+    if (!config) return;
 
-    setIsAiEditing(true);
-    setSaveStatus(t.configs.aiEditing);
+    if (action === 'edit' && !aiDemand) return;
+
+    if (action === 'edit') setIsAiEditing(true);
+    else setIsAiAnalyzing(true);
+
+    setShowAiPanel(true);
+
     try {
-      const configName = (t.configs.names as any)[editingId || ''] || configs.find(c => c.id === editingId)?.name || 'Configuration';
+      const prompt = action === 'edit'
+        ? t.configs.aiEditPrompt.replace('{content}', content).replace('{demand}', aiDemand)
+        : t.configs.aiAnalyzePrompt.replace('{content}', content);
+
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.configs.aiEditPrompt
-            .replace('{name}', configName)
-            .replace('{demand}', aiDemand)
-            .replace('{content}', content),
-          systemPrompt: 'You are an expert system administrator.'
-        })
+        body: JSON.stringify({ prompt }),
       });
       const data = await res.json();
       if (data.success) {
-        setContent(data.data);
-        setSaveStatus(t.configs.aiEditDone);
-        setAiDemand('');
-        setShowAiPanel(false);
-        setTimeout(() => setSaveStatus(''), 5000);
-      } else {
-        setSaveStatus(`AI Fix Failed: ${data.error}`);
+        if (action === 'edit') {
+          setContent(data.data);
+          setSaveStatus(t.configs.aiEditDone);
+        } else {
+          setAnalysisResult(data.data);
+        }
       }
     } catch (e) {
-      setSaveStatus(t.common.networkError);
+      console.error(e);
     } finally {
       setIsAiEditing(false);
-    }
-  };
-
-  const handleAiAnalyze = async () => {
-    if (!content || readLoading || isAiAnalyzing) return;
-
-    if (analysisResult) {
-      setAnalysisResult('');
-      return;
-    }
-
-    const cacheKey = `${editingId}:${content}`;
-    if (aiCacheRef.current[cacheKey]) {
-      setAnalysisResult(aiCacheRef.current[cacheKey]);
-      return;
-    }
-
-    setIsAiAnalyzing(true);
-    setAnalysisResult(t.configs.aiExplaining);
-    try {
-      const configName = (t.configs.names as any)[editingId || ''] || configs.find(c => c.id === editingId)?.name || 'Configuration';
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.configs.aiAuditPrompt
-            .replace('{name}', configName)
-            .replace('{lang}', t.configs.promptLang)
-            .replace('{content}', content),
-          systemPrompt: 'You are an expert system administrator.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else {
-        setAnalysisResult(`Analyze Failed: ${data.error}`);
-      }
-    } catch (e) {
-      setAnalysisResult(t.common.networkError);
-    } finally {
       setIsAiAnalyzing(false);
     }
   };
 
-  if (loading) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
+  const filteredConfigs = configs.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.path.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeCategory === 'all' || c.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const activeConfig = configs.find(c => c.id === editingId);
+
+  if (loading && configs.length === 0) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
-    <div className="grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
-      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+    <div className="page-shell grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Settings size={24} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.configs.title}</h1>
+          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.sidebar.configs}</h1>
         </div>
-        <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }} className="desktop-only">
-          {t.configs.quickModify}
-        </div>
+        <button className="btn btn-ghost" style={{ padding: '0.6rem 1rem', border: '1px solid var(--color-surface-border)' }} onClick={fetchConfigs}>
+          <RefreshCw size={16} style={{ marginRight: '8px' }} />
+          {t.common.refresh}
+        </button>
       </div>
 
-      <div className={`configs-layout ${editingId ? 'showing-content' : 'showing-list'}`} style={{ marginTop: '0.5rem', alignItems: 'stretch' }}>
-        <div className="configs-sidebar card glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="flex-between" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>
-              {t.configs.availableConfigs}
-            </h3>
-            <button className="btn btn-ghost btn-sm" onClick={fetchConfigs} disabled={loading} style={{ height: '24px', padding: '0 0.4rem' }}>
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            </button>
+      <div className={`responsive-grid ${editingId ? 'showing-content' : 'showing-list'}`}>
+        <div className="configs-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+          <div style={{ position: 'relative', marginBottom: '1rem' }}>
+            <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <input
+              type="text"
+              className="input"
+              placeholder={t.configs.searchPlaceholder}
+              style={{ paddingLeft: '2.5rem', fontSize: '0.85rem' }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+
+          <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', marginBottom: '1rem', paddingBottom: '0.5rem', minWidth: 0 }}>
+            {configCategories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                style={{
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '100px',
+                  fontSize: '0.75rem',
+                  whiteSpace: 'nowrap',
+                  border: '1px solid',
+                  borderColor: activeCategory === cat.id ? 'var(--color-primary)' : 'transparent',
+                  background: activeCategory === cat.id ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)',
+                  color: activeCategory === cat.id ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: activeCategory === cat.id ? 600 : 400,
+                  transition: 'all 0.2s'
+                }}
+              >
+                {cat.label} ({cat.id === 'all' ? configs.length : configs.filter(c => c.category === cat.id).length})
+              </button>
+            ))}
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%' }}>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {configs.map(config => (
-                <li key={config.id}
-                  onClick={() => handleEdit(config.id)}
+              {filteredConfigs.map(config => (
+                <li
+                  key={config.id}
+                  className={`config-item ${editingId === config.id ? 'active' : ''}`}
+                  onClick={() => openConfig(config)}
                   style={{
-                    padding: '1rem',
+                    padding: '0.85rem',
                     marginBottom: '0.5rem',
                     borderRadius: 'var(--radius-sm)',
-                    border: '1px solid rgba(0,0,0,0.05)',
                     cursor: 'pointer',
+                    background: editingId === config.id ? 'var(--color-primary-light)' : 'rgba(255,255,255,0.3)',
+                    border: editingId === config.id ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
                     transition: 'all 0.2s',
-                    background: editingId === config.id ? 'var(--color-primary-light)' : 'rgba(255,255,255,0.5)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.25rem'
+                    minWidth: 0,
+                    overflow: 'hidden'
                   }}
-                  className="hover-scale"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, color: editingId === config.id ? 'var(--color-primary)' : 'inherit' }}>
-                      {(t.configs.names as any)[config.id] || config.name}
-                    </span>
-                    <span className={`badge ${config.type === 'system' ? 'badge-danger' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
-                      {config.type === 'system' ? t.configs.system : t.configs.user}
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem', minWidth: 0 }}>
+                    <FileText size={14} style={{ flexShrink: 0 }} color={editingId === config.id ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: editingId === config.id ? 'var(--color-primary)' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{config.name}</span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {config.path}
+                  <div style={{ fontSize: '0.7rem', color: 'var(--color-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8, marginBottom: '0.35rem', fontFamily: 'monospace' }}>
+                    {config.path.length > 35 ? '...' + config.path.slice(-32) : config.path.replace(homePath, '~')}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'space-between', fontWeight: 500, opacity: 0.7 }}>
+                    <span>{formatSize(config.size)}</span>
+                    <span>{formatAbsoluteTime(config.mtime)}</span>
                   </div>
                 </li>
               ))}
-              {configs.length === 0 && (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                  {t.common.none}
-                </div>
+              {filteredConfigs.length === 0 && (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>{t.common.none}</div>
               )}
             </ul>
           </div>
         </div>
 
-        <div className="configs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
-          {editingId ? (
+        <div className="configs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
+          {activeConfig ? (
             <>
-              <div className="flex-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <button className="btn btn-ghost mobile-back-btn" onClick={() => setEditingId(null)} style={{ padding: '0.4rem' }}>
-                    <ChevronLeft size={20} />
-                  </button>
-                  <FileText size={24} color="var(--color-primary)" className="desktop-only" />
-                  <h3 style={{ margin: 0, fontSize: '1rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {(t.configs.names as any)[editingId] || configs.find(c => c.id === editingId)?.name}
-                  </h3>
+              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
+                  <button className="btn btn-ghost mobile-only" onClick={() => setEditingId(null)}><ChevronLeft size={20} /></button>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{activeConfig.name}</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', background: 'rgba(0,0,0,0.05)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 500 }}>
+                        {formatSize(activeConfig.size)} · {formatAbsoluteTime(activeConfig.mtime)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', opacity: 0.6 }}>{activeConfig.path.replace(homePath, '~')}</div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                  {readLoading && <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginRight: '0.5rem' }}>{t.common.loading}</span>}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={handleAiAnalyze}
-                    disabled={readLoading || isAiAnalyzing || !content}
-                    title={t.common.analyze}
-                    style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.12)', fontWeight: 600, border: '1px solid rgba(16, 185, 129, 0.2)' }}
-                  >
-                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiAnalyzing ? 'animate-pulse' : ''} />
-                    {isAiAnalyzing ? t.common.analyzing : t.common.aiAudit}
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', height: '32px', gap: '6px' }} onClick={() => handleAiAction('analyze')} disabled={isAiAnalyzing}>
+                    <Sparkles size={15} className={isAiAnalyzing ? 'animate-pulse' : ''} />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{isAiAnalyzing ? t.common.analyzing : t.common.analyze}</span>
                   </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setShowAiPanel(!showAiPanel)}
-                    disabled={readLoading || isAiEditing || !content}
-                    title={t.configs.aiEditTitle}
-                    style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', fontWeight: 600, border: '1px solid rgba(59, 130, 246, 0.2)' }}
-                  >
-                    <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiEditing ? 'animate-pulse' : ''} />
-                    {isAiEditing ? t.configs.aiEditingBtn : t.common.aiAdjust}
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { handleEdit(editingId!); setSaveStatus(''); setAnalysisResult(''); }} title={t.common.refresh}>
-                    <RefreshCw size={14} className={readLoading ? 'animate-spin' : ''} />
+                  <button className="btn btn-primary btn-sm" style={{ height: '32px' }} onClick={handleSave}>
+                    <Save size={14} style={{ marginRight: '6px' }} /> {t.common.save}
                   </button>
                 </div>
               </div>
 
               {showAiPanel && (
-                <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
-                    <Sparkles size={14} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t.configs.aiEditAssistant}</span>
+                <div className="ai-panel" style={{ background: 'rgba(59,130,246,0.03)', borderBottom: '1px solid rgba(59,130,246,0.1)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(240,247,255,0.9)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
+                    <Brain size={16} color="var(--color-primary)" />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>AI {analysisResult ? t.configs.aiAnalyzeTitle : t.configs.aiEditTitle}</span>
+                    <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowAiPanel(false)}><X size={16} color="var(--color-text-muted)" /></button>
                   </div>
+
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+                    {!analysisResult ? (
+                      <div className="flex-column" style={{ gap: '0.75rem' }}>
+                        <textarea
+                          className="input"
+                          placeholder={t.configs.aiEditPlaceholder}
+                          style={{ minHeight: '80px', fontSize: '0.85rem', resize: 'none' }}
+                          value={aiDemand}
+                          onChange={(e) => setAiDemand(e.target.value)}
+                        />
+                        <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end', background: 'linear-gradient(to right, #38bdf8, #a855f7)', border: 'none' }} onClick={() => handleAiAction('edit')} disabled={isAiEditing}>
+                          {isAiEditing ? t.common.loading : '🪄 ' + t.common.confirm}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="markdown-content" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '1.5rem', background: '#fafafa' }}>
+                {readLoading ? (
+                  <div className="flex-center" style={{ height: '100%' }}>{t.common.loading}</div>
+                ) : (
                   <textarea
-                    className="input"
-                    placeholder={t.configs.aiEditPlaceholder}
-                    value={aiDemand}
-                    onChange={(e) => setAiDemand(e.target.value)}
-                    style={{ minHeight: '100px', fontSize: '0.85rem', width: '100%' }}
+                    className="no-scrollbar"
+                    style={{
+                      width: '100%', height: '100%', border: 'none', outline: 'none',
+                      background: 'transparent', fontFamily: 'monospace', fontSize: '0.85rem',
+                      resize: 'none', color: '#334155', lineHeight: 1.6
+                    }}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    spellCheck={false}
                   />
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setShowAiPanel(false)}>{t.common.cancel}</button>
-                    <button className="btn btn-primary btn-sm" onClick={handleAiEdit} disabled={!aiDemand.trim() || isAiEditing}>
-                      {isAiEditing ? t.configs.aiProcessing : t.configs.aiApply}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {analysisResult && (
-                <div className="ai-output-block" style={{
-                  marginBottom: '1rem', padding: 0,
-                  background: 'rgba(59, 130, 246, 0.03)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(59, 130, 246, 0.1)',
-                  animation: 'slideInDown 0.3s ease',
-                  maxHeight: '300px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem 1.25rem',
-                    color: 'var(--color-primary)',
-                    position: 'sticky',
-                    top: 0,
-                    background: 'rgba(240, 247, 255, 0.95)',
-                    backdropFilter: 'blur(8px)',
-                    zIndex: 5,
-                    borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
-                  }}>
-                    <Sparkles size={16} />
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.configs.aiAuditTitle}</span>
-                    <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
-                  </div>
-                  <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
-
-              <textarea
-                className="input"
-                style={{
-                  flex: 1,
-                  fontFamily: 'monospace',
-                  fontSize: '0.9rem',
-                  padding: '1rem',
-                  resize: 'none',
-                  background: '#f1f5f9',
-                  color: 'var(--color-text)',
-                  lineHeight: '1.5',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-surface-border)',
-                  outline: 'none'
-                }}
-                spellCheck={false}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={readLoading}
-              />
-
-              <div className="flex-between" style={{ marginTop: '1.5rem' }}>
-                <div>
-                  {saveStatus && (
-                    <span className={saveStatus.includes('成功') || saveStatus.includes('Success') ? 'badge badge-success' : 'badge badge-danger'}>
-                      {saveStatus}
-                    </span>
-                  )}
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSave}
-                  disabled={readLoading || !!saveStatus.includes('Saving')}
-                  style={{ padding: '0.6rem 2rem' }}
-                >
-                  {t.common.save}
-                </button>
+                )}
               </div>
-              <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                💡 {t.configs.permissionNote}
-              </p>
+
+              <div style={{ padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.02)', borderTop: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', visibility: saveStatus ? 'visible' : 'hidden' }}>{saveStatus}</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', opacity: 0.6 }}>UTF-8 Plain Text</span>
+              </div>
             </>
           ) : (
-            <div className="flex-center" style={{ flex: 1, flexDirection: 'column', color: 'var(--color-text-muted)' }}>
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '1rem', opacity: 0.2 }}>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              <p>{t.configs.selectConfig}</p>
+            <div className="flex-center" style={{ flex: 1, flexDirection: 'column', color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem' }}>
+              <Settings size={64} style={{ marginBottom: '1.5rem', opacity: 0.1, strokeWidth: 1 }} />
+              <p style={{ fontSize: '0.9rem', maxWidth: '300px' }}>{t.configs.selectConfig}</p>
             </div>
           )}
         </div>
       </div>
 
       <style jsx>{`
-        .configs-layout {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-          gap: 1.5rem;
-          align-items: stretch;
-          width: 100%;
-        }
-
-        .configs-sidebar, .configs-content {
-          height: calc(100vh - 200px);
-        }
-
-        .mobile-back-btn {
-          display: none;
-        }
-
-        @media (max-width: 1024px) {
-          .configs-layout {
-            grid-template-columns: 280px 1fr;
-            gap: 1rem;
-          }
-        }
+        .responsive-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) 3fr; gap: 1.5rem; align-items: start; width: 100%; max-width: 100%; box-sizing: border-box; }
+        .config-item:hover { background: rgba(59, 130, 246, 0.05) !important; }
+        
+        .mobile-only { display: none; }
+        .desktop-only { display: flex; }
 
         @media (max-width: 768px) {
-          .configs-layout {
-            grid-template-columns: 1fr;
-            gap: 0;
-            height: auto;
-          }
-
+          .page-shell { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+          .responsive-grid { flex: 1 !important; min-height: 0; display: flex !important; flex-direction: column; height: auto !important; width: 100%; max-width: 100%; overflow-x: hidden; }
+          .showing-content .configs-sidebar { display: none !important; }
+          .showing-list .configs-content { display: none !important; }
+          .mobile-only { display: flex !important; }
+          .desktop-only { display: none !important; }
           .configs-sidebar, .configs-content {
-            height: calc(100vh - 140px);
-            border-radius: var(--radius-md);
+            flex: 1 !important;
+            min-height: 0;
+            height: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow-x: hidden !important;
           }
-
-          .showing-content .configs-sidebar {
-            display: none !important;
-          }
-          
-          .showing-list .configs-content {
-            display: none !important;
-          }
-
-          .mobile-back-btn {
-            display: flex;
-          }
-           .dashboard-page-header {
-             display: ${editingId ? 'none' : 'flex'} !important;
-           }
-        }
-
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
         }
       `}</style>
     </div>

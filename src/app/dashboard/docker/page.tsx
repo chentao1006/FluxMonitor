@@ -373,7 +373,7 @@ export default function DockerDashboard() {
                   <th className="col-name">{t.docker.nameId}</th>
                   <th className="col-image desktop-only">{t.processes.user}</th>
                   <th className="col-mappings desktop-only">{t.docker.mappings}</th>
-                  <th className="col-status">{t.docker.serviceStatus}</th>
+                  <th className="col-status desktop-only">{t.docker.serviceStatus}</th>
                   <th className="col-actions">{t.common.actions}</th>
                 </tr>
               </thead>
@@ -385,9 +385,15 @@ export default function DockerDashboard() {
                       <td className="col-name">
                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.Names}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>{c.ID.substring(0, 12)}</div>
-                        <div className="mobile-only" style={{ marginTop: '0.5rem' }}>
+                        <div className="mobile-only" style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          <div onClick={() => (!isUp || c.Status.includes('Restarting')) && analyzeStatus(c)} style={{ cursor: !isUp || c.Status.includes('Restarting') ? 'pointer' : 'default' }}>
+                            <span className={`badge ${isUp ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              {c.Status}
+                              {(!isUp || c.Status.includes('Restarting')) && <Sparkles size={10} style={{ opacity: 0.8 }} />}
+                            </span>
+                          </div>
                           {c.Ports && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                               <Server size={10} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
                               <div style={{ fontSize: '0.7rem', color: 'var(--color-text-header)' }}>{c.Ports}</div>
                             </div>
@@ -411,8 +417,8 @@ export default function DockerDashboard() {
                           </div>
                         )}
                       </td>
-                      <td className="col-status">
-                        <span className={`badge ${isUp ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', cursor: !isUp || c.Status.includes('Restarting') ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => (!isUp || c.Status.includes('Restarting')) && analyzeStatus(c)}>
+                      <td className="col-status desktop-only">
+                        <span className={`badge ${isUp ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', cursor: !isUp || c.Status.includes('Restarting') ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={() => (!isUp || c.Status.includes('Restarting')) && analyzeStatus(c)} title={c.Status}>
                           {c.Status}
                           {(!isUp || c.Status.includes('Restarting')) && <Sparkles size={10} style={{ opacity: 0.8 }} />}
                         </span>
@@ -460,7 +466,7 @@ export default function DockerDashboard() {
                   <th className="col-name">{t.docker.repoTag}</th>
                   <th className="col-id desktop-only">ID</th>
                   <th className="col-size">{t.docker.size}</th>
-                  <th className="col-status">{t.docker.serviceStatus}</th>
+                  <th className="col-status desktop-only">{t.docker.serviceStatus}</th>
                   <th className="col-actions">{t.common.actions}</th>
                 </tr>
               </thead>
@@ -469,8 +475,13 @@ export default function DockerDashboard() {
                   <tr key={img.ID} className="docker-row">
                     <td className="col-name">
                       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{img.Repository}</div>
-                      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', alignItems: 'center' }}>
                         <span className="badge badge-warning" style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>{img.Tag}</span>
+                        <div className="mobile-only">
+                          <span className={`badge ${img.InUse ? 'badge-primary' : 'badge-ghost'}`} style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>
+                            {img.InUse ? t.docker.inUse : t.docker.idle}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="col-id desktop-only">
@@ -479,7 +490,7 @@ export default function DockerDashboard() {
                     <td className="col-size">
                       <div style={{ fontSize: '0.85rem' }}>{img.Size}</div>
                     </td>
-                    <td className="col-status">
+                    <td className="col-status desktop-only">
                       <span className={`badge ${img.InUse ? 'badge-primary' : 'badge-ghost'}`} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}>
                         {img.InUse ? t.docker.inUse : t.docker.idle}
                       </span>
@@ -601,11 +612,14 @@ export default function DockerDashboard() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .docker-table td.col-status {
+          overflow: visible;
+        }
         .col-name { width: auto; }
-        .col-image { width: 150px; }
-        .col-mappings { width: 200px; }
+        .col-image { width: 140px; }
+        .col-mappings { width: 180px; }
         .col-id { width: 120px; font-family: monospace; }
-        .col-status { width: 120px; }
+        .col-status { width: 160px; }
         .col-size { width: 100px; }
         .col-actions { width: 160px; text-align: right; }
         .col-actions .action-buttons {

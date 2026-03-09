@@ -1,5 +1,7 @@
 export const translations = {
   zh: {
+    appTitle: 'Flux | macOS 系统面板',
+    appDesc: 'Flux - 一款简约而强大的 macOS 系统监控与运维管理面板',
     sidebar: {
       monitor: '系统概览',
       processes: '进程管理',
@@ -25,6 +27,7 @@ export const translations = {
       networkError: '网络或服务器错误。'
     },
     common: {
+      all: '全部',
       systemDefault: '跟随系统',
       loading: '加载中...',
       refresh: '刷新数据',
@@ -202,17 +205,28 @@ export const translations = {
       noFileLeft: '请从左侧选择一个日志文件进行查看',
       noFileSel: '未选择文件',
       pathLabel: '路径',
-      promptLang: '中文',
-      aiPrompt: '请作为资深系统专家，分析以下日志文件 "{filename}" 的内容。请解释当前系统的状态、是否有异常情况。要求使用中文，结构清晰。日志内容如下：\n\n{content}',
+      searchLogs: '查询日志文件...',
+      analyzeTitle: '日志分析报告',
+      explainPrompt: '请作为资深系统专家，分析以下日志内容。请解释当前系统的状态、是否有异常情况（如有，请说明可能的报错原因及建议解决方案）。要求使用中文，结构清晰。日志内容如下：\n\n{content}',
     },
     configs: {
       title: '配置管理',
+      searchPlaceholder: '搜索配置文件...',
       aiAuditTitle: 'AI 配置文件审计',
+      aiAnalyzeTitle: 'AI 诊断见解',
       aiExplaining: 'AI 正在分析该配置文件... 🪄',
       aiEditing: 'AI 正在修改中... 🪄',
       aiEditDone: 'AI 修改完成，请检查并保存',
       quickModify: '快速修改系统和终端配置文件',
       availableConfigs: '可用配置文件',
+      categories: {
+        all: '全部',
+        shell: '终端工具',
+        web: 'Web 服务器',
+        db: '数据库',
+        dev: '开发工具',
+        sys: '系统配置'
+      },
       system: '系统',
       user: '用户',
       aiEditTitle: 'AI 智能编辑',
@@ -263,6 +277,7 @@ export const translations = {
       unknownAction: '未知操作',
       actionFailed: '操作失败',
       aiAuditPrompt: '作为系统专家，请分析配置文件 "{name}"。解释其用途、安全风险和优化建议。使用 Markdown 格式，语言：{lang}。\n\n内容：\n{content}',
+      aiAnalyzePrompt: '分析配置文件 "{name}":\n\n{content}',
       aiEditPrompt: '作为系统专家，请帮助我修改配置文件 "{name}"。\n用户需求：{demand}\n\n当前文件内容：\n{content}\n\n注意：仅返回修改后的完整内容，不要包含 markdown 代码块或额外解释。',
     },
     docker: {
@@ -370,6 +385,9 @@ export const translations = {
       modifyPrompt: '描述你想要如何修改这段配置...',
       writePrompt: '想要系统替你写什么？',
       saveNote: '注意: 保存 plist 文件后，通常需要点击「重载」或「加载」以使更改生效。',
+      aiExplainTitle: 'AI 服务功能释义',
+      aiExplaining: 'AI 正在尝试解析该自启服务的行为... 🪄',
+      aiExplainPrompt: '请作为 macOS 系统专家分析以下 LaunchAgent 配置文件。请解释该服务的功能（它是干什么的）、运行策略（如是否开机自启、触发条件）、以及可能的资源或安全性影响。使用中文 Markdown 格式。内容如下：\n\n{content}',
       loadFailed: '加载失败',
       unloadFailed: '卸载失败',
       aiPromptExisting: '请参考以下已有的 macOS LaunchAgent plist 内容，并根据新的需求进行修改：\n\n---当前内容---\n{content}\n---当前内容---\n\n新的修改需求: {demand}\n\n注意：必须仅返回修改后的纯 plist XML 代码文本，不要包含任何 markdown 语法（如 ```xml） and 多余对话，直接以 <?xml 打头。',
@@ -555,6 +573,8 @@ export const translations = {
     }
   },
   en: {
+    appTitle: 'Flux | macOS Dashboard',
+    appDesc: 'Flux - A minimalist and powerful macOS system monitoring and management panel',
     sidebar: {
       monitor: 'Monitor',
       processes: 'Processes',
@@ -580,6 +600,7 @@ export const translations = {
       networkError: 'Network or server error.'
     },
     common: {
+      all: 'All',
       systemDefault: 'Auto',
       loading: 'Loading...',
       refresh: 'Refresh Data',
@@ -758,16 +779,28 @@ export const translations = {
       noFileSel: 'No file selected',
       pathLabel: 'Path',
       promptLang: 'English',
-      aiPrompt: 'As a senior system expert, please analyze the content of the log file "{filename}". Explain the current system status and whether there are any anomalies. Use English and maintain a clear structure. Log content:\n\n{content}',
+      explainPrompt: 'As a senior system expert, please analyze the following log content. Explain the current system status and whether there are any anomalies (if any, please explain the possible error causes and suggest solutions). Use English and maintain a clear structure. Log content:\n\n{content}',
+      searchLogs: 'Search log files...',
+      analyzeTitle: 'Log Analysis Report',
     },
     configs: {
       title: 'Config Management',
+      searchPlaceholder: 'Search configuration files...',
       aiAuditTitle: 'AI Configuration Audit',
+      aiAnalyzeTitle: 'AI Diagnostic Insights',
       aiExplaining: 'AI is analyzing this configuration file... 🪄',
       aiEditing: 'AI is modifying... 🪄',
       aiEditDone: 'AI modification complete, please review and save',
       quickModify: 'Quickly modify system and terminal config files',
       availableConfigs: 'Available Configs',
+      categories: {
+        all: 'All',
+        shell: 'Shell & CLI',
+        web: 'Web Server',
+        db: 'Database',
+        dev: 'Dev Tools',
+        sys: 'System'
+      },
       system: 'System',
       user: 'User',
       aiEditTitle: 'AI Smart Edit',
@@ -818,6 +851,7 @@ export const translations = {
       unknownAction: 'Unknown action',
       actionFailed: 'Action failed',
       aiAuditPrompt: 'As a system expert, analyze the configuration file "{name}". Explain its purpose, security risks, and optimization suggestions. Format in Markdown, language: {lang}.\n\nContent:\n{content}',
+      aiAnalyzePrompt: 'Analyze configuration file "{name}":\n\n{content}',
       aiEditPrompt: 'As a system expert, help me modify the configuration file "{name}".\nUser requirement: {demand}\n\nCurrent file content:\n{content}\n\nNote: Return the full modified content ONLY without markdown blocks or extra explanation.',
     },
     docker: {

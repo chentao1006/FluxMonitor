@@ -197,6 +197,18 @@ p {
 /* Cards & Layout */
 .card {
   padding: 1.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 1rem;
+  }
+
+  .app-main {
+    padding: 0.5rem;
+  }
 }
 
 .card-title {
@@ -373,8 +385,8 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1.25rem;
-  margin: 0.75rem;
+  padding: 0.6rem 1rem;
+  margin: 0.5rem;
   border-radius: var(--radius-md);
   z-index: 100;
   height: 60px;
@@ -502,7 +514,8 @@ p {
   overflow-x: hidden;
   height: calc(100vh - 80px);
   min-width: 0;
-  /* Critical for flexbox children containing grids */
+  max-width: 100%;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -602,6 +615,8 @@ p {
   grid-template-columns: 1fr;
   gap: 1rem;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .responsive-grid-2,
@@ -629,7 +644,7 @@ p {
   }
 
   .responsive-grid-auto {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.5rem;
   }
 }
