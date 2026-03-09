@@ -42,6 +42,7 @@ export default function LogsPage() {
     isOpen: false, filePath: '', action: 'clear', password: '', loading: false, error: ''
   });
   const sudoInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const internalCategories = ['all', 'system', 'service', 'app', 'other'];
   const categoryLabels: Record<string, string> = {
@@ -93,6 +94,13 @@ export default function LogsPage() {
   useEffect(() => {
     fetchFiles();
   }, []);
+
+  // 每次日志内容更新后，自动滚动 textarea 到最底部
+  useEffect(() => {
+    if (!readLoading && content && textareaRef.current) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [content, readLoading]);
 
   const openLog = async (path: string) => {
     setActiveFile(path);
@@ -423,6 +431,7 @@ export default function LogsPage() {
                   <div className="flex-center" style={{ height: '100%' }}>{t.common.loading}</div>
                 ) : (
                   <textarea
+                    ref={textareaRef}
                     readOnly
                     className="no-scrollbar"
                     style={{
