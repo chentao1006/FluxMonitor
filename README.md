@@ -1,4 +1,4 @@
-# Flux 面板 (Flux Dashboard)
+# Flux 面板 (Flux Monitor)
 
 [English](#english) | [简体中文](#简体中文)
 
