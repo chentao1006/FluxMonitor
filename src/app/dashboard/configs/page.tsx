@@ -43,10 +43,8 @@ export default function ConfigsDashboard() {
   const [content, setContent] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [readLoading, setReadLoading] = useState(false);
-  const [isAiEditing, setIsAiEditing] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState('');
-  const [aiDemand, setAiDemand] = useState('');
   const [showAiPanel, setShowAiPanel] = useState(false);
   const aiCacheRef = useRef<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,7 +91,6 @@ export default function ConfigsDashboard() {
     setEditingId(config.id);
     setReadLoading(true);
     setAnalysisResult('');
-    setAiDemand('');
     setShowAiPanel(false);
     try {
       const res = await fetch('/api/configs', {
@@ -135,21 +132,16 @@ export default function ConfigsDashboard() {
     }
   };
 
-  const handleAiAction = async (action: 'edit' | 'analyze') => {
+  const handleAiAction = async () => {
     const config = configs.find(c => c.id === editingId);
     if (!config) return;
 
-    if (action === 'edit' && !aiDemand) return;
-
-    if (action === 'edit') setIsAiEditing(true);
-    else setIsAiAnalyzing(true);
-
+    setIsAiAnalyzing(true);
     setShowAiPanel(true);
+    setAnalysisResult('');
 
     try {
-      const prompt = action === 'edit'
-        ? t.configs.aiEditPrompt.replace('{content}', content).replace('{demand}', aiDemand)
-        : t.configs.aiAnalyzePrompt.replace('{content}', content);
+      const prompt = t.configs.aiAnalyzePrompt.replace('{name}', config.name).replace('{content}', content);
 
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -158,17 +150,12 @@ export default function ConfigsDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        if (action === 'edit') {
-          setContent(data.data);
-          setSaveStatus(t.configs.aiEditDone);
-        } else {
-          setAnalysisResult(data.data);
-        }
+        setAnalysisResult(data.data);
       }
     } catch (e) {
       console.error(e);
+      setAnalysisResult('Analysis failed. Please try again.');
     } finally {
-      setIsAiEditing(false);
       setIsAiAnalyzing(false);
     }
   };
@@ -377,7 +364,7 @@ export default function ConfigsDashboard() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', height: '32px', gap: '6px' }} onClick={() => handleAiAction('analyze')} disabled={isAiAnalyzing}>
+                  <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', height: '32px', gap: '6px' }} onClick={() => handleAiAction()} disabled={isAiAnalyzing}>
                     <Sparkles size={15} className={isAiAnalyzing ? 'animate-pulse' : ''} />
                     <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{isAiAnalyzing ? t.common.analyzing : t.common.analyze}</span>
                   </button>
@@ -391,23 +378,15 @@ export default function ConfigsDashboard() {
                 <div className="ai-panel" style={{ background: 'rgba(59,130,246,0.03)', borderBottom: '1px solid rgba(59,130,246,0.1)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(240,247,255,0.9)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
                     <Brain size={16} color="var(--color-primary)" />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>AI {analysisResult ? t.configs.aiAnalyzeTitle : t.configs.aiEditTitle}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.configs.aiAnalyzeTitle}</span>
                     <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowAiPanel(false)}><X size={16} color="var(--color-text-muted)" /></button>
                   </div>
 
                   <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-                    {!analysisResult ? (
-                      <div className="flex-column" style={{ gap: '0.75rem' }}>
-                        <textarea
-                          className="input"
-                          placeholder={t.configs.aiEditPlaceholder}
-                          style={{ minHeight: '80px', fontSize: '0.85rem', resize: 'none' }}
-                          value={aiDemand}
-                          onChange={(e) => setAiDemand(e.target.value)}
-                        />
-                        <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end', background: 'linear-gradient(to right, #38bdf8, #a855f7)', border: 'none' }} onClick={() => handleAiAction('edit')} disabled={isAiEditing}>
-                          {isAiEditing ? t.common.loading : '🪄 ' + t.common.confirm}
-                        </button>
+                    {isAiAnalyzing ? (
+                      <div className="flex-center" style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="animate-spin" style={{ width: '24px', height: '24px', border: '3px solid var(--color-primary-light)', borderTopColor: 'var(--color-primary)', borderRadius: '50%' }}></div>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{t.common.analyzing}</span>
                       </div>
                     ) : (
                       <div className="markdown-content" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>

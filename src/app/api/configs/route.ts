@@ -23,14 +23,15 @@ interface ConfigItem {
 const PREDEFINED_CONFIGS: ConfigItem[] = [
   // --- System Configs ---
   { id: 'hosts', name: 'Hosts File', path: '/etc/hosts', type: 'system', category: 'System' },
-  { id: 'resolv_conf', name: 'DNS (resolv.conf)', path: '/etc/resolv.conf', type: 'system', category: 'Network' },
-  { id: 'sshd_config', name: 'SSH Server Config', path: '/etc/ssh/sshd_config', type: 'system', category: 'Network' },
-  { id: 'pf_conf', name: 'PF Firewall', path: '/etc/pf.conf', type: 'system', category: 'Network' },
-  { id: 'nginx_conf', name: 'Nginx Config', path: '/etc/nginx/nginx.conf', type: 'system', category: 'Server' },
-  { id: 'nginx_conf_brew', name: 'Nginx (Brew)', path: '/opt/homebrew/etc/nginx/nginx.conf', type: 'system', category: 'Server' },
+  { id: 'resolv_conf', name: 'DNS (resolv.conf)', path: '/etc/resolv.conf', type: 'system', category: 'System' },
+  { id: 'sshd_config', name: 'SSH Server Config', path: '/etc/ssh/sshd_config', type: 'system', category: 'System' },
+  { id: 'pf_conf', name: 'PF Firewall', path: '/etc/pf.conf', type: 'system', category: 'System' },
+  { id: 'nginx_conf', name: 'Nginx Config', path: '/etc/nginx/nginx.conf', type: 'system', category: 'Web Server' },
+  { id: 'nginx_conf_brew', name: 'Nginx (Brew)', path: '/opt/homebrew/etc/nginx/nginx.conf', type: 'system', category: 'Web Server' },
+  { id: 'nginx_conf_local', name: 'Nginx (Local)', path: '/usr/local/etc/nginx/nginx.conf', type: 'system', category: 'Web Server' },
   { id: 'redis_conf', name: 'Redis (Brew)', path: '/opt/homebrew/etc/redis.conf', type: 'system', category: 'Database' },
   { id: 'mysql_conf', name: 'MySQL Config', path: '/etc/my.cnf', type: 'system', category: 'Database' },
-  { id: 'apache_conf', name: 'Apache Config', path: '/private/etc/apache2/httpd.conf', type: 'system', category: 'Server' },
+  { id: 'apache_conf', name: 'Apache Config', path: '/private/etc/apache2/httpd.conf', type: 'system', category: 'Web Server' },
 ];
 
 function getCategory(fullPath: string, fileName: string): string {
@@ -216,9 +217,13 @@ export async function POST(request: Request) {
     const predefined = PREDEFINED_CONFIGS.find(c => c.id === id);
     if (predefined) {
       configPath = predefined.path;
-    } else if (id && (id.startsWith('/') || id.includes('/'))) {
-      // If it looks like a path, use it directly (security: we should probably verify it's under HOME or allowed dirs)
-      configPath = id;
+    } else if (id) {
+      // Expand ~ to HOME if present
+      configPath = id.startsWith('~') ? path.join(HOME, id.slice(1)) : id;
+      // Handle relative paths or resolve correctly
+      if (!path.isAbsolute(configPath) && !id.startsWith('~')) {
+        configPath = path.resolve(HOME, configPath);
+      }
     }
 
     if (!configPath || !existsSync(configPath)) {
@@ -226,11 +231,17 @@ export async function POST(request: Request) {
     }
 
     // Security check: only allow reading files in HOME or predefined paths
-    if (!configPath.startsWith(HOME) && !PREDEFINED_CONFIGS.some(c => c.path === configPath)) {
-      // Allow some system configs even if not in HOME
-      if (!configPath.startsWith('/etc/') && !configPath.startsWith('/opt/homebrew/') && !configPath.startsWith('/private/etc/')) {
-        return NextResponse.json({ error: 'PERMISSION_DENIED', details: 'Access outside allowed directories' }, { status: 403 });
-      }
+    const isAllowedDir =
+      configPath.startsWith(HOME) ||
+      configPath.startsWith('/etc/') ||
+      configPath.startsWith('/opt/homebrew/') ||
+      configPath.startsWith('/private/etc/') ||
+      configPath.startsWith('/usr/local/etc/') ||
+      configPath.startsWith('/usr/local/var/log/') ||
+      PREDEFINED_CONFIGS.some(c => c.path === configPath);
+
+    if (!isAllowedDir) {
+      return NextResponse.json({ error: 'PERMISSION_DENIED', details: 'Access outside allowed directories' }, { status: 403 });
     }
 
     if (action === 'read') {
