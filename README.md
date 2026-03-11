@@ -1,4 +1,4 @@
-# Flux 面板 (Flux Monitor)
+# 浮光 面板 (Flux Monitor)
 
 [English](#english) | [简体中文](#简体中文)
 
@@ -12,7 +12,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ### Features
 
-- **System Monitor**: Display CPU, memory, disk, and network usage.
+- **System Monitor**: Display CPU, memory, disk, and network usage, run terminal commands.
 - **Process Management**: View running processes and monitor resource consumption.
 - **Log Analysis**: Browse system logs with optional AI status interpretation.
 - **Configuration Management**: Edit system configuration files.
@@ -32,9 +32,9 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ### 功能
 
-- **系统概览**: 显示 CPU、内存、磁盘使用率及网络流量。
+- **系统概览**: 显示 CPU、内存、磁盘使用率及网络流量，运行终端命令。
 - **进程管理**: 展示运行进程及其资源消耗。
-- **日志分析**: 查看系统日志（支持选配 AI 诊断）。
+- **日志分析**: 查看系统日志。
 - **配置文件管理**: 编辑并管理系统配置文件。
 - **自启服务管理**: 管理 macOS 的 LaunchAgents 与 LaunchDaemons 服务。
 - **Docker**: 管理容器与镜像。
