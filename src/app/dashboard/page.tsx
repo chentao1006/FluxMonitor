@@ -477,7 +477,17 @@ export default function DashboardOverview() {
             ))}
           </div>
           <form onSubmit={executeCommand} className="command-form" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <input type="text" className="input terminal-input" placeholder={t.monitor.terminalHint} value={cmd} onChange={e => setCmd(e.target.value)} disabled={isExecuting} style={{ flex: 1, fontFamily: 'monospace' }} />
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input type="text" className="input terminal-input" placeholder={t.monitor.terminalHint} value={cmd} onChange={e => setCmd(e.target.value)} disabled={isExecuting} style={{ width: '100%', fontFamily: 'monospace', paddingRight: cmd ? '2.5rem' : '0.75rem' }} />
+              {cmd && !isExecuting && (
+                <button
+                  onClick={() => setCmd('')}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             {isExecuting ? (
               <button type="button" className="btn btn-danger" onClick={(e) => stopCommand(e)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <Square size={16} fill="white" /> {t.common.stop}

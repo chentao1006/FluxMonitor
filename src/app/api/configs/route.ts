@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
+import { getConfig, saveConfig } from '@/lib/config';
 
 const HOME = os.homedir();
 const CONFIG_DIR = path.join(HOME, '.config');
@@ -15,6 +16,7 @@ interface ConfigItem {
   category: string;
   size?: number;
   mtime?: number;
+  isCustom?: boolean;
 }
 
 // Predefined configs with categories
@@ -58,6 +60,29 @@ async function scanConfigs() {
   const seenPaths = new Set(configs.map(c => c.path));
 
   const scanDir = async (dir: string, maxDepth = 1, currentDepth = 0) => {
+    // Add custom configs from config.json
+    const configData = getConfig();
+    const customConfigs = configData.customConfigs || [];
+    for (const customPath of customConfigs) {
+      if (!seenPaths.has(customPath) && existsSync(customPath)) {
+        try {
+          const stat = await fs.stat(customPath);
+          const name = path.basename(customPath);
+          configs.push({
+            id: customPath,
+            name: name,
+            path: customPath,
+            size: stat.size,
+            mtime: stat.mtime.getTime(),
+            type: 'user',
+            category: getCategory(customPath, name),
+            isCustom: true
+          });
+          seenPaths.add(customPath);
+        } catch (e) { }
+      }
+    }
+
     if (currentDepth > maxDepth) return;
     try {
       if (!existsSync(dir)) return;
@@ -120,7 +145,8 @@ async function scanConfigs() {
             size: stat.size,
             mtime: stat.mtime.getTime(),
             type: 'user',
-            category: getCategory(fullPath, name)
+            category: getCategory(fullPath, name),
+            isCustom: customConfigs.some((cp: string) => cp === fullPath || cp.replace(/^~/, HOME) === fullPath)
           });
           seenPaths.add(fullPath);
         }
@@ -226,6 +252,24 @@ export async function POST(request: Request) {
         }
         return NextResponse.json({ error: 'WRITE_FAILED', details: error.message }, { status: 500 });
       }
+    }
+
+    if (action === 'add') {
+      const configData = getConfig();
+      const customConfigs = configData.customConfigs || [];
+      if (!customConfigs.includes(id)) {
+        customConfigs.push(id);
+        saveConfig({ ...configData, customConfigs });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'remove') {
+      const configData = getConfig();
+      const customConfigs = configData.customConfigs || [];
+      const newCustomConfigs = customConfigs.filter((p: string) => p !== id);
+      saveConfig({ ...configData, customConfigs: newCustomConfigs });
+      return NextResponse.json({ success: true });
     }
 
     return NextResponse.json({ error: 'UNKNOWN_ACTION' }, { status: 400 });

@@ -18,7 +18,8 @@ import {
   Database,
   Info,
   Layers,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 
 interface Process {
@@ -230,15 +231,35 @@ export default function ProcessManager() {
       <div className="card glass-panel" style={{ padding: '1rem' }}>
         <div className="responsive-grid responsive-grid-auto" style={{ gap: '1rem' }}>
           <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
             <input
               type="text"
               className="input"
               placeholder={t.common.search}
+              style={{ paddingLeft: '2.5rem', paddingRight: searchTerm ? '2.5rem' : '0.75rem', fontSize: '0.85rem' }}
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: '2.75rem' }}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                style={{
+                  position: 'absolute',
+                  right: '0.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px'
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '1rem' }}>

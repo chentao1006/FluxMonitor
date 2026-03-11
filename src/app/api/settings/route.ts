@@ -1,17 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-const configPath = path.join(process.cwd(), 'config.json');
-
-function getConfig() {
-  const content = fs.readFileSync(configPath, 'utf8');
-  return JSON.parse(content);
-}
-
-function saveConfig(config: any) {
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-}
+import { getConfig, saveConfig } from '@/lib/config';
 
 export async function GET() {
   try {

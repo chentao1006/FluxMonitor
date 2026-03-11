@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Activity, FileText, ChevronLeft, RefreshCw, Search, X, Sparkles, Brain, Trash2, Eraser, Lock } from 'lucide-react';
+import { Activity, FileText, ChevronLeft, RefreshCw, Search, X, Sparkles, Brain, Trash2, Eraser, Lock, Plus, MinusCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -12,6 +12,7 @@ interface LogFile {
   size: number;
   category: string;
   mtime: number;
+  isCustom?: boolean;
 }
 
 type ActionType = 'clear' | 'delete';
@@ -41,8 +42,10 @@ export default function LogsPage() {
   const [sudoModal, setSudoModal] = useState<SudoModalState>({
     isOpen: false, filePath: '', action: 'clear', password: '', loading: false, error: ''
   });
+  const [addModal, setAddModal] = useState({ isOpen: false, path: '', loading: false });
   const sudoInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
 
   const internalCategories = ['all', 'system', 'service', 'app', 'other'];
   const categoryLabels: Record<string, string> = {
@@ -214,6 +217,53 @@ export default function LogsPage() {
     await executeAction(filePath, action, password);
   };
 
+  const handleAddFile = async () => {
+    if (!addModal.path) return;
+    setAddModal(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: addModal.path, action: 'add' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAddModal({ isOpen: false, path: '', loading: false });
+        fetchFiles();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAddModal(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRemoveFile = async (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    if (!confirm(t.logs.removeConfirm)) return;
+    
+    setActionLoadingPath(path);
+    try {
+      const res = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: path, action: 'remove' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchFiles();
+        if (activeFile === path) {
+          setActiveFile(null);
+          setContent('');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActionLoadingPath(null);
+    }
+  };
+
   const filteredFiles = files.filter(f => {
     const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       f.path.toLowerCase().includes(searchQuery.toLowerCase());
@@ -248,10 +298,41 @@ export default function LogsPage() {
               type="text"
               className="input"
               placeholder={t.logs.searchLogs}
-              style={{ paddingLeft: '2.5rem', fontSize: '0.85rem' }}
+              style={{ paddingLeft: '2.5rem', paddingRight: searchQuery ? '2.5rem' : '0.75rem', fontSize: '0.85rem' }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '2.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px'
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+            <button 
+              className="btn btn-ghost btn-sm" 
+              onClick={() => {
+                setAddModal({ isOpen: true, path: '', loading: false });
+                setTimeout(() => addInputRef.current?.focus(), 100);
+              }}
+              style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', padding: '0.25rem', height: 'auto' }}
+              title={t.logs.addFile}
+            >
+              <Plus size={16} color="var(--color-primary)" />
+            </button>
           </div>
 
           <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', marginBottom: '1rem', paddingBottom: '0.5rem' }}>
@@ -330,9 +411,9 @@ export default function LogsPage() {
                         </button>
                         <button
                           className="log-action-btn log-action-btn-danger"
-                          title={t.common.delete}
+                          title={file.isCustom ? t.common.confirm : t.common.delete}
                           disabled={isActioning}
-                          onClick={(e) => handleActionClick(e, file.path, 'delete')}
+                          onClick={(e) => file.isCustom ? handleRemoveFile(e, file.path) : handleActionClick(e, file.path, 'delete')}
                           style={{
                             background: 'none',
                             border: 'none',
@@ -345,7 +426,7 @@ export default function LogsPage() {
                             display: 'flex', alignItems: 'center'
                           }}
                         >
-                          <Trash2 size={13} />
+                          {file.isCustom ? <MinusCircle size={13} /> : <Trash2 size={13} />}
                         </button>
                       </div>
                     </div>
@@ -564,6 +645,52 @@ export default function LogsPage() {
           .log-item .log-actions { opacity: 1; }
         }
       `}</style>
+      {/* Add File Modal */}
+      {addModal.isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', maxWidth: '450px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: '8px' }}>
+                <Plus size={20} color="var(--color-primary)" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{t.logs.addFile}</div>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.5rem' }}>{t.logs.addFilePath}</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  ref={addInputRef}
+                  type="text"
+                  className="input"
+                  placeholder={t.logs.addFilePlaceholder}
+                  style={{ paddingRight: addModal.path ? '2.5rem' : '0.75rem' }}
+                  value={addModal.path}
+                  onChange={(e) => setAddModal(prev => ({ ...prev, path: e.target.value }))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddFile()}
+                />
+                {addModal.path && (
+                  <button
+                    onClick={() => setAddModal(prev => ({ ...prev, path: '' }))}
+                    style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setAddModal(prev => ({ ...prev, isOpen: false }))}>{t.common.cancel}</button>
+              <button
+                className="btn btn-primary"
+                disabled={addModal.loading || !addModal.path}
+                onClick={handleAddFile}
+              >
+                {addModal.loading ? t.common.loading : t.common.confirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

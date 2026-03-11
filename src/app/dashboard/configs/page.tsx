@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain } from 'lucide-react';
+import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain, Plus, MinusCircle } from 'lucide-react';
 
 interface ConfigItem {
   id: string;
@@ -14,6 +14,7 @@ interface ConfigItem {
   category: string;
   size?: number;
   mtime?: number;
+  isCustom?: boolean;
 }
 
 export default function ConfigsDashboard() {
@@ -51,6 +52,8 @@ export default function ConfigsDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [homePath, setHomePath] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [addModal, setAddModal] = useState({ isOpen: false, path: '', loading: false });
+  const addInputRef = useRef<HTMLInputElement>(null);
 
   const configCategories = [
     { id: 'all', label: t.configs.categories.all },
@@ -170,6 +173,50 @@ export default function ConfigsDashboard() {
     }
   };
 
+  const handleAddConfig = async () => {
+    if (!addModal.path) return;
+    setAddModal(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: addModal.path, action: 'add' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAddModal({ isOpen: false, path: '', loading: false });
+        fetchConfigs();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAddModal(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRemoveConfig = async (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    if (!confirm(t.configs.removeConfirm)) return;
+    
+    try {
+      const res = await fetch('/api/configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: path, action: 'remove' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchConfigs();
+        if (editingId === path) {
+          setEditingId(null);
+          setContent('');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const filteredConfigs = configs.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.path.toLowerCase().includes(searchQuery.toLowerCase());
@@ -204,10 +251,41 @@ export default function ConfigsDashboard() {
               type="text"
               className="input"
               placeholder={t.configs.searchPlaceholder}
-              style={{ paddingLeft: '2.5rem', fontSize: '0.85rem' }}
+              style={{ paddingLeft: '2.5rem', paddingRight: searchQuery ? '2.5rem' : '0.75rem', fontSize: '0.85rem' }}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '2.5rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px'
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+            <button 
+              className="btn btn-ghost btn-sm" 
+              onClick={() => {
+                setAddModal({ isOpen: true, path: '', loading: false });
+                setTimeout(() => addInputRef.current?.focus(), 100);
+              }}
+              style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', padding: '0.25rem', height: 'auto' }}
+              title={t.configs.addFile}
+            >
+              <Plus size={16} color="var(--color-primary)" />
+            </button>
           </div>
 
           <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', marginBottom: '1rem', paddingBottom: '0.5rem', minWidth: 0 }}>
@@ -255,7 +333,16 @@ export default function ConfigsDashboard() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem', minWidth: 0 }}>
                     <FileText size={14} style={{ flexShrink: 0 }} color={editingId === config.id ? 'var(--color-primary)' : 'var(--color-text-muted)'} />
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: editingId === config.id ? 'var(--color-primary)' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{config.name}</span>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: editingId === config.id ? 'var(--color-primary)' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{config.name}</span>
+                    {config.isCustom && (
+                      <button
+                        onClick={(e) => handleRemoveConfig(e, config.path)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center' }}
+                        title={t.common.delete}
+                      >
+                        <MinusCircle size={14} />
+                      </button>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--color-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8, marginBottom: '0.35rem', fontFamily: 'monospace' }}>
                     {config.path.length > 35 ? '...' + config.path.slice(-32) : config.path.replace(homePath, '~')}
@@ -388,6 +475,52 @@ export default function ConfigsDashboard() {
           }
         }
       `}</style>
+      {/* Add Config Modal */}
+      {addModal.isOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div className="card glass-panel" style={{ padding: '1.5rem', maxWidth: '450px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: '8px' }}>
+                <Plus size={20} color="var(--color-primary)" />
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{t.configs.addFile}</div>
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.5rem' }}>{t.configs.addFilePath}</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  ref={addInputRef}
+                  type="text"
+                  className="input"
+                  placeholder={t.configs.addFilePlaceholder}
+                  style={{ paddingRight: addModal.path ? '2.5rem' : '0.75rem' }}
+                  value={addModal.path}
+                  onChange={(e) => setAddModal(prev => ({ ...prev, path: e.target.value }))}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddConfig()}
+                />
+                {addModal.path && (
+                  <button
+                    onClick={() => setAddModal(prev => ({ ...prev, path: '' }))}
+                    style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setAddModal(prev => ({ ...prev, isOpen: false }))}>{t.common.cancel}</button>
+              <button
+                className="btn btn-primary"
+                disabled={addModal.loading || !addModal.path}
+                onClick={handleAddConfig}
+              >
+                {addModal.loading ? t.common.loading : t.common.confirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

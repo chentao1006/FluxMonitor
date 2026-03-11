@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { getConfig, saveConfig } from '@/lib/config';
 
 const execAsync = promisify(exec);
 
@@ -55,13 +56,17 @@ export async function GET(request: Request) {
   // List log files
   try {
     const homeDir = os.homedir();
+    const config = getConfig();
+    const customPaths = config.customLogs || [];
+    
     const logPaths = [
       path.join(homeDir, 'Applications'),
       path.join(homeDir, 'Library/Logs'),
       '/opt/homebrew/var/log',
       '/usr/local/var/log',
       '/var/log',
-      path.join(homeDir, '.pm2/logs')
+      path.join(homeDir, '.pm2/logs'),
+      ...customPaths.map((p: string) => p.replace(/^~/, homeDir))
     ];
 
     // Filter existing paths
@@ -104,6 +109,7 @@ export async function GET(request: Request) {
         category,
         size: parseInt(size),
         mtime: parseInt(mtime) * 1000,
+        isCustom: customPaths.some((cp: string) => cp === fullPath || cp.replace(/^~/, homeDir) === fullPath),
       };
     });
 
@@ -167,9 +173,27 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
-  } catch (error: any) {
-    console.error('Logs POST error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      if (action === 'add') {
+        const config = getConfig();
+        const customLogs = config.customLogs || [];
+        if (!customLogs.includes(file)) {
+          customLogs.push(file);
+          saveConfig({ ...config, customLogs });
+        }
+        return NextResponse.json({ success: true });
+      }
+
+      if (action === 'remove') {
+        const config = getConfig();
+        const customLogs = config.customLogs || [];
+        const newCustomLogs = customLogs.filter((p: string) => p !== file);
+        saveConfig({ ...config, customLogs: newCustomLogs });
+        return NextResponse.json({ success: true });
+      }
+
+      return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
+    } catch (err: any) {
+    console.error('Logs POST error:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

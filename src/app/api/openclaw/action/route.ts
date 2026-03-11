@@ -37,8 +37,26 @@ export async function POST(request: Request) {
     const { action, logPath, command, path: targetPath, content } = body;
 
     const OPENCLAW_DIR = path.join(os.homedir(), '.openclaw');
-    const WORKSPACE_DIR = path.join(OPENCLAW_DIR, 'workspace');
     const CONFIG_PATH = path.join(OPENCLAW_DIR, 'openclaw.json');
+
+    let WORKSPACE_DIR = path.join(OPENCLAW_DIR, 'workspace');
+    try {
+      if (fs.existsSync(CONFIG_PATH)) {
+        const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+        if (config?.agents?.defaults?.workspace) {
+          let customWorkspace = config.agents.defaults.workspace;
+          if (customWorkspace.startsWith('~')) {
+            customWorkspace = path.join(os.homedir(), customWorkspace.slice(1));
+          } else if (!path.isAbsolute(customWorkspace)) {
+            customWorkspace = path.resolve(OPENCLAW_DIR, customWorkspace);
+          }
+          WORKSPACE_DIR = customWorkspace;
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors, fallback to default
+    }
+
     const MEMORY_DIR = path.join(WORKSPACE_DIR, 'memory');
 
     if (action === 'discover_log_path') {
@@ -128,8 +146,8 @@ export async function POST(request: Request) {
       if (!targetPath || !fs.existsSync(targetPath)) {
         return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
       }
-      // Security check: ensure path is within .openclaw
-      if (!targetPath.includes('.openclaw')) {
+      // Security check: ensure path is within .openclaw or custom workspace
+      if (!targetPath.startsWith(OPENCLAW_DIR) && !targetPath.startsWith(WORKSPACE_DIR)) {
         return NextResponse.json({ error: 'INVALID_PATH' }, { status: 403 });
       }
       const data = fs.readFileSync(targetPath, 'utf-8');
@@ -138,7 +156,7 @@ export async function POST(request: Request) {
 
     if (action === 'save_memory') {
       if (!targetPath) return NextResponse.json({ error: 'PATH_REQUIRED' }, { status: 400 });
-      if (!targetPath.includes('.openclaw')) {
+      if (!targetPath.startsWith(OPENCLAW_DIR) && !targetPath.startsWith(WORKSPACE_DIR)) {
         return NextResponse.json({ error: 'INVALID_PATH' }, { status: 403 });
       }
       const dir = path.dirname(targetPath);
@@ -151,7 +169,7 @@ export async function POST(request: Request) {
 
     if (action === 'delete_memory') {
       if (!targetPath) return NextResponse.json({ error: 'PATH_REQUIRED' }, { status: 400 });
-      if (!targetPath.includes('.openclaw')) {
+      if (!targetPath.startsWith(OPENCLAW_DIR) && !targetPath.startsWith(WORKSPACE_DIR)) {
         return NextResponse.json({ error: 'INVALID_PATH' }, { status: 403 });
       }
       if (!fs.existsSync(targetPath)) {

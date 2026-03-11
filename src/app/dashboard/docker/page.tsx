@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box, Sparkles, Brain, Wand2 } from 'lucide-react';
+import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box, Sparkles, Brain, Wand2, X } from 'lucide-react';
 
 interface Container {
   ID: string;
@@ -294,14 +294,24 @@ export default function DockerDashboard() {
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>{t.docker.aiDesc}</p>
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: generatedCmd ? '1rem' : 0 }}>
+          <div style={{ position: 'relative', flex: 1 }}>
             <input
               className="input"
               placeholder={t.docker.aiPlaceholder}
-              style={{ flex: 1 }}
+              style={{ width: '100%', paddingRight: aiDemand ? '2.5rem' : '0.75rem' }}
               value={aiDemand}
               onChange={(e) => setAiDemand(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGenerateCmd()}
             />
+            {aiDemand && (
+              <button
+                onClick={() => setAiDemand('')}
+                style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
             <button className="btn btn-primary" onClick={handleGenerateCmd} disabled={isAiGenerating || !aiDemand.trim()}>
               {isAiGenerating ? t.docker.generating : t.docker.generateCmd}
             </button>

@@ -1145,22 +1145,42 @@ export default function OpenClawMain() {
                     border: '1px dashed var(--color-primary)',
                     alignItems: 'center'
                   }}>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder={t.openclaw.config.newKey}
-                      value={newConfigKey}
-                      onChange={e => setNewConfigKey(e.target.value)}
-                      style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
-                    />
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder={t.openclaw.config.newValue}
-                      value={newConfigValue}
-                      onChange={e => setNewConfigValue(e.target.value)}
-                      style={{ flex: 1, fontSize: '0.8rem', height: '32px' }}
-                    />
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder={t.openclaw.config.newKey}
+                        value={newConfigKey}
+                        onChange={e => setNewConfigKey(e.target.value)}
+                        style={{ width: '100%', fontSize: '0.8rem', height: '32px', paddingRight: newConfigKey ? '2rem' : '0.75rem' }}
+                      />
+                      {newConfigKey && (
+                        <button
+                          onClick={() => setNewConfigKey('')}
+                          style={{ position: 'absolute', right: '0.4rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder={t.openclaw.config.newValue}
+                        value={newConfigValue}
+                        onChange={e => setNewConfigValue(e.target.value)}
+                        style={{ width: '100%', fontSize: '0.8rem', height: '32px', paddingRight: newConfigValue ? '2rem' : '0.75rem' }}
+                      />
+                      {newConfigValue && (
+                        <button
+                          onClick={() => setNewConfigValue('')}
+                          style={{ position: 'absolute', right: '0.4rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={addConfigField}
@@ -1220,14 +1240,24 @@ export default function OpenClawMain() {
               ))}
             </div>
             <form onSubmit={executeCommand} style={{ display: 'flex', gap: '0.5rem' }}>
-              <input
-                type="text"
-                value={cmd}
-                onChange={e => setCmd(e.target.value)}
-                className="input"
-                placeholder={t.openclaw.command.placeholder}
-                style={{ flex: 1 }}
-              />
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input
+                  type="text"
+                  value={cmd}
+                  onChange={e => setCmd(e.target.value)}
+                  className="input"
+                  placeholder={t.openclaw.command.placeholder}
+                  style={{ width: '100%', paddingRight: cmd ? '2.5rem' : '0.75rem' }}
+                />
+                {cmd && (
+                  <button
+                    onClick={() => setCmd('')}
+                    style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
               <button type="submit" className="btn btn-primary">{t.openclaw.command.executeBtn}</button>
 
               <button
