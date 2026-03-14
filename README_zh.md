@@ -1,4 +1,4 @@
-# 浮光 面板 (Flux Monitor)
+# 浮光
 
 [English](README.md) | **简体中文**
 
