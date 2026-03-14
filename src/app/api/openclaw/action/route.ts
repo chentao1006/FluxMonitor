@@ -179,6 +179,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'search_memory') {
+      const { query } = body;
+      if (!query) return NextResponse.json({ success: true, files: [] });
+
+      const results: any[] = [];
+      const searchInDir = (dir: string) => {
+        if (!fs.existsSync(dir)) return;
+        try {
+          const list = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.md'));
+          for (const f of list) {
+            const fullPath = path.join(dir, f);
+            try {
+              const content = fs.readFileSync(fullPath, 'utf-8');
+              if (content.toLowerCase().includes(query.toLowerCase())) {
+                const stats = fs.statSync(fullPath);
+                results.push({
+                  name: f,
+                  path: fullPath,
+                  size: stats.size,
+                  mtime: stats.mtime
+                });
+              }
+            } catch (e) { /* skip unreadable files */ }
+          }
+        } catch (e) { /* skip unreadable dirs */ }
+      };
+
+      searchInDir(MEMORY_DIR);
+      if (WORKSPACE_DIR !== MEMORY_DIR) {
+        searchInDir(WORKSPACE_DIR);
+      }
+
+      // De-duplicate results by path
+      const uniqueResults = Array.from(new Map(results.map(item => [item.path, item])).values());
+      
+      return NextResponse.json({ success: true, files: uniqueResults });
+    }
+
     if (action === 'logs') {
       let targetPath = logPath;
 
@@ -346,14 +384,61 @@ export async function POST(request: Request) {
       }
     }
 
-    if (action === 'save_cron') {
-      const CRON_DIR = path.join(OPENCLAW_DIR, 'cron');
-      const CRON_PATH = path.join(CRON_DIR, 'jobs.json');
-      if (!fs.existsSync(CRON_DIR)) {
-        fs.mkdirSync(CRON_DIR, { recursive: true });
+    if (action === 'add_cron' || action === 'edit_cron') {
+      const { task } = body;
+      if (!task) return NextResponse.json({ error: 'TASK_REQUIRED' }, { status: 400 });
+
+      // Build command: openclaw cron add/edit <id> --name "..." --cron "..." --message "..."
+      const subCommand = action === 'add_cron' ? 'add' : `edit ${task.id}`;
+      let cmdLine = `openclaw cron ${subCommand}`;
+
+      if (task.name) cmdLine += ` --name "${task.name.replace(/"/g, '\\"')}"`;
+      if (task.schedule?.expr) cmdLine += ` --cron "${task.schedule.expr}"`;
+      if (task.payload?.message) cmdLine += ` --message "${task.payload.message.replace(/"/g, '\\"')}"`;
+      if (task.sessionTarget) cmdLine += ` --session ${task.sessionTarget}`;
+      
+      if (task.delivery?.channel && task.delivery.channel !== 'none') {
+        cmdLine += ` --announce --channel ${task.delivery.channel}`;
+        if (task.delivery.to) cmdLine += ` --to "${task.delivery.to.replace(/"/g, '\\"')}"`;
+      } else {
+        cmdLine += ' --no-deliver';
       }
-      fs.writeFileSync(CRON_PATH, JSON.stringify(content, null, 2), 'utf-8');
-      return NextResponse.json({ success: true });
+
+      try {
+        const { stdout, stderr } = await execAsync(cmdLine, {
+          timeout: 10000,
+          env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+        });
+        return NextResponse.json({ success: true, stdout, stderr });
+      } catch (e: any) {
+        return NextResponse.json({ success: false, error: 'CLI_EXEC_FAILED', details: e.message, stderr: e.stderr });
+      }
+    }
+
+    if (action === 'remove_cron') {
+      const { id } = body;
+      try {
+        await execAsync(`openclaw cron remove ${id}`, {
+          env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+        });
+        return NextResponse.json({ success: true });
+      } catch (e: any) {
+        return NextResponse.json({ success: false, error: 'REMOVE_FAILED', details: e.message });
+      }
+    }
+
+    if (action === 'toggle_cron') {
+      const { id, enabled } = body;
+      const sub = enabled ? 'enable' : 'disable';
+      try {
+        await execAsync(`openclaw cron ${sub} ${id}`, {
+          env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
+        });
+        return NextResponse.json({ success: true });
+      } catch (e: any) {
+        // Fallback: if enable/disable not supported, try edit --enabled
+        return NextResponse.json({ success: false, error: 'TOGGLE_FAILED', details: e.message });
+      }
     }
 
     return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });

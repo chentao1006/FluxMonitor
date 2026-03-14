@@ -482,6 +482,9 @@ export const translations = {
         coreGroup: '核心架构',
         fragmentGroup: '记忆碎片',
         summaryTitle: 'AI 核心总结',
+        searchPlaceholder: '搜索知识库内容...',
+        searchResults: '搜索结果',
+        noResults: '未找到相关内容',
       },
       config: {
         visual: '可视化',
@@ -1062,6 +1065,9 @@ export const translations = {
         coreGroup: 'Core Architecture',
         fragmentGroup: 'Memory Fragments',
         summaryTitle: 'AI Core Summary',
+        searchPlaceholder: 'Search knowledge content...',
+        searchResults: 'Search Results',
+        noResults: 'No relevant content found',
       },
       config: {
         visual: 'Visual',

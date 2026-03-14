@@ -16,6 +16,7 @@ export default function DashboardLayout({
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [features, setFeatures] = useState<any>(null);
+  const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
     fetch('/api/settings')
@@ -23,6 +24,7 @@ export default function DashboardLayout({
       .then(data => {
         if (data.success && data.data.features) {
           setFeatures(data.data.features);
+          setVersion(data.data.version || '');
         } else {
           setFeatures({});
         }
@@ -65,7 +67,7 @@ export default function DashboardLayout({
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         style={{ cursor: 'pointer' }}
       >
-        <div className="flex-center" style={{ gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="logo-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" fill="white" />
@@ -75,7 +77,10 @@ export default function DashboardLayout({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1 }}>{t.login.title}</h2>
-            <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.2em', marginTop: '2px' }}>{t.login.logoText}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px' }}>
+              <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.2em' }}>{t.login.logoText}</span>
+              {version && <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', opacity: 0.5 }}>v{version}</span>}
+            </div>
           </div>
         </div>
         <div className="mobile-menu-btn" aria-label="Toggle menu">
@@ -90,7 +95,7 @@ export default function DashboardLayout({
       {/* Sidebar Navigation (Desktop) / Drawer (Mobile) */}
       <aside className={`app-sidebar glass-panel ${isMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header flex-between desktop-only">
-          <div className="flex-center" style={{ gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div className="logo-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" fill="white" />
@@ -100,7 +105,10 @@ export default function DashboardLayout({
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, letterSpacing: '0.1em', lineHeight: 1 }}>{t.login.title}</h2>
-              <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.4em', marginTop: '4px', textIndent: '0.2em' }}>{t.login.logoText}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.4em', textIndent: '0.2em' }}>{t.login.logoText}</span>
+                {version && <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', opacity: 0.5 }}>v{version}</span>}
+              </div>
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useLanguage } from '@/lib/LanguageContext';
 import {
   Terminal, Brain, Activity, Settings, Zap, ArrowRight, ShieldCheck,
-  Database, Clock, RefreshCw, Save, FileText, ChevronRight, Trash2, Sparkles, Wand2,
+  Database, Clock, RefreshCw, Save, FileText, ChevronRight, Trash2, Sparkles, Wand2, Search,
   Cpu, HardDrive, LayoutGrid, List, MessageSquare, Power, Plus, RotateCw, Maximize2, Download, X
 } from 'lucide-react';
 
@@ -65,6 +65,9 @@ export default function OpenClawMain() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [cmdAnalysis, setCmdAnalysis] = useState('');
   const [isAnalyzingCmd, setIsAnalyzingCmd] = useState(false);
+  const [memorySearchQuery, setMemorySearchQuery] = useState('');
+  const [isSearchingMemory, setIsSearchingMemory] = useState(false);
+  const [memorySearchResults, setMemorySearchResults] = useState<any[] | null>(null);
   const aiCacheRef = useRef<Record<string, string>>({});
 
   // Auto scroll logs to bottom
@@ -98,6 +101,37 @@ export default function OpenClawMain() {
     setCmdResult('');
     setCmdAnalysis('');
   }, [cmd]);
+
+  // Debounced search for memory
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (memorySearchQuery.trim()) {
+        const performSearch = async () => {
+          setIsSearchingMemory(true);
+          try {
+            const res = await fetch('/api/openclaw/action', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'search_memory', query: memorySearchQuery }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              setMemorySearchResults(data.files);
+            }
+          } catch (e) {
+            console.error('Search failed:', e);
+          } finally {
+            setIsSearchingMemory(false);
+          }
+        };
+        performSearch();
+      } else {
+        setMemorySearchResults(null);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(handler);
+  }, [memorySearchQuery]);
 
   // Config helpers
   const parseConfig = () => {
@@ -621,29 +655,82 @@ export default function OpenClawMain() {
     } catch (e) { alert(t.common.networkError); }
   };
 
-  const saveCronTasks = async (tasks: any[]) => {
-    setIsSavingCron(true);
+  const handleMemorySearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memorySearchQuery.trim()) {
+      setMemorySearchResults(null);
+      return;
+    }
+
+    setIsSearchingMemory(true);
     try {
       const res = await fetch('/api/openclaw/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'save_cron',
-          content: { version: 1, jobs: tasks }
-        }),
+        body: JSON.stringify({ action: 'search_memory', query: memorySearchQuery }),
       });
       const data = await res.json();
       if (data.success) {
-        setCronTasks(tasks);
+        setMemorySearchResults(data.files);
+      }
+    } catch (e) {
+      console.error('Search failed:', e);
+    } finally {
+      setIsSearchingMemory(false);
+    }
+  };
+
+  const handleSaveCronEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingCron(true);
+    const isNew = !cronTasks.find(t => t.id === editingCronTask.id);
+    const action = isNew ? 'add_cron' : 'edit_cron';
+
+    try {
+      const res = await fetch('/api/openclaw/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, task: editingCronTask }),
+      });
+      const data = await res.json();
+      if (data.success) {
         setIsEditingCron(false);
+        fetchAll(); // Refresh the list from the actual jobs.json
       } else {
-        alert(`${t.common.saveFailed}: ${getOpenClawError(data.error)}`);
+        alert(`${t.common.saveFailed}: ${data.stderr || data.details || 'Unknown CLI Error'}`);
       }
     } catch (e) {
       alert(t.common.networkError);
     } finally {
       setIsSavingCron(false);
     }
+  };
+
+  const handleDeleteCron = async (id: string) => {
+    if (!confirm(t.common.deleteConfirm)) return;
+    try {
+      const res = await fetch('/api/openclaw/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove_cron', id }),
+      });
+      const data = await res.json();
+      if (data.success) fetchAll();
+      else alert(`${t.common.delete}${t.common.error}: ${data.details}`);
+    } catch (e) { alert(t.common.networkError); }
+  };
+
+  const handleToggleCron = async (id: string, currentlyEnabled: boolean) => {
+    try {
+      const res = await fetch('/api/openclaw/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_cron', id, enabled: !currentlyEnabled }),
+      });
+      const data = await res.json();
+      if (data.success) fetchAll();
+      else alert(`${t.common.error}: ${data.details}`);
+    } catch (e) { alert(t.common.networkError); }
   };
 
   const handleAddCron = () => {
@@ -679,39 +766,6 @@ export default function OpenClawMain() {
   const handleEditCron = (task: any) => {
     setEditingCronTask({ ...task });
     setIsEditingCron(true);
-  };
-
-  const handleDeleteCron = (id: string) => {
-    if (confirm(t.common.deleteConfirm)) {
-      const newTasks = cronTasks.filter(t => t.id !== id);
-      saveCronTasks(newTasks);
-    }
-  };
-
-  const handleToggleCron = (id: string) => {
-    const newTasks = cronTasks.map(t =>
-      t.id === id ? { ...t, enabled: !t.enabled } : t
-    );
-    saveCronTasks(newTasks);
-  };
-
-  const handleSaveCronEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const now = Date.now();
-    const updatedTask = {
-      ...editingCronTask,
-      updatedAtMs: now,
-      createdAtMs: editingCronTask.createdAtMs || now
-    };
-
-    const exists = cronTasks.find(t => t.id === updatedTask.id);
-    let newTasks;
-    if (exists) {
-      newTasks = cronTasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-    } else {
-      newTasks = [...cronTasks, updatedTask];
-    }
-    saveCronTasks(newTasks);
   };
 
   return (
@@ -961,70 +1015,106 @@ export default function OpenClawMain() {
         {/* MEMORY TAB */}
         {activeTab === 'memory' && (
           <div className="memory-container">
-            <div className="card glass-panel memory-sidebar" style={{ padding: 0, overflowY: 'auto' }}>
-              {(() => {
-                const coreFiles = memoryFiles.filter(f => !f.path.includes('/memory/'));
-                const fragmentFiles = memoryFiles.filter(f => f.path.includes('/memory/'));
-
-                const renderGroup = (label: string, icon: any, files: any[]) => (
-                  <div key={label}>
-                    <div style={{
-                      padding: '0.6rem 1rem',
-                      fontSize: '0.65rem',
-                      fontWeight: 800,
-                      color: 'var(--color-primary)',
-                      background: 'rgba(59, 130, 246, 0.05)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em'
-                    }}>
-                      {icon} {label} ({files.length})
+            <div className="card glass-panel memory-sidebar" style={{ padding: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '0.75rem', borderBottom: '1px solid rgba(0,0,0,0.05)', background: 'white', position: 'sticky', top: 0, zIndex: 10 }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder={t.openclaw.memory.searchPlaceholder}
+                    value={memorySearchQuery}
+                    onChange={e => setMemorySearchQuery(e.target.value)}
+                    style={{ width: '100%', fontSize: '0.75rem', paddingRight: '2rem', height: '32px' }}
+                  />
+                  {memorySearchQuery ? (
+                    <button
+                      onClick={() => setMemorySearchQuery('')}
+                      style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : (
+                    <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                      <Search size={14} style={{ opacity: isSearchingMemory ? 1 : 0.4 }} className={isSearchingMemory ? 'animate-pulse' : ''} />
                     </div>
-                    {files.map(f => (
-                      <div
-                        key={f.path}
-                        onClick={() => readMemory(f)}
-                        className={`flex-between`}
-                        style={{
-                          padding: '0.75rem 1rem 0.75rem 1.25rem',
-                          cursor: 'pointer',
-                          borderBottom: '1px solid rgba(0,0,0,0.05)',
-                          background: activeMemoryFile?.path === f.path ? 'var(--color-primary-light)' : 'transparent',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontSize: '0.8rem', fontWeight: activeMemoryFile?.path === f.path ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', display: 'flex', gap: '0.75rem' }}>
-                            <span>{(f.size / 1024).toFixed(1)} KB</span>
-                            <span>{new Date(f.mtime).toLocaleDateString()} {new Date(f.mtime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {(() => {
+                  const renderGroup = (label: string, icon: any, files: any[]) => (
+                    <div key={label}>
+                      <div style={{
+                        padding: '0.6rem 1rem',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        color: 'var(--color-primary)',
+                        background: 'rgba(59, 130, 246, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                      }}>
+                        {icon} {label} ({files.length})
+                      </div>
+                      {files.map(f => (
+                        <div
+                          key={f.path}
+                          onClick={() => readMemory(f)}
+                          className={`flex-between`}
+                          style={{
+                            padding: '0.75rem 1rem 0.75rem 1.25rem',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid rgba(0,0,0,0.05)',
+                            background: activeMemoryFile?.path === f.path ? 'var(--color-primary-light)' : 'transparent',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: activeMemoryFile?.path === f.path ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', display: 'flex', gap: '0.75rem' }}>
+                              <span>{(f.size / 1024).toFixed(1)} KB</span>
+                              <span>{new Date(f.mtime).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ padding: '4px', height: '28px', width: '28px', color: 'var(--color-danger)', opacity: 0.6 }}
+                              onClick={(e) => { e.stopPropagation(); deleteMemory(f); }}
+                              title={t.common.delete}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                            <ChevronRight size={12} opacity={activeMemoryFile?.path === f.path ? 0.8 : 0.2} />
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            style={{ padding: '4px', height: '28px', width: '28px', color: 'var(--color-danger)', opacity: 0.6 }}
-                            onClick={(e) => { e.stopPropagation(); deleteMemory(f); }}
-                            title={t.common.delete}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                          <ChevronRight size={12} opacity={activeMemoryFile?.path === f.path ? 0.8 : 0.2} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
+                      ))}
+                    </div>
+                  );
 
-                return (
-                  <>
-                    {coreFiles.length > 0 && renderGroup(t.openclaw.memory.coreGroup, <LayoutGrid size={12} />, coreFiles)}
-                    {fragmentFiles.length > 0 && renderGroup(t.openclaw.memory.fragmentGroup, <FileText size={12} />, fragmentFiles)}
-                  </>
-                );
-              })()}
+                  if (memorySearchResults !== null) {
+                    return memorySearchResults.length > 0
+                      ? renderGroup(t.openclaw.memory.searchResults, <Sparkles size={12} />, memorySearchResults)
+                      : (
+                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                          {t.openclaw.memory.noResults}
+                        </div>
+                      );
+                  }
+
+                  const coreFiles = memoryFiles.filter(f => !f.path.includes('/memory/'));
+                  const fragmentFiles = memoryFiles.filter(f => f.path.includes('/memory/'));
+
+                  return (
+                    <>
+                      {coreFiles.length > 0 && renderGroup(t.openclaw.memory.coreGroup, <LayoutGrid size={12} />, coreFiles)}
+                      {fragmentFiles.length > 0 && renderGroup(t.openclaw.memory.fragmentGroup, <FileText size={12} />, fragmentFiles)}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
             <div className="card glass-panel memory-content" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
@@ -1251,6 +1341,7 @@ export default function OpenClawMain() {
                 />
                 {cmd && (
                   <button
+                    type="button"
                     onClick={() => setCmd('')}
                     style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
                   >
@@ -1478,7 +1569,7 @@ export default function OpenClawMain() {
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '0.4rem', color: task.enabled ? 'var(--color-danger)' : 'var(--color-success)' }}
-                        onClick={() => handleToggleCron(task.id)}
+                        onClick={() => handleToggleCron(task.id, task.enabled)}
                         title={task.enabled ? t.common.disableTitle : t.common.enableTitle}
                       >
                         <Power size={16} />

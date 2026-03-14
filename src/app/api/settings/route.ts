@@ -1,12 +1,30 @@
 import { NextResponse } from 'next/server';
 import { getConfig, saveConfig } from '@/lib/config';
+import fs from 'fs';
+import path from 'path';
 
 export async function GET() {
   try {
     const config = getConfig();
+    
+    let version = '';
+    try {
+      const pkgPath = path.join(process.cwd(), 'package.json');
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      version = pkg.version;
+    } catch (e) {
+      console.error('Error reading package.json version:', e);
+    }
+    
     // Don't leak the JWT secret to the frontend settings page
     const { jwtSecret, ...safeConfig } = config;
-    return NextResponse.json({ success: true, data: safeConfig });
+    return NextResponse.json({ 
+      success: true, 
+      data: {
+        ...safeConfig,
+        version
+      }
+    });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'FETCH_SETTINGS_FAILED' }, { status: 500 });
   }
