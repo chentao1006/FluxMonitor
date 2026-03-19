@@ -10,7 +10,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 - **System Monitor**: Display CPU, memory, disk, and network usage, run terminal commands.
 - **Process Management**: View running processes and monitor resource consumption.
-- **Log Analysis**: Browse system logs with optional AI status interpretation.
+- **Log Analysis**: Browse system logs.
 - **Configuration Management**: Edit system configuration files.
 - **LaunchAgent**: Manage macOS LaunchAgents and LaunchDaemons.
 - **Docker**: Manage containers and images.

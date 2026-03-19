@@ -69,11 +69,7 @@ export default function DashboardLayout({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="logo-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" fill="white" />
-              <circle cx="12" cy="12" r="7" stroke="white" strokeOpacity="0.4" />
-              <circle cx="12" cy="12" r="10" stroke="white" strokeOpacity="0.1" />
-            </svg>
+            <img src="/logo.png" alt="Flux" style={{ width: '24px', height: '24px', borderRadius: '5.4px' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1 }}>{t.login.title}</h2>
@@ -97,11 +93,7 @@ export default function DashboardLayout({
         <div className="sidebar-header flex-between desktop-only">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div className="logo-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" fill="white" />
-                <circle cx="12" cy="12" r="7" stroke="white" strokeOpacity="0.4" />
-                <circle cx="12" cy="12" r="10" stroke="white" strokeOpacity="0.1" />
-              </svg>
+              <img src="/logo.png" alt="Flux" style={{ width: '28px', height: '28px', borderRadius: '6.3px' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, letterSpacing: '0.1em', lineHeight: 1 }}>{t.login.title}</h2>

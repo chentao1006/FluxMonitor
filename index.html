@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浮光 Flux - macOS Server Monitoring & Management</title>
+    <meta name="description" content="A system monitoring and management dashboard for macOS servers. Monitor CPU, memory, disk, network, logs, Docker, and Nginx.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --accent: #3b82f6;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --header-bg: rgba(255, 255, 255, 0.8);
+            --card-bg: #ffffff;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #020617;
+                --bg-secondary: #0f172a;
+                --text-primary: #f8fafc;
+                --text-secondary: #94a3b8;
+                --accent: #60a5fa;
+                --accent-gradient: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+                --header-bg: rgba(2, 6, 23, 0.8);
+                --card-bg: #1e293b;
+                --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 1rem 5%;
+            background: var(--header-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: -0.05rem;
+            cursor: pointer;
+        }
+
+        .logo-container img {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-actions iframe {
+            margin-top: 5px;
+        }
+
+        .lang-toggle {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(128, 128, 128, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        section {
+            padding: 120px 5%;
+        }
+
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding-top: 180px;
+            background: radial-gradient(circle at top, var(--bg-secondary) 0%, var(--bg-primary) 70%);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.1rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin-bottom: 3rem;
+        }
+
+        .hero-mockup {
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 40px;
+            position: relative;
+            perspective: 1000px;
+        }
+
+        .hero-mockup img {
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 30px 60px -12px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            transform: rotateX(5deg);
+            transition: transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            will-change: transform;
+        }
+
+        .features {
+            background: var(--bg-primary);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 24px;
+            border: 1px solid rgba(128, 128, 128, 0.1);
+            box-shadow: var(--card-shadow);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--accent-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .feature-card h3 {
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .ai-section {
+            background: var(--bg-secondary);
+            border-radius: 40px;
+            margin: 40px 5%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 80px;
+        }
+
+        @media (max-width: 900px) {
+            .ai-section {
+                padding: 40px;
+            }
+            .ai-row {
+                flex-direction: column !important;
+                gap: 30px !important;
+            }
+        }
+
+        .ai-content {
+            flex: 1;
+        }
+
+        .ai-image {
+            flex: 1.2;
+            box-shadow: var(--card-shadow);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .ai-image img {
+            width: 100%;
+            display: block;
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+
+        .screenshots {
+            background: var(--bg-primary);
+        }
+
+        .screenshot-carousel {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            padding: 20px;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+        }
+
+        .screenshot-carousel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .screenshot-item {
+            flex: 0 0 calc(50% - 20px);
+            min-width: 300px;
+            scroll-snap-align: start;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(128,128,128,0.1);
+        }
+
+        @media (max-width: 600px) {
+            .screenshot-item {
+                flex: 0 0 100%;
+            }
+        }
+
+        .screenshot-item img {
+            width: 100%;
+            border-radius: 12px;
+            display: block;
+        }
+
+        footer {
+            padding: 80px 5% 40px;
+            text-align: center;
+            border-top: 1px solid rgba(128, 128, 128, 0.1);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        /* Lang switcher logic */
+        [lang-en] { display: block; }
+        [lang-zh] { display: none; }
+
+        .zh-active [lang-en] { display: none; }
+        .zh-active [lang-zh] { display: block; }
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-container" onclick="scrollToTop()">
+            <img src="public/logo.png" alt="Flux Logo">
+            <span lang-en>Flux</span>
+            <span lang-zh>浮光</span>
+        </div>
+        <div class="nav-actions">
+            <button class="lang-toggle" onclick="toggleLang()">
+                <span lang-en>中文</span>
+                <span lang-zh>English</span>
+            </button>
+            <a class="github-button" href="https://github.com/chentao1006/monitor" data-icon="octicon-star" data-size="large" data-show-count="true" aria-label="Star chentao1006/monitor on GitHub">Star</a>
+            <a href="https://github.com/chentao1006/monitor" class="btn-primary">
+                <span lang-en>Get Started</span>
+                <span lang-zh>开始使用</span>
+            </a>
+        </div>
+    </header>
+
+    <section class="hero">
+        <h1 lang-en>macOS Server<br>Management Dashboard</h1>
+        <h1 lang-zh>浮光<br>macOS 服务器管理面板</h1>
+        <p lang-en>A unified interface for monitoring system status, managing processes, logs, Docker containers, and Nginx configurations on macOS.</p>
+        <p lang-zh>“浮光”是一个用于监控 macOS 系统状态、管理进程、日志、Docker 容器以及 Nginx 配置的统一管理界面。</p>
+        
+        <div class="hero-mockup">
+            <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311163944.jpg" alt="Flux Dashboard">
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="section-header">
+            <h2 lang-en>Main Features</h2>
+            <h2 lang-zh>功能特性</h2>
+        </div>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 lang-en>System Status</h3>
+                <h3 lang-zh>系统状态</h3>
+                <p lang-en>Real-time monitoring of CPU, memory, disk, and network usage with AI-driven status insights.</p>
+                <p lang-zh>实时查看 CPU、内存、磁盘和网络的使用数据，并提供 AI 状态简报。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3 lang-en>Process Management</h3>
+                <h3 lang-zh>进程管理</h3>
+                <p lang-en>Monitor resource consumption with AI insights into process behavior and life cycles.</p>
+                <p lang-zh>监控进程资源占用，利用 AI 分析进程行为并支持生命周期管理。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🐳</div>
+                <h3 lang-en>Docker Support</h3>
+                <h3 lang-zh>Docker 管理</h3>
+                <p lang-en>Manage containers and images, view logs, and monitor resource usage of Docker stacks.</p>
+                <p lang-zh>管理容器与镜像，查看容器日志并监控 Docker 服务的资源占用。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3 lang-en>Nginx Configuration</h3>
+                <h3 lang-zh>Nginx 配置</h3>
+                <p lang-en>Modify site configurations with AI auditing and monitor Nginx operational status.</p>
+                <p lang-zh>编辑站点配置文件，支持 AI 配置审计并监控 Nginx 运行状态。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3 lang-en>Service Management</h3>
+                <h3 lang-zh>服务管理</h3>
+                <p lang-en>Start, stop, and manage macOS LaunchAgents and LaunchDaemons.</p>
+                <p lang-zh>管理 macOS 的 LaunchAgents 和 LaunchDaemons 守护进程服务。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3 lang-en>Config Audit</h3>
+                <h3 lang-zh>配置管理</h3>
+                <p lang-en>Edit configuration files with history tracking and AI-assisted auditing.</p>
+                <p lang-zh>编辑配置文件，支持历史记录追踪以及 AI 辅助配置审计。</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="ai-section" id="ai-features">
+        <div class="ai-header" style="text-align: center; margin-bottom: 60px; width: 100%;">
+            <span class="tag">AI Integration</span>
+            <h2 lang-en>AI-Enhanced Intelligence</h2>
+            <h2 lang-zh>AI 辅助分析</h2>
+            <p lang-en>Flux integrates AI across the dashboard to help interpret system data and provide actionable advice.</p>
+            <p lang-zh>“浮光”在整个面板中集成了 AI 功能，辅助分析系统数据并提供操作建议。</p>
+        </div>
+
+        <div class="ai-grid" style="display: flex; flex-direction: column; gap: 80px; width: 100%;">
+            <!-- System Health -->
+            <div class="ai-row" style="display: flex; align-items: center; gap: 60px; flex-wrap: wrap; flex-direction: row-reverse;">
+                <div class="ai-content" style="flex: 1; min-width: 300px;">
+                    <h3 lang-en>System Health Insights</h3>
+                    <h3 lang-zh>全站状态解读</h3>
+                    <p lang-en>Flux uses AI to provide a comprehensive summary of system health across all monitored services on the main dashboard.</p>
+                    <p lang-zh>“浮光”在主控制面板提供全站状态总结，利用 AI 综合分析所有受监控服务的运行健康状况。</p>
+                </div>
+                <div class="ai-image" style="flex: 1.2; min-width: 300px;">
+                    <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311163944.jpg" alt="AI System Health">
+                </div>
+            </div>
+
+            <!-- Log Analysis -->
+            <div class="ai-row" style="display: flex; align-items: center; gap: 60px; flex-wrap: wrap;">
+                <div class="ai-content" style="flex: 1; min-width: 300px;">
+                    <h3 lang-en>Log Interpretation</h3>
+                    <h3 lang-zh>日志分析与解读</h3>
+                    <p lang-en>Analyze system and service logs to identify errors and get human-readable explanations and troubleshooting steps.</p>
+                    <p lang-zh>分析系统及服务日志，识别错误并提供易于理解的说明与排障步骤。</p>
+                </div>
+                <div class="ai-image" style="flex: 1.2; min-width: 300px;">
+                    <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164146.jpg" alt="AI Log Analysis">
+                </div>
+            </div>
+
+            <!-- Config Audit -->
+            <div class="ai-row" style="display: flex; align-items: center; gap: 60px; flex-wrap: wrap; flex-direction: row-reverse;">
+                <div class="ai-content" style="flex: 1; min-width: 300px;">
+                    <h3 lang-en>Config Auditing</h3>
+                    <h3 lang-zh>配置智能审计</h3>
+                    <p lang-en>Review configuration files with AI to detect potential security risks or syntax issues before applying changes.</p>
+                    <p lang-zh>在应用更改前，利用 AI 审查配置文件，检测潜在的安全风险或语法问题。</p>
+                </div>
+                <div class="ai-image" style="flex: 1.2; min-width: 300px;">
+                    <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164227.jpg" alt="AI Config Audit">
+                </div>
+            </div>
+
+            <div class="ai-row" style="display: flex; align-items: center; gap: 60px; flex-wrap: wrap;">
+                <div class="ai-content" style="flex: 1; min-width: 300px;">
+                    <h3 lang-en>Smart Troubleshooting</h3>
+                    <h3 lang-zh>系统故障排除</h3>
+                    <p lang-en>Get context-aware suggestions for system alerts, process crashes, or network connectivity issues.</p>
+                    <p lang-zh>针对系统告警、进程崩溃或网络连接问题，提供基于上下文的修复建议。</p>
+                </div>
+                <div class="ai-image" style="flex: 1.2; min-width: 300px;">
+                    <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311163944.jpg" alt="AI Troubleshooting">
+                </div>
+            </div>
+
+            <!-- Process Intelligence -->
+            <div class="ai-row" style="display: flex; align-items: center; gap: 60px; flex-wrap: wrap; flex-direction: row-reverse;">
+                <div class="ai-content" style="flex: 1; min-width: 300px;">
+                    <h3 lang-en>Process Intelligence</h3>
+                    <h3 lang-zh>进程行为分析</h3>
+                    <p lang-en>Get AI insights on unusual process activity, high resource usage, and security-relevant behavior.</p>
+                    <p lang-zh>利用 AI 分析异常的进程活动、高资源占用及与安全相关的行为。</p>
+                </div>
+                <div class="ai-image" style="flex: 1.2; min-width: 300px;">
+                    <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164044.jpg" alt="AI Process Analysis">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="screenshots">
+        <div class="section-header">
+            <h2 lang-en>Interface Preview</h2>
+            <h2 lang-zh>界面预览</h2>
+        </div>
+        <div class="screenshot-carousel">
+            <div class="screenshot-item">
+                <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164044.jpg" alt="Processes">
+            </div>
+            <div class="screenshot-item">
+                <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164227.jpg" alt="Configs">
+            </div>
+            <div class="screenshot-item">
+                <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164249.jpg" alt="LaunchAgent">
+            </div>
+            <div class="screenshot-item">
+                <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164316.jpg" alt="Docker">
+            </div>
+            <div class="screenshot-item">
+                <img src="screenshots/iScreen Shoter - Safari浏览器 - 260311164341.jpg" alt="Docker Detail">
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-logo">
+            <img src="public/logo.png" alt="Flux" style="width:24px; height:24px; border-radius:6px;">
+            <span lang-en>Flux</span>
+            <span lang-zh>浮光</span>
+        </div>
+        <p>&copy; 2026 Flux Team. All rights reserved.</p>
+    </footer>
+
+    <script>
+        function toggleLang() {
+            document.body.classList.toggle('zh-active');
+            const isZh = document.body.classList.contains('zh-active');
+            localStorage.setItem('flux-lang', isZh ? 'zh' : 'en');
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Initialize language
+        const savedLang = localStorage.getItem('flux-lang');
+        const userLang = navigator.language || navigator.userLanguage;
+        if (savedLang === 'zh' || (!savedLang && userLang.startsWith('zh'))) {
+            document.body.classList.add('zh-active');
+        }
+
+        // Add some scroll animations
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .ai-content, .ai-image').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'all 0.6s cubic-bezier(0.22, 1, 0.36, 1)';
+            observer.observe(el);
+        });
+
+        // Hero mockup mouse follow effect
+        const heroMockup = document.querySelector('.hero-mockup');
+        const heroImg = heroMockup.querySelector('img');
+
+        heroMockup.addEventListener('mousemove', (e) => {
+            const rect = heroMockup.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const rotateX = (y - centerY) / 60; // Inverted
+            const rotateY = (centerX - x) / 60; // Inverted
+
+            heroImg.style.transform = `perspective(1000px) rotateX(${rotateX + 5}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
+        });
+
+        heroMockup.addEventListener('mouseleave', () => {
+            heroImg.style.transform = `perspective(1000px) rotateX(5deg) rotateY(0deg) scale3d(1, 1, 1)`;
+        });
+    </script>
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+</body>
+</html>

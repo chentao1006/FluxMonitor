@@ -70,17 +70,11 @@ export default function LoginPage() {
       <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }} suppressHydrationWarning>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }} suppressHydrationWarning>
           <div style={{
-            width: '64px', height: '64px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, var(--color-primary), #60a5fa)',
+            width: '64px', height: '64px',
             margin: '0 auto 1.5rem', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', boxShadow: '0 8px 16px rgba(59, 130, 246, 0.3)'
+            justifyContent: 'center'
           }} suppressHydrationWarning>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" suppressHydrationWarning>
-              <circle cx="12" cy="12" r="3" fill="white" />
-              <circle cx="12" cy="12" r="7" stroke="white" strokeOpacity="0.4" />
-              <circle cx="12" cy="12" r="11" stroke="white" strokeOpacity="0.1" />
-              <path d="M15 9l2-2M7 15l2-2" stroke="white" strokeOpacity="0.5" strokeWidth="1.5" />
-            </svg>
+            <img src="/logo.png" alt="Flux" style={{ width: '64px', height: '64px', borderRadius: '16px' }} />
           </div>
           <h1 className="card-title" style={{ fontSize: '2.5rem', marginBottom: '0.25rem', fontWeight: 900, letterSpacing: '0.1em' }} suppressHydrationWarning>{t.login.title}</h1>
           {t.login.logoText && <div style={{ fontSize: '1rem', color: 'var(--color-primary)', fontWeight: 600, letterSpacing: '0.6em', textIndent: '0.6em', marginBottom: '1.5rem', opacity: 0.8 }} suppressHydrationWarning>{t.login.logoText}</div>}

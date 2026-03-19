@@ -406,14 +406,16 @@ p {
 }
 
 .logo-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--color-primary), #60a5fa);
+  width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.logo-icon:hover {
+  transform: scale(1.05);
 }
 
 /* Sidebar Navigation */
