@@ -27,7 +27,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUFeedURL</key>
-	<string>https://flux.ct106.com/launcher/appcast.xml</string>
+	<string>https://flux.ct106.com/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>T9d+4vUpmrkAXNcwSOu7/MzSO6tIKr8JbVhYe4j0jaE=</string>
 </dict>
