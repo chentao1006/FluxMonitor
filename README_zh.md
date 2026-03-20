@@ -20,9 +20,9 @@
 
 **待开发功能**
 
-[*] **Mac 启动器**: 原生 macOS 应用程序，可启动监控 Web 服务器，无需手动部署。
-[ ] **iOS 客户端**: 原生 iOS 应用程序，可随时随地监控和管理系统。
-[ ] **Android 客户端**: 原生 Android 应用程序，可随时随地监控和管理系统。
+- [*] **Mac 启动器**: 原生 macOS 应用程序，可启动监控 Web 服务器，无需手动部署。
+- [ ] **iOS 客户端**: 原生 iOS 应用程序，可随时随地监控和管理系统。
+- [ ] **Android 客户端**: 原生 Android 应用程序，可随时随地监控和管理系统。
 
 ---
 
@@ -40,9 +40,17 @@
 ![Screenshot 10](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164539.jpg)
 ![Screenshot 11](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164605.jpg)
 
+## 快速安装 (macOS)
+
+在 macOS 上使用 Flux Monitor 最简单的方法是使用 **Flux Launcher**。
+
+1.  **下载**: 前往 [Releases](https://github.com/chentao1006/FluxMonitor/releases) 页面下载 `FluxLauncher.dmg`。
+2.  **安装**: 打开 `.dmg` 文件，将 **Flux Launcher** 拖入 **Applications** (应用程序) 文件夹。
+3.  **启动**: 打开应用程序。它会自动启动后台服务器，并提供原生菜单栏图标以便快速访问。
+
 ---
 
-## 开始使用
+## 开始使用 (源码 / 开发)
 
 1. **安装**:
    ```bash
