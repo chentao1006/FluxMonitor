@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Flux Launcher</title>
+        <item>
+            <title>1.0.0</title>
+            <pubDate>Fri, 20 Mar 2026 22:10:16 +0800</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.4</sparkle:minimumSystemVersion>
+            <enclosure url="https://flux.ct106.com/launcher/FluxLauncher.dmg" length="30064249" type="application/octet-stream" sparkle:edSignature="7QXFwOoKiUFitIneJy12XSmHGm4BYneB5Dbic+cY8JCZgPxlfm3pRDSDhBDf4Tmi9oYbiGcB/dZrt2u2DqllCQ=="/>
+        </item>
+    </channel>
+</rss>
