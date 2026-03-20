@@ -4,6 +4,7 @@ struct ServiceView: View {
     @StateObject var pm = ProcessManager.shared
     @StateObject var i18n = I18N.shared
     @AppStorage("port") var port = 7000
+    @State private var localIP = "localhost"
 
     var body: some View {
         VStack(spacing: 20) {
@@ -20,11 +21,11 @@ struct ServiceView: View {
                     
                     if pm.isRunning {
                         Button(action: {
-                            if let url = URL(string: "http://localhost:\(port)") {
+                            if let url = URL(string: "http://\(localIP):\(String(port))") {
                                 NSWorkspace.shared.open(url)
                             }
                         }) {
-                            Text("http://localhost:\(port)")
+                            Text("http://\(localIP):\(String(port))")
                                 .font(.subheadline)
                                 .foregroundColor(.blue)
                                 .underline()
@@ -76,6 +77,10 @@ struct ServiceView: View {
                             .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
                     )
             }
+        }
+        .onAppear {
+            // Keep localhost as requested by user
+            localIP = "localhost"
         }
     }
 }

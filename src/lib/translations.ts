@@ -1,7 +1,7 @@
 export const translations = {
   zh: {
-    appTitle: 'Flux | macOS 系统面板',
-    appDesc: 'Flux - 一款简约而强大的 macOS 系统监控与运维管理面板',
+    appTitle: '浮光面板',
+    appDesc: '浮光面板 - 一款简约而强大的 macOS 系统监控与运维管理面板',
     sidebar: {
       monitor: '系统概览',
       processes: '进程管理',
@@ -584,8 +584,8 @@ export const translations = {
     }
   },
   en: {
-    appTitle: 'Flux | macOS Dashboard',
-    appDesc: 'Flux - A minimalist and powerful macOS system monitoring and management panel',
+    appTitle: 'Flux Monitor',
+    appDesc: 'Flux Monitor - A minimalist and powerful macOS system monitoring and management panel',
     sidebar: {
       monitor: 'Monitor',
       processes: 'Processes',

@@ -22,7 +22,7 @@
     "openclaw": true
   },
   "deploy": {
-    "path": "~/Applications/monitor",
+    "path": "~/Applications/flux-monitor",
     "port": 7000
   }
 }

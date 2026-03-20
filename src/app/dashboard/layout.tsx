@@ -69,7 +69,7 @@ export default function DashboardLayout({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="logo-icon">
-            <img src="/logo.png" alt="Flux" style={{ width: '24px', height: '24px', borderRadius: '5.4px' }} />
+            <img src="/logo.png" alt="Flux Monitor" style={{ width: '24px', height: '24px', borderRadius: '5.4px' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1 }}>{t.login.title}</h2>

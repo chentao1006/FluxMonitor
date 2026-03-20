@@ -1,4 +1,4 @@
-# 浮光
+# 浮光面板
 
 [English](README.md) | **简体中文**
 
@@ -102,4 +102,4 @@ chmod +x deploy.sh
 
 ---
 
-© 2026 Flux.
+© 2026 Flux Monitor.

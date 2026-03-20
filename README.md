@@ -1,4 +1,4 @@
-# Flux
+# Flux Monitor
 
 **English** | [简体中文](README_zh.md)
 
@@ -102,4 +102,4 @@ The system uses `config.json` for global settings. You can copy `config.example.
 
 ---
 
-© 2026 Flux.
+© 2026 Flux Monitor.

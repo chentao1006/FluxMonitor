@@ -1,12 +1,5 @@
 import Foundation
 
-enum Language: String, CaseIterable, Identifiable {
-    case en = "English"
-    case zh = "简体中文"
-    case system = "Follow System"
-    
-    var id: String { self.rawValue }
-}
 
 class I18N: ObservableObject {
     static let shared = I18N()
@@ -15,6 +8,11 @@ class I18N: ObservableObject {
         didSet {
             UserDefaults.standard.set(language.rawValue, forKey: "appLanguage")
         }
+    }
+    
+    var isZh: Bool {
+        let currentLang = language == .system ? getSystemLang() : language
+        return currentLang == .zh
     }
     
     init() {
@@ -31,8 +29,8 @@ class I18N: ObservableObject {
     }
     
     private func getSystemLang() -> Language {
-        let locale = Locale.current.language.languageCode?.identifier ?? "en"
-        return locale == "zh" ? .zh : .en
+        let preferred = Locale.preferredLanguages.first ?? "en"
+        return (preferred.hasPrefix("zh-Hans") || preferred.hasPrefix("zh")) ? .zh : .en
     }
     
     private let zhDict = [
@@ -59,7 +57,14 @@ class I18N: ObservableObject {
         "check_updates": "检查更新",
         "quit": "退出",
         "open_dashboard": "打开控制面板",
-        "settings_dots": "设置..."
+        "flux_monitor": "打开浮光面板",
+        "settings_dots": "设置...",
+        "about": "关于",
+        "copy": "复制",
+        "select_all": "全选",
+        "welcome_title": "欢迎使用 浮光启动器",
+        "welcome_message": "请设置您的初始登录凭据和端口号以继续。",
+        "get_started": "开始使用"
     ]
     
     private let enDict = [
@@ -86,6 +91,29 @@ class I18N: ObservableObject {
         "check_updates": "Check for Updates",
         "quit": "Quit",
         "open_dashboard": "Open Dashboard",
-        "settings_dots": "Settings..."
+        "flux_monitor": "Open Flux Monitor",
+        "settings_dots": "Settings...",
+        "about": "About",
+        "copy": "Copy",
+        "select_all": "Select All",
+        "welcome_title": "Welcome to Flux Launcher",
+        "welcome_message": "Please set your initial login credentials and port to continue.",
+        "get_started": "Get Started"
     ]
+}
+
+enum Language: String, CaseIterable, Identifiable {
+    case system = "Follow System"
+    case en = "English"
+    case zh = "简体中文"
+    
+    var id: String { self.rawValue }
+    
+    var localized: String {
+        switch self {
+        case .system: return I18N.shared.isZh ? "跟随系统" : "Follow System"
+        case .en: return "English"
+        case .zh: return "简体中文"
+        }
+    }
 }

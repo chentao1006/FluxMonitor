@@ -1,14 +1,7 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+.pnp.js
 
 # testing
 /coverage
@@ -17,8 +10,21 @@
 /.next/
 /out/
 
-# production
+# build
 /build
+*/build
+*/.build
+*/.next
+*/public
+*.xcodeproj/
+*.xcworkspace/
+/macos/.build/
+/macos/build/
+/macos/DerivedData/
+/macos/Frameworks/
+/macos/*.xcodeproj/
+/macos/*.xcworkspace/
+/macos/exportOptions.plist
 
 # misc
 .DS_Store
@@ -28,10 +34,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# local env files
+.env*.local
 
 # vercel
 .vercel
@@ -39,6 +44,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# local config
+*.txt
 config.json
