@@ -6,9 +6,9 @@
             <title>1.0.0</title>
             <pubDate>Fri, 20 Mar 2026 22:10:16 +0800</pubDate>
             <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://flux.ct106.com/launcher/FluxLauncher.dmg" length="30522591" type="application/octet-stream" sparkle:edSignature="/45MLPaN0M9HxOCf93FpE6XIuEdOwgZ0otbu4US94JaBFL01F+SkLRwmhVFQRYUaBbcaFxc9ht2uoHTuBbCmBg=="/>
+            <enclosure url="https://flux.ct106.com/FluxLauncher.dmg" length="28889386" type="application/octet-stream" sparkle:edSignature="Da8GtQ8A6bhlKk3A7dGnHaPmufu/IyHT1VsMS11v5A22+9E0XGQCBwOUP5nVnb8gAB/Kgh50+XtbeHiGubIBDA=="/>
         </item>
     </channel>
 </rss>
