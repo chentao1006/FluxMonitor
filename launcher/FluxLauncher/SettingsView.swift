@@ -5,7 +5,7 @@ struct SettingsView: View {
     @StateObject var i18n = I18N.shared
     @AppStorage("autoStartApp") var autoStartApp = false
     @AppStorage("autoStartService") var autoStartService = true
-    @AppStorage("port") var port = 7000
+    @AppStorage("port") var port = 4210
     
     @AppStorage("username") var username = ""
     @AppStorage("password") var password = ""

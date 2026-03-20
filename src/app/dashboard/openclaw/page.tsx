@@ -98,10 +98,7 @@ export default function OpenClawMain() {
     setMemorySummary('');
   }, [activeMemoryFile]);
 
-  useEffect(() => {
-    setCmdResult('');
-    setCmdAnalysis('');
-  }, [cmd]);
+
 
   // Debounced search for memory
   useEffect(() => {

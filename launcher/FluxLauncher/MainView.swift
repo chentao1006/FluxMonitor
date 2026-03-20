@@ -9,7 +9,7 @@ struct MainView: View {
     init() {
         let username = UserDefaults.standard.string(forKey: "username") ?? ""
         let password = UserDefaults.standard.string(forKey: "password") ?? ""
-        let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 7000
+        let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
         
         let configManager = ConfigManager.shared
         let (configUser, configPass, _) = configManager.loadConfig()

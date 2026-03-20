@@ -6,7 +6,7 @@ struct WelcomeView: View {
     
     @AppStorage("username") var username = ""
     @AppStorage("password") var password = ""
-    @AppStorage("port") var port = 7000
+    @AppStorage("port") var port = 4210
     
     var body: some View {
         VStack(spacing: 0) {

@@ -487,6 +487,7 @@ export default function DashboardOverview() {
               <input type="text" className="input terminal-input" placeholder={t.monitor.terminalHint} value={cmd} onChange={e => setCmd(e.target.value)} disabled={isExecuting} style={{ width: '100%', fontFamily: 'monospace', paddingRight: cmd ? '2.5rem' : '0.75rem' }} />
               {cmd && !isExecuting && (
                 <button
+                  type="button"
                   onClick={() => setCmd('')}
                   style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
                 >

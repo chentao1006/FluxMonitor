@@ -69,7 +69,7 @@ The easiest way to use Flux Monitor on macOS is by using the **Flux Launcher**.
 
 ## Deployment
 
-This project provides a deploy script `deploy.sh`. It builds the Next.js application as a standalone server and installs it to the specified directory (default: `~/Applications/monitor`).
+This project provides a deploy script `deploy.sh`. It builds the Next.js application as a standalone server and installs it to the specified directory (default: `~/Applications/flux-monitor`).
 
 ```bash
 # Grant execution permissions and deploy
@@ -79,7 +79,7 @@ chmod +x deploy.sh
 
 **Notes:**
 - You can change the deployment folder by editing the `"deploy.path"` key in `config.json`.
-- After deployment, the script uses `start.sh` to run the app in the background on the configured port (default `7000`).
+- After deployment, the script uses `start.sh` to run the app in the background on the configured port (default `4210`).
 
 ## Configuration (`config.json`)
 
@@ -110,8 +110,8 @@ The system uses `config.json` for global settings. You can copy `config.example.
     "openclaw": true
   },
   "deploy": {
-    "path": "~/Applications/monitor",
-    "port": 7000
+    "path": "~/Applications/flux-monitor",
+    "port": 4210
   }
 }
 ```

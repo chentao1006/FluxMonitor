@@ -3,7 +3,7 @@ import SwiftUI
 struct ServiceView: View {
     @StateObject var pm = ProcessManager.shared
     @StateObject var i18n = I18N.shared
-    @AppStorage("port") var port = 7000
+    @AppStorage("port") var port = 4210
     @State private var localIP = "localhost"
 
     var body: some View {

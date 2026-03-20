@@ -67,7 +67,7 @@
 
 ## 部署打包
 
-本项目提供了一个部署脚本 `deploy.sh`。执行脚本会将 Next.js 应用编译并提取为独立的 Standalone 服务，安装到指定目录（默认路径：`~/Applications/monitor`）。
+本项目提供了一个部署脚本 `deploy.sh`。执行脚本会将 Next.js 应用编译并提取为独立的 Standalone 服务，安装到指定目录（默认路径：`~/Applications/flux-monitor`）。
 
 ```bash
 # 赋予执行权限并构建发布版本
@@ -77,7 +77,7 @@ chmod +x deploy.sh
 
 **说明:**
 - 若要更改存放目录，请修改 `config.json` 中的 `deploy.path` 字段.
-- 部署完成后，将生成 `start.sh` 并自动将面板挂载在后台相应的端口运行，默认为 `7000`。
+- 部署完成后，将生成 `start.sh` 并自动将面板挂载在后台相应的端口运行，默认为 `4210`。
 
 ## 配置文件说明 (`config.json`)
 
@@ -108,8 +108,8 @@ chmod +x deploy.sh
     "openclaw": true
   },
   "deploy": {
-    "path": "~/Applications/monitor", // 一键部署的目标路径
-    "port": 7000 // 部署后运行的端口号
+    "path": "~/Applications/flux-monitor", // 一键部署的目标路径
+    "port": 4210 // 部署后运行的端口号
   }
 }
 ```

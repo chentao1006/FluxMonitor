@@ -137,7 +137,7 @@ class ProcessManager: ObservableObject {
         newProcess.currentDirectoryURL = Bundle.main.resourceURL
         
         var env = ProcessInfo.processInfo.environment
-        let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 7000
+        let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
         env["PORT"] = "\(port)"
         env["NODE_ENV"] = "production"
         

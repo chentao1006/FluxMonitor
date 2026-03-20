@@ -26,7 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         UserDefaults.standard.register(defaults: [
             "autoStartService": true,
             "silentStart": false,
-            "port": 7000,
+            "port": 4210,
             "language": "auto"
         ])
         
@@ -150,7 +150,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func openDashboard() {
-        let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 7000
+        let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
         if let url = URL(string: "http://localhost:\(port)") {
             NSWorkspace.shared.open(url)
         }

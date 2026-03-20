@@ -2,14 +2,14 @@
 
 # =========================================================================
 # Deploy Script for macOS Integrated Monitor
-# Builds the Next.js app in standalone mode and copies it to ~/Applications/monitor
+# Builds the Next.js app in standalone mode and copies it to ~/Applications/flux-monitor
 # =========================================================================
 
 set -e
 
 # Default deployment directory
-APP_DIR="$HOME/Applications/monitor"
-APP_PORT=7000
+APP_DIR="$HOME/Applications/flux-monitor"
+APP_PORT=4210
 
 # Try to read from config.json
 if [ -f "config.json" ]; then

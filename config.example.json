@@ -23,6 +23,6 @@
   },
   "deploy": {
     "path": "~/Applications/flux-monitor",
-    "port": 7000
+    "port": 4210
   }
 }
