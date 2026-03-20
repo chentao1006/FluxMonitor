@@ -22,7 +22,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ## Planned Features
 
-[ ] **Mac Launcher App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
+[*] **Mac Launcher App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
 [ ] **iOS Client App**: A native iOS application that can monitor and manage the system on the go.
 [ ] **Android Client App**: A native Android application that can monitor and manage the system on the go.
 

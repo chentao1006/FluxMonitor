@@ -178,9 +178,9 @@ if [[ "$LANGUAGES" == *"zh-Hans"* ]] && [ -f "launcher/FluxLauncher/zh-Hans.lpro
     fi
 fi
 
-# Remove spaces from filename for better compatibility
-SAFE_APP_NAME=$(echo "$LOCALIZED_NAME" | tr -d ' ')
-DMG_NAME="$SAFE_APP_NAME-$VERSION.dmg"
+# Use English name for filename (without version number)
+SAFE_APP_NAME=$(echo "$APP_NAME" | tr -d ' ')
+DMG_NAME="$SAFE_APP_NAME.dmg"
 rm -f "$BUILD_DIR/$DMG_NAME"
 
 # Create a temporary staging area for DMG content
@@ -195,7 +195,7 @@ cp -R "$APP_DIR" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 # Create the DMG using the staging directory
-hdiutil create -volname "$LOCALIZED_NAME" -srcfolder "$STAGING_DIR" -ov -format UDZO "$BUILD_DIR/$DMG_NAME"
+hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING_DIR" -ov -format UDZO "$BUILD_DIR/$DMG_NAME"
 
 # Sign the DMG
 echo "Signing DMG..."
