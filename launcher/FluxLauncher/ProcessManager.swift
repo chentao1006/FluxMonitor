@@ -27,7 +27,7 @@ class ProcessManager: ObservableObject {
     private func findNodePath() -> String? {
         // 1. Check bundled Resources (Legacy fallback)
         if let bundledNode = Bundle.main.url(forResource: "node", withExtension: nil)?.path {
-            if FileManager.default.isExecutableFile(atPath: bundledNode) {
+            if FileManager.default.isExecutableFile(atPath: bundledNode) && isNodeVersionCompatible(at: bundledNode) {
                 return bundledNode
             }
         }
@@ -35,7 +35,8 @@ class ProcessManager: ObservableObject {
         // 2. Check Local App Support "bin" folder (Auto-installed by NodeInstaller)
         let localPath = NodeInstaller.shared.localNodePath
         if FileManager.default.fileExists(atPath: localPath) && 
-           FileManager.default.isExecutableFile(atPath: localPath) {
+           FileManager.default.isExecutableFile(atPath: localPath) &&
+           isNodeVersionCompatible(at: localPath) {
             return localPath
         }
         
@@ -47,7 +48,7 @@ class ProcessManager: ObservableObject {
         ]
         
         for path in systemPaths {
-            if FileManager.default.isExecutableFile(atPath: path) {
+            if FileManager.default.isExecutableFile(atPath: path) && isNodeVersionCompatible(at: path) {
                 return path
             }
         }
@@ -62,14 +63,15 @@ class ProcessManager: ObservableObject {
         p.waitUntilExit()
         if let data = try? pipe.fileHandleForReading.readToEnd(),
            let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !path.isEmpty, FileManager.default.isExecutableFile(atPath: path) {
+           !path.isEmpty, FileManager.default.isExecutableFile(atPath: path),
+           isNodeVersionCompatible(at: path) {
             return path
         }
         
         return nil
     }
 
-    private func isNodeRunnable(at path: String) -> Bool {
+    private func isNodeVersionCompatible(at path: String) -> Bool {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: path)
         p.arguments = ["-v"]
@@ -79,12 +81,23 @@ class ProcessManager: ObservableObject {
         do {
             try p.run()
             p.waitUntilExit()
-            if p.terminationStatus != 0 {
-                appendLog("Node runnable check failed with status: \(p.terminationStatus)\n")
+            if p.terminationStatus != 0 { return false }
+            
+            if let data = try? pipe.fileHandleForReading.readToEnd(),
+               let versionStr = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                // versionStr is like "v20.19.5" or "v14.17.0"
+                let cleanVersion = versionStr.trimmingCharacters(in: CharacterSet.decimalDigits.inverted)
+                let components = cleanVersion.split(separator: ".")
+                if let majorStr = components.first, let major = Int(majorStr) {
+                    if major < 18 {
+                        appendLog("Found Node.js \(versionStr) at \(path), but Next.js 15+ requires Node >= 18.\n")
+                        return false
+                    }
+                    return true
+                }
             }
-            return p.terminationStatus == 0
+            return false
         } catch {
-            appendLog("Node runnable check error: \(error.localizedDescription)\n")
             return false
         }
     }
