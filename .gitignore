@@ -16,16 +16,12 @@
 */.build
 */.next
 */public
-*.xcodeproj/
-*.xcworkspace/
 /macos/.build/
 /macos/build/
 /macos/DerivedData/
 /macos/Frameworks/
-/macos/*.xcodeproj/
-/macos/*.xcworkspace/
 /macos/exportOptions.plist
-node
+xcuserdata
 
 # misc
 .DS_Store
