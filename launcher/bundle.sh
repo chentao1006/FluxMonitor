@@ -37,6 +37,17 @@ if [ ! -d "$PROJECT" ]; then
     exit 1
 fi
 
+# --- Auto-sync version from package.json to Xcode project ---
+VERSION=$(grep '"version":' package.json | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g' | tr -d ' ')
+if [ ! -z "$VERSION" ]; then
+    echo "🔄 Syncing version $VERSION from package.json to Xcode project..."
+    # Update Marketing Version
+    sed -i '' "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $VERSION;/g" "$PROJECT/project.pbxproj"
+    # Update Build Version (convert 1.1.7 to 117)
+    BUILD_NUMBER=$(echo "$VERSION" | tr -d '.')
+    sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PROJECT/project.pbxproj"
+fi
+
 # 1. Clean and Create result directory
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
@@ -65,11 +76,8 @@ echo "App Name: $APP_NAME"
 echo "Bundle ID: $BUNDLE_ID"
 echo "Team ID: $TEAM_ID"
 
-# Version detection (Priority: Xcode Settings > package.json)
-VERSION=$(echo "$BUILD_SETTINGS" | grep -m1 " MARKETING_VERSION =" | awk -F' = ' '{print $2}')
-if [ -z "$VERSION" ] || [[ "$VERSION" == *'$(MARKETING_VERSION)'* ]]; then
-    VERSION=$(grep '"version":' package.json | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g' | tr -d ' ')
-fi
+# Version is already synced from package.json at the start of the script
+echo "Version from package.json: $VERSION"
 
 # Auto-detect Identity and Team ID if not provided
 if [ -z "$IDENTITY" ]; then

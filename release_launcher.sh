@@ -70,13 +70,8 @@ if command -v gh >/dev/null 2>&1; then
     
     echo "Uploading asset: $DMG_PATH"
     
-    # We also check for appcast.xml if it exists (for Sparkle updates)
+    # Define assets to upload (only DMG)
     ASSETS=("$DMG_PATH")
-    # Use appcast.xml from root (consistent with bundle.sh)
-    if [ -f "appcast.xml" ]; then
-        ASSETS+=("appcast.xml")
-        echo "Including asset: appcast.xml"
-    fi
 
     gh release create "v$NEW_VERSION" \
         "${ASSETS[@]}" \
