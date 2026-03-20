@@ -20,81 +20,98 @@ struct SettingsView: View {
     }
     
     var body: some View {
-        Form {
-            Section(header: Text(i18n.t("service_config"))) {
-                HStack {
-                    Text(i18n.t("username"))
-                    Spacer()
-                    TextField("", text: $username)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 200)
+        Group {
+            if #available(macOS 13.0, *) {
+                Form {
+                    settingsSections
                 }
-                
-                HStack {
-                    Text(i18n.t("password"))
-                    Spacer()
-                    SecureField("", text: $password)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 200)
+                .formStyle(.grouped)
+            } else {
+                // On macOS 12 and earlier, Form with custom HStacks 
+                // pushes everything to the right because it leaves the label column empty.
+                // List provides a more consistent full-width layout.
+                List {
+                    settingsSections
                 }
-                
-                HStack {
-                    Text(i18n.t("port"))
-                    Spacer()
-                    TextField("", value: $port, formatter: portFormatter)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
-                }
-            }
-            
-            Section(header: Text(i18n.t("behavior"))) {
-                HStack {
-                    Text(i18n.t("launch_at_login"))
-                    Spacer()
-                    Toggle("", isOn: $autoStartApp)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                        .onChange(of: autoStartApp) { updateLaunchAtLogin(enabled: $0) }
-                }
-                
-                HStack {
-                    Text(i18n.t("auto_start_service"))
-                    Spacer()
-                    Toggle("", isOn: $autoStartService)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                }
-                
-                HStack {
-                    Text(i18n.t("silent_start"))
-                    Spacer()
-                    Toggle("", isOn: $silentStart)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                }
-            }
-            
-            Section(header: Text(i18n.t("language"))) {
-                HStack {
-                    Text(i18n.t("language"))
-                    Spacer()
-                    Picker("", selection: $i18n.language) {
-                        ForEach(Language.allCases) { lang in
-                            Text(lang.localized).tag(lang)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                }
+                .listStyle(.inset)
             }
         }
-        .groupedFormStyle()
         .frame(minWidth: 400)
         .onAppear(perform: loadConfig)
         .onChange(of: username) { _ in saveSettings() }
         .onChange(of: password) { _ in saveSettings() }
         .onChange(of: port) { _ in saveSettings() }
         .onChange(of: autoStartService) { _ in saveSettings() }
+    }
+    
+    @ViewBuilder
+    private var settingsSections: some View {
+        Section(header: Text(i18n.t("service_config"))) {
+            HStack {
+                Text(i18n.t("username"))
+                Spacer()
+                TextField("", text: $username)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 200)
+            }
+            
+            HStack {
+                Text(i18n.t("password"))
+                Spacer()
+                SecureField("", text: $password)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 200)
+            }
+            
+            HStack {
+                Text(i18n.t("port"))
+                Spacer()
+                TextField("", value: $port, formatter: portFormatter)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+            }
+        }
+        
+        Section(header: Text(i18n.t("behavior"))) {
+            HStack {
+                Text(i18n.t("launch_at_login"))
+                Spacer()
+                Toggle("", isOn: $autoStartApp)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .onChange(of: autoStartApp) { updateLaunchAtLogin(enabled: $0) }
+            }
+            
+            HStack {
+                Text(i18n.t("auto_start_service"))
+                Spacer()
+                Toggle("", isOn: $autoStartService)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+            }
+            
+            HStack {
+                Text(i18n.t("silent_start"))
+                Spacer()
+                Toggle("", isOn: $silentStart)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+            }
+        }
+        
+        Section(header: Text(i18n.t("language"))) {
+            HStack {
+                Text(i18n.t("language"))
+                Spacer()
+                Picker("", selection: $i18n.language) {
+                    ForEach(Language.allCases) { lang in
+                        Text(lang.localized).tag(lang)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+            }
+        }
     }
     
     private func updateLaunchAtLogin(enabled: Bool) {
@@ -133,20 +150,5 @@ struct SettingsView: View {
         
         // Notify user or UI
         AppDelegate.shared?.updateMenu()
-    }
-}
-
-extension View {
-    @ViewBuilder
-    func groupedFormStyle() -> some View {
-        #if compiler(>=5.7)
-        if #available(macOS 13.0, *) {
-            self.formStyle(.grouped)
-        } else {
-            self
-        }
-        #else
-        self
-        #endif
     }
 }

@@ -1,4 +1,31 @@
 #!/bin/bash
+SPARKLE_BIN_PATH="./Sparkle/bin" # Downloaded during build if missing
+
+# --- Ensure Sparkle tools exist locally ---
+if [ ! -x "${SPARKLE_BIN_PATH}/generate_appcast" ]; then
+    echo "⬇️ Sparkle tools not found at ${SPARKLE_BIN_PATH}. Downloading..."
+    mkdir -p Sparkle_tmp
+    
+    # Simple logic to find latest Sparkle release asset (.tar.xz)
+    SPARKLE_URL=$(curl -s https://api.github.com/repos/sparkle-project/Sparkle/releases/latest | grep "browser_download_url" | grep "tar.xz" | head -n 1 | cut -d '"' -f 4)
+    
+    if [ -z "$SPARKLE_URL" ]; then
+        echo "❌ Error: Failed to find Sparkle download URL."
+        exit 1
+    fi
+    
+    curl -L "$SPARKLE_URL" -o sparkle_dist.tar.xz
+    tar -xf sparkle_dist.tar.xz -C Sparkle_tmp
+    
+    # Move bin to our local Sparkle folder
+    mkdir -p Sparkle
+    cp -R Sparkle_tmp/bin Sparkle/
+    
+    # Cleanup
+    rm -rf Sparkle_tmp sparkle_dist.tar.xz
+    echo "✅ Sparkle tools installed to ./Sparkle/bin"
+fi
+
 set -e
 
 # Auto-detect Project/Scheme
@@ -229,4 +256,16 @@ if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ]; then
 else
 	echo "⚠️ Notarization skipped because APPLE_ID and APPLE_PASSWORD are not set."
 	echo "Please set them to ensure the DMG runs directly on other users' Macs."
+fi
+
+
+# 6. Generate Sparkle Appcast (Now automated)
+if [ -x "${SPARKLE_BIN_PATH}/generate_appcast" ]; then
+    echo "📡 Generating Sparkle appcast to project root..."
+    # We point generate_appcast to the BUILD_DIR where DMG resides, and output to project root
+    "${SPARKLE_BIN_PATH}/generate_appcast" -o appcast.xml "${BUILD_DIR}"
+    echo "✅ appcast.xml generated in project root."
+else
+    echo "❌ Sparkle generate_appcast tool still missing at ${SPARKLE_BIN_PATH}."
+    exit 1
 fi

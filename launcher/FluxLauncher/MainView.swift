@@ -81,7 +81,6 @@ struct MainView: View {
                 }
             }
         }
-        .padding()
         .sheet(isPresented: $showingFirstRunAlert) {
             WelcomeView()
         }

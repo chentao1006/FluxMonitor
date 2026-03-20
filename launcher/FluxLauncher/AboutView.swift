@@ -28,7 +28,7 @@ struct AboutView: View {
             
             VStack(spacing: 12) {
                 Button(action: {
-                    if let url = URL(string: "https://github.com/chentao1006/flux") {
+                    if let url = URL(string: "https://github.com/chentao1006/FluxMonitor") {
                         NSWorkspace.shared.open(url)
                     }
                 }) {
