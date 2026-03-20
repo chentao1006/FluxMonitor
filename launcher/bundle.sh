@@ -262,9 +262,16 @@ fi
 # 6. Generate Sparkle Appcast (Now automated)
 if [ -x "${SPARKLE_BIN_PATH}/generate_appcast" ]; then
     echo "📡 Generating Sparkle appcast to project root..."
+    # Use version-specific GitHub download prefix for this new release
+    DOWNLOAD_PREFIX="https://github.com/chentao1006/FluxMonitor/releases/download/v$VERSION/"
+    
     # We point generate_appcast to the BUILD_DIR where DMG resides, and output to project root
-    "${SPARKLE_BIN_PATH}/generate_appcast" -o appcast.xml "${BUILD_DIR}"
-    echo "✅ appcast.xml generated in project root."
+    # This will be available at https://flux.ct106.com/appcast.xml via GitHub Pages
+    "${SPARKLE_BIN_PATH}/generate_appcast" --download-url-prefix "$DOWNLOAD_PREFIX" -o appcast.xml "${BUILD_DIR}"
+    
+    # Also copy to launcher folder for consistency
+    cp appcast.xml launcher/appcast.xml
+    echo "✅ appcast.xml generated and synced."
 else
     echo "❌ Sparkle generate_appcast tool still missing at ${SPARKLE_BIN_PATH}."
     exit 1

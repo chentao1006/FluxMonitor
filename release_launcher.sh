@@ -72,8 +72,9 @@ if command -v gh >/dev/null 2>&1; then
     
     # We also check for appcast.xml if it exists (for Sparkle updates)
     ASSETS=("$DMG_PATH")
-    if [ -f "launcher/appcast.xml" ]; then
-        ASSETS+=("launcher/appcast.xml")
+    # Use appcast.xml from root (consistent with bundle.sh)
+    if [ -f "appcast.xml" ]; then
+        ASSETS+=("appcast.xml")
         echo "Including asset: appcast.xml"
     fi
 
