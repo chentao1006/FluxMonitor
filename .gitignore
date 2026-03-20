@@ -25,6 +25,7 @@
 /macos/*.xcodeproj/
 /macos/*.xcworkspace/
 /macos/exportOptions.plist
+node
 
 # misc
 .DS_Store
