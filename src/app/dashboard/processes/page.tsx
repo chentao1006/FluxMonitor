@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -111,6 +112,8 @@ export default function ProcessManager() {
       const data = await res.json();
       if (data.success) {
         setAiAnalysis(data.data);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setAiAnalysis("Analysis failed: " + data.error);
       }
@@ -457,6 +460,11 @@ export default function ProcessManager() {
                         ) : (
                           <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.9rem', color: 'var(--color-text)', lineHeight: 1.6, maxHeight: '300px', overflowY: 'auto' }}>
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
+                            {aiAnalysis?.includes(t.common.errors.aiConfigMissing) && (
+                              <div style={{ marginTop: '0.75rem' }}>
+                                <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

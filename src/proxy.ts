@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
-import appConfig from "../config.json";
-
-const secretKey = new TextEncoder().encode(appConfig.jwtSecret);
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -21,9 +18,11 @@ export async function proxy(request: NextRequest) {
     }
 
     try {
+      const secret = process.env.JWT_SECRET || 'CHANGE_ME_TO_A_LONG_RANDOM_STRING';
+      const secretKey = new TextEncoder().encode(secret);
       await jwtVerify(token, secretKey);
       return NextResponse.next();
-    } catch (error) {
+    } catch {
       if (path.startsWith('/api')) {
         return NextResponse.json({ error: "Invalid token" }, { status: 401 });
       }
@@ -36,9 +35,11 @@ export async function proxy(request: NextRequest) {
     const token = request.cookies.get('token')?.value;
     if (token) {
       try {
+        const secret = process.env.JWT_SECRET || 'CHANGE_ME_TO_A_LONG_RANDOM_STRING';
+        const secretKey = new TextEncoder().encode(secret);
         await jwtVerify(token, secretKey);
         return NextResponse.redirect(new URL('/dashboard', request.url));
-      } catch (error) {
+      } catch {
         // Token invalid, let them stay on login page
       }
     }

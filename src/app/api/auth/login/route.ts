@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
-import config from '../../../../../config.json';
+import { getConfig } from '@/lib/config';
 import { cookies } from 'next/headers';
-
-const secretKey = new TextEncoder().encode(config.jwtSecret);
 
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
+    const config = getConfig();
 
-    const user = config.users.find(
-      (u) => u.username === username && u.password === password
+    const user = (config.users || []).find(
+      (u: { username: string; password: string }) => u.username === username && u.password === password
     );
 
     if (user) {
+      const secretKey = new TextEncoder().encode(config.jwtSecret || 'CHANGE_ME_TO_A_LONG_RANDOM_STRING');
       const token = await new SignJWT({ username: user.username })
         .setProtectedHeader({ alg: 'HS256' })
         .setExpirationTime('24h')
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'INVALID_CREDENTIALS' }, { status: 401 });
   } catch (error) {
+    console.error('Login error:', error);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

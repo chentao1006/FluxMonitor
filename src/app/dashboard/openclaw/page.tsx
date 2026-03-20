@@ -1,5 +1,6 @@
 "use client";
 import ReactMarkdown from 'react-markdown';
+import Link from 'next/link';
 import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef } from 'react';
@@ -444,6 +445,8 @@ export default function OpenClawMain() {
       if (data.success) {
         setCmd(data.data);
         setCmdResult(t.monitor.aiTranslateDone);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setCmdResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setCmdResult(`${t.monitor.aiTranslateFailed}: ${data.error || data.details}`);
       }
@@ -483,6 +486,8 @@ export default function OpenClawMain() {
       if (data.success) {
         setCmdAnalysis(data.data);
         aiCacheRef.current[cacheKey] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setCmdAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setCmdAnalysis(`${t.monitor.aiAnalyzeFailed}: ${data.error}`);
       }
@@ -538,6 +543,8 @@ export default function OpenClawMain() {
       if (data.success) {
         setMemorySummary(data.data);
         aiCacheRef.current[cacheKey] = data.data; // Update cache
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setMemorySummary(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setMemorySummary(`${t.common.error}: ${data.error}`);
       }
@@ -565,6 +572,8 @@ export default function OpenClawMain() {
       const data = await res.json();
       if (data.success) {
         setMemoryContent(data.data);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        alert(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         alert(`${t.common.error}: ${data.error}`);
       }
@@ -606,6 +615,8 @@ export default function OpenClawMain() {
       if (data.success) {
         setLogExplanation(data.data);
         aiCacheRef.current[cacheKey] = data.data; // Update cache
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setLogExplanation(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setLogExplanation(`${t.common.error}: ${data.error}`);
       }
@@ -1000,6 +1011,11 @@ export default function OpenClawMain() {
                 </div>
                 <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{logExplanation}</ReactMarkdown>
+                  {logExplanation.includes(t.common.errors.aiConfigMissing) && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1161,6 +1177,11 @@ export default function OpenClawMain() {
                   </div>
                   <div style={{ fontSize: '0.85rem', color: '#444', lineHeight: 1.6, padding: '1rem' }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{memorySummary}</ReactMarkdown>
+                    {memorySummary.includes(t.common.errors.aiConfigMissing) && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1397,6 +1418,11 @@ export default function OpenClawMain() {
                 </div>
                 <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', maxHeight: '350px', overflowY: 'auto' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{cmdAnalysis}</ReactMarkdown>
+                  {(cmdAnalysis.includes(t.common.errors.aiConfigMissing) || cmdResult.includes(t.common.errors.aiConfigMissing)) && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

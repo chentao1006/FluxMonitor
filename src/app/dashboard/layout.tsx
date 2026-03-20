@@ -22,8 +22,12 @@ export default function DashboardLayout({
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.data.features) {
-          setFeatures(data.data.features);
+        if (data.success && data.data) {
+          if (data.data.features) {
+            setFeatures(data.data.features);
+          } else {
+            setFeatures({});
+          }
           setVersion(data.data.version || '');
         } else {
           setFeatures({});
@@ -37,7 +41,6 @@ export default function DashboardLayout({
       });
   }, []);
 
-  // Close menu on escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsMenuOpen(false);

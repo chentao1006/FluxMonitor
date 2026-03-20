@@ -82,6 +82,7 @@ struct WelcomeView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
             .disabled(username.isEmpty || password.isEmpty)
             .padding(.horizontal, 50)
             .padding(.bottom, 40)

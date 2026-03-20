@@ -24,6 +24,8 @@ export const translations = {
       submit: '登录',
       submitting: '登录中...',
       error: '登录失败，请检查用户名或密码。',
+      invalidCredentials: '用户名或密码错误。',
+      internalError: '服务器内部错误，请稍后再试。',
       networkError: '网络或服务器错误。'
     },
     common: {
@@ -86,7 +88,12 @@ export const translations = {
         notFound: '未找到资源',
         internalError: '内部服务器错误',
         operationFailed: '操作执行失败',
+        dockerNotRunning: 'Docker 未运行，请确保 Docker Desktop 已启动。',
+        dockerFetchFailed: '获取 Docker 数据失败',
+        aiConfigMissing: 'AI 配置缺失',
+        aiConfigMissingDetail: '请前往「系统设置」配置 OpenAI API Key 以后再使用 AI 功能。',
       },
+      goToSettings: '前往设置',
     },
     monitor: {
       title: '系统概览',
@@ -608,6 +615,8 @@ export const translations = {
       submit: 'Login',
       submitting: 'Logging in...',
       error: 'Login failed, please check your credentials.',
+      invalidCredentials: 'Invalid username or password.',
+      internalError: 'Internal server error, please try again later.',
       networkError: 'Network or server error.'
     },
     common: {
@@ -670,7 +679,12 @@ export const translations = {
         notFound: 'Resource not found',
         internalError: 'Internal server error',
         operationFailed: 'Operation failed',
+        dockerNotRunning: 'Docker is not running. Please ensure Docker Desktop is started.',
+        dockerFetchFailed: 'Failed to fetch Docker data',
+        aiConfigMissing: 'AI Configuration Missing',
+        aiConfigMissingDetail: 'Please go to "Settings" to configure your OpenAI API Key before using AI features.',
       },
+      goToSettings: 'Go to Settings',
     },
     monitor: {
       title: 'System Overview',

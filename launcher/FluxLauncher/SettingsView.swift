@@ -9,6 +9,8 @@ struct SettingsView: View {
     
     @AppStorage("username") var username = ""
     @AppStorage("password") var password = ""
+
+    @AppStorage("silentStart") var silentStart = false
     
     private var portFormatter: NumberFormatter {
         let formatter = NumberFormatter()
@@ -62,6 +64,14 @@ struct SettingsView: View {
                         .toggleStyle(.switch)
                         .labelsHidden()
                 }
+                
+                HStack {
+                    Text(i18n.t("silent_start"))
+                    Spacer()
+                    Toggle("", isOn: $silentStart)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
             }
             
             Section(header: Text(i18n.t("language"))) {
@@ -96,7 +106,7 @@ struct SettingsView: View {
                     try SMAppService.mainApp.unregister()
                 }
             } catch {
-                print("Failed to update launch at login status: \(error)")
+                ProcessManager.shared.appendLog("Failed to update launch at login status: \(error.localizedDescription)\n")
             }
         }
     }

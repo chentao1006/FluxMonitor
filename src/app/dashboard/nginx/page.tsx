@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -221,6 +222,8 @@ export default function NginxDashboard() {
       if (data.success) {
         setLogAnalysisResult(data.data);
         aiCacheRef.current[cacheKey] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setLogAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setLogAnalysisResult(`${t.common.error}: ${data.error}`);
       }
@@ -254,6 +257,8 @@ export default function NginxDashboard() {
       if (data.success) {
         setAnalysisResult(data.data);
         aiCacheRef.current[cacheKey] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       }
     } catch (e) {
       setAnalysisResult(t.common.error);
@@ -291,6 +296,8 @@ export default function NginxDashboard() {
       if (data.success) {
         setAnalysisResult(data.data);
         aiCacheRef.current[cacheKey] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setAnalysisResult(`${t.common.error}: ${data.error}`);
       }
@@ -322,6 +329,9 @@ export default function NginxDashboard() {
         setAiDemand('');
         setShowAiPanel(false);
         setSaveStatus(t.nginx.aiEditDone);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        showToast(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`, 'error');
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         showToast(`${t.common.error}: ${data.error}`, 'error');
       }
@@ -604,6 +614,11 @@ export default function NginxDashboard() {
                 </div>
                 <div style={{ fontSize: '0.75rem', lineHeight: 1.5 }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{logAnalysisResult}</ReactMarkdown>
+                  {logAnalysisResult.includes(t.common.errors.aiConfigMissing) && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -789,6 +804,11 @@ export default function NginxDashboard() {
                 </div>
                 <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                  {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

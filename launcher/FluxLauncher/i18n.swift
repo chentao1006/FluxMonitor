@@ -53,6 +53,7 @@ class I18N: ObservableObject {
         "launch_at_login": "开机启动",
         "auto_start_service": "自动启动服务",
         "save": "保存设置",
+        "silent_start": "静默启动 (打开时不显示窗口)",
         "language": "界面语言",
         "check_updates": "检查更新",
         "quit": "退出",
@@ -64,7 +65,11 @@ class I18N: ObservableObject {
         "select_all": "全选",
         "welcome_title": "欢迎使用 浮光启动器",
         "welcome_message": "请设置您的初始登录凭据和端口号以继续。",
-        "get_started": "开始使用"
+        "get_started": "开始使用",
+        "download_node_title": "需要下载 Node.js",
+        "download_node_message": "为了运行后台服务，我们需要下载并安装 Node.js (约 100MB)。",
+        "download": "下载",
+        "cancel": "取消"
     ]
     
     private let enDict = [
@@ -87,6 +92,7 @@ class I18N: ObservableObject {
         "launch_at_login": "Launch at Login",
         "auto_start_service": "Auto-start Service",
         "save": "Save Settings",
+        "silent_start": "Silent Start (No window on launch)",
         "language": "Language",
         "check_updates": "Check for Updates",
         "quit": "Quit",
@@ -98,7 +104,11 @@ class I18N: ObservableObject {
         "select_all": "Select All",
         "welcome_title": "Welcome to Flux Launcher",
         "welcome_message": "Please set your initial login credentials and port to continue.",
-        "get_started": "Get Started"
+        "get_started": "Get Started",
+        "download_node_title": "Node.js Required",
+        "download_node_message": "To run the background service, we need to download and install Node.js (approx. 100MB).",
+        "download": "Download",
+        "cancel": "Cancel"
     ]
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import ReactMarkdown from 'react-markdown';
@@ -210,6 +211,9 @@ export default function DashboardOverview() {
       if (data.success) {
         setCmd(data.data);
         setCmdResult(t.monitor.aiTranslateDone);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        const msg = `${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`;
+        setCmdResult(msg);
       } else {
         setCmdResult(`${t.monitor.aiTranslateFailed}: ${data.error || data.details}`);
       }
@@ -252,6 +256,8 @@ export default function DashboardOverview() {
       if (data.success) {
         setAnalysisResult(data.data);
         aiCacheRef.current[cmdResult] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setAnalysisResult(`${t.monitor.aiAnalyzeFailed}: ${data.error}`);
       }
@@ -533,11 +539,21 @@ export default function DashboardOverview() {
               </div>
               <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', maxHeight: '350px', overflowY: 'auto' }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                  </div>
+                )}
               </div>
             </div>
           )}
           <div ref={terminalRef} className="terminal-output" style={{ flex: 1, background: '#ffffff', color: '#1e293b', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', padding: '1.25rem', overflowY: 'auto', fontFamily: 'monospace', whiteSpace: 'pre-wrap', fontSize: '0.85rem', minHeight: '400px', position: 'relative' }}>
             {cmdResult || <span style={{ color: '#94a3b8' }}>{t.monitor.waiting}</span>}
+            {cmdResult.includes(t.common.errors.aiConfigMissing) && (
+              <div style={{ marginTop: '1rem' }}>
+                <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+              </div>
+            )}
           </div>
         </div>
       </div>

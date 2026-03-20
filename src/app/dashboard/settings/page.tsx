@@ -19,7 +19,11 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings');
       const data = await res.json();
       if (data.success) {
-        setConfig(data.data);
+        setConfig({
+          ...data.data,
+          features: data.data.features || {},
+          users: data.data.users || [{ username: '', password: '' }]
+        });
       }
     } catch (e) {
       console.error('获取设置失败', e);

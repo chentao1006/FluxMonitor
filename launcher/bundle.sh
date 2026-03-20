@@ -2,13 +2,17 @@
 set -e
 
 # Auto-detect Project/Scheme
-PROJECT="macos/FluxLauncher.xcodeproj"
-BUILD_DIR="macos/build"
+PROJECT="launcher/FluxLauncher.xcodeproj"
+BUILD_DIR="launcher/build"
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 if [ ! -d "$PROJECT" ]; then
     echo "Error: $PROJECT not found in $(pwd)"
     exit 1
 fi
+
+# 1. Clean and Create result directory
+rm -rf "${BUILD_DIR}"
+mkdir -p "${BUILD_DIR}"
 
 # Use the first scheme found in the project
 echo "Scanning for schemes in project..."
@@ -79,24 +83,35 @@ cp -R public/. .next/standalone/public/
 
 # Build the app (produces .app directly)
 echo "Building project..."
-mkdir -p "macos/build"
-xcodebuild build \
+mkdir -p "$BUILD_DIR"
+xcodebuild archive \
     -project "$PROJECT" \
     -scheme "$SCHEME_NAME" \
     -configuration Release \
-    SYMROOT="$(pwd)/macos/build"
+    -archivePath "$BUILD_DIR/$APP_NAME.xcarchive" \
+    CODE_SIGN_STYLE=Manual \
+    CODE_SIGN_IDENTITY="Developer ID Application" \
+    PROVISIONING_PROFILE_SPECIFIER="" \
+    AD_HOC_CODE_SIGNING_ALLOWED=YES \
+    ENABLE_HARDENED_RUNTIME=YES
+
+xcodebuild -exportArchive \
+    -archivePath "$BUILD_DIR/$APP_NAME.xcarchive" \
+    -exportPath "$BUILD_DIR/Release" \
+    -exportOptionsPlist "launcher/ExportOptions.plist" \
+    -allowProvisioningUpdates
 
 # Final App Dir (xcodebuild build puts it in SYMROOT/Release/...)
-APP_DIR="macos/build/Release/$APP_NAME.app"
+APP_DIR="$BUILD_DIR/Release/$APP_NAME.app"
 
 # Read version from Info.plist
 VERSION=$(defaults read "$(pwd)/$APP_DIR/Contents/Info.plist" CFBundleShortVersionString)
 echo "Built $APP_NAME v$VERSION"
 
-# Copy Resources (Node, Next.js, etc.)
-echo "Injecting Backend Resources & Node binary..."
-NODE_BIN=$(which node || echo "/usr/local/bin/node")
-cp "$NODE_BIN" "$APP_DIR/Contents/Resources/node"
+# Copy Resources (Next.js, etc.)
+echo "Injecting Backend Resources..."
+# NODE_BIN=$(which node || echo "/usr/local/bin/node")
+# cp "$NODE_BIN" "$APP_DIR/Contents/Resources/node"
 cp .next/standalone/server.js "$APP_DIR/Contents/Resources/server.js"
 
 # Use rm -rf then cp to avoid nested directories
@@ -113,12 +128,27 @@ if [ -f "config.json" ]; then
     cp config.json "$APP_DIR/Contents/Resources/config.json"
 fi
 
-# Sign the injected node binary (since we added it after archive)
+rm -rf "$APP_DIR/Contents/Resources/config.example.json"
+cp config.example.json "$APP_DIR/Contents/Resources/config.example.json"
+
+rm -rf "$APP_DIR/Contents/Resources/package.json"
+cp package.json "$APP_DIR/Contents/Resources/package.json"
+
+
+# Sign the app bundle
 # IDENTITY is either sourced from build.config or auto-detected above
-ENTITLEMENTS="$(pwd)/macos/FluxLauncher/App.entitlements"
-echo "Performing deep signature after injection..."
-codesign --force --options runtime --sign "$IDENTITY" --timestamp --entitlements "$ENTITLEMENTS" "$APP_DIR/Contents/Resources/node"
-codesign --force --options runtime --sign "$IDENTITY" --timestamp --entitlements "$ENTITLEMENTS" "$APP_DIR"
+ENTITLEMENTS="$(pwd)/launcher/FluxLauncher/App.entitlements"
+echo "Performing deep signature..."
+
+# 1. 对 $APP_DIR/Contents/Resources 下所有可执行文件单独 codesign
+find "$APP_DIR/Contents/Resources" -type f \
+    \( -perm +111 -or -name "node" -or -name "server.js" \) | while read exe; do
+    echo "Signing resource executable: $exe"
+    codesign --force --options runtime --sign "Developer ID Application" --timestamp --entitlements "$ENTITLEMENTS" "$exe"
+done
+
+# 2. 最后对整个 $APP_DIR 再 codesign 一次（递归签名）
+codesign --force --deep --options runtime --sign "Developer ID Application" --timestamp --entitlements "$ENTITLEMENTS" "$APP_DIR"
 
 # Package into DMG
 echo "Packaging into DMG..."
@@ -126,8 +156,8 @@ echo "Packaging into DMG..."
 # Detect if we should use localized name for filename (on Chinese systems)
 LOCALIZED_NAME="$APP_NAME"
 LANGUAGES=$(defaults read -g AppleLanguages)
-if [[ "$LANGUAGES" == *"zh-Hans"* ]] && [ -f "macos/FluxLauncher/zh-Hans.lproj/InfoPlist.strings" ]; then
-    ZH_NAME=$(grep "CFBundleDisplayName" "macos/FluxLauncher/zh-Hans.lproj/InfoPlist.strings" | head -1 | awk -F' = ' '{print $2}' | sed 's/[";]//g')
+if [[ "$LANGUAGES" == *"zh-Hans"* ]] && [ -f "launcher/FluxLauncher/zh-Hans.lproj/InfoPlist.strings" ]; then
+    ZH_NAME=$(grep "CFBundleDisplayName" "launcher/FluxLauncher/zh-Hans.lproj/InfoPlist.strings" | head -1 | awk -F' = ' '{print $2}' | sed 's/[";]//g')
     if [ ! -z "$ZH_NAME" ]; then
         LOCALIZED_NAME="$ZH_NAME"
         echo "Using Localized Product Name: $LOCALIZED_NAME"

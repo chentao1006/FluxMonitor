@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, RefreshCw, Eraser, Play, Square, Repeat } from 'lucide-react';
@@ -240,6 +241,8 @@ export default function LaunchAgentDashboard() {
       const data = await res.json();
       if (data.success) {
         setAnalysisResult(data.data);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setAnalysisResult(`${t.common.error}: ${data.error}`);
       }
@@ -379,6 +382,11 @@ export default function LaunchAgentDashboard() {
                   </div>
                   <div style={{ fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem', overflowY: 'auto' }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                    {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

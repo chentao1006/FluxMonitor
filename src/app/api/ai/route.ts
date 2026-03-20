@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getConfig } from '@/lib/config';
 
 export async function POST(request: Request) {
   try {
@@ -10,9 +9,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'MISSING_PROMPT' }, { status: 400 });
     }
 
-    const configPath = path.join(process.cwd(), 'config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    const aiConfig = config.ai || { url: 'https://api.openai.com/v1/v1', key: '', model: 'gpt-4o-mini' };
+    const config = getConfig();
+    const aiConfig = config.ai;
+
+    if (!aiConfig?.key) {
+      return NextResponse.json({ error: 'AI_CONFIG_MISSING' }, { status: 400 });
+    }
 
     // Support both base URL (without /chat/completions) and full URL
     let apiUrl = aiConfig.url;

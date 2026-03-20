@@ -19,13 +19,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("🚀 Flux Monitor: applicationDidFinishLaunching")
         AppDelegate.shared = self
         setupMainMenu()
         
         // Register defaults
         UserDefaults.standard.register(defaults: [
             "autoStartService": true,
+            "silentStart": false,
             "port": 7000,
             "language": "auto"
         ])
@@ -40,32 +40,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .appendingPathComponent(bundleID, isDirectory: true)
         let configFileUrl = appSupportDir.appendingPathComponent("config.json")
         let isFirstRun = !FileManager.default.fileExists(atPath: configFileUrl.path)
-
-        // Auto-start service if enabled and not first run
-        if UserDefaults.standard.object(forKey: "autoStartService") == nil {
-            UserDefaults.standard.set(true, forKey: "autoStartService")
-        }
         
-        if !isFirstRun && UserDefaults.standard.bool(forKey: "autoStartService") {
+        let (u, p, _) = ConfigManager.shared.loadConfig()
+        let hasCredentials = !(u?.isEmpty ?? true) && !(p?.isEmpty ?? true)
+        let needsSetup = !ConfigManager.shared.configExists() || !hasCredentials
+        let isNodeInstalled = NodeInstaller.shared.isNodeInstalled()
+        let silentStart = UserDefaults.standard.bool(forKey: "silentStart")
+
+        if !isFirstRun && UserDefaults.standard.bool(forKey: "autoStartService") && hasCredentials {
             ProcessManager.shared.start()
         }
         
+        // Show window if Node.js is missing OR setup is needed OR silent start is disabled
+        if !isNodeInstalled || needsSetup || !silentStart {
+            showSettings()
+        }
+        
+        // Ensure first run alert is shown if needed
         checkFirstRun()
     }
     
     private func checkFirstRun() {
-        let bundleID = Bundle.main.bundleIdentifier!
-        let appSupportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent(bundleID, isDirectory: true)
-        let configFileUrl = appSupportDir.appendingPathComponent("config.json")
+        let (configUser, configPass, _) = ConfigManager.shared.loadConfig()
+        let userDefaultsUser = UserDefaults.standard.string(forKey: "username") ?? ""
+        let userDefaultsPass = UserDefaults.standard.string(forKey: "password") ?? ""
         
-        if !FileManager.default.fileExists(atPath: configFileUrl.path) {
+        let needsSetup = !ConfigManager.shared.configExists() || 
+                         (configUser?.isEmpty ?? true) || 
+                         (configPass?.isEmpty ?? true)
+        
+        if needsSetup && (userDefaultsUser.isEmpty || userDefaultsPass.isEmpty) {
             showSettings()
-            
-            // Highlight the About tab or just stay on Service/Settings? 
-            // The user wants to fill info, so Settings is best.
-            // MainView defaults to Service (0). I'll make it default to Settings (1) if it's first run.
-            // I'll use a Notification or a shared state.
         }
     }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Activity, FileText, ChevronLeft, RefreshCw, Search, X, Sparkles, Brain, Trash2, Eraser, Lock, Plus, MinusCircle } from 'lucide-react';
@@ -138,6 +139,8 @@ export default function LogsPage() {
       const data = await res.json();
       if (data.success) {
         setAnalysisResult(data.data);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       }
     } catch (e) {
       console.error(e);
@@ -503,6 +506,11 @@ export default function LogsPage() {
                   </div>
                   <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', fontSize: '0.85rem', lineHeight: 1.6 }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                    {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

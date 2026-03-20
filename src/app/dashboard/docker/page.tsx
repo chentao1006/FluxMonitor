@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -72,6 +73,8 @@ export default function DockerDashboard() {
         if (data.success) {
           setContainers(data.data);
           setError('');
+        } else if (data.error === 'DOCKER_NOT_RUNNING') {
+          setError(t.common.errors.dockerNotRunning);
         } else {
           setError(data.error || t.docker.fetchContainersFailed);
         }
@@ -81,6 +84,8 @@ export default function DockerDashboard() {
         if (data.success) {
           setImages(data.data);
           setError('');
+        } else if (data.error === 'DOCKER_NOT_RUNNING') {
+          setError(t.common.errors.dockerNotRunning);
         } else {
           setError(data.error || t.docker.fetchImagesFailed);
         }
@@ -175,6 +180,8 @@ export default function DockerDashboard() {
       if (data.success) {
         setAnalysisResult(data.data);
         aiCacheRef.current[cacheKey] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
         setAnalysisResult(`${t.common.error}: ${data.error}`);
       }
@@ -220,6 +227,8 @@ export default function DockerDashboard() {
       if (data.success) {
         setAnalysisResult(data.data);
         aiCacheRef.current[cacheKey] = data.data;
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       }
     } catch (e) {
       setAnalysisResult(`${t.common.error}`);
@@ -245,9 +254,13 @@ export default function DockerDashboard() {
       const data = await res.json();
       if (data.success) {
         setGeneratedCmd(data.data);
+      } else if (data.error === 'AI_CONFIG_MISSING') {
+        alert(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+      } else {
+        alert(t.common.error);
       }
     } catch (e) {
-      alert(t.common.error);
+      alert(t.common.networkError);
     } finally {
       setIsAiGenerating(false);
     }
@@ -579,6 +592,11 @@ export default function DockerDashboard() {
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem 1.25rem', overflowY: 'auto' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                  {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

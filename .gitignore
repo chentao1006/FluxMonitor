@@ -46,4 +46,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 *.txt
+*.log
 config.json

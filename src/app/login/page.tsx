@@ -38,9 +38,17 @@ export default function LoginPage() {
         router.push('/dashboard');
         router.refresh(); // Refresh to apply middleware session state securely
       } else {
-        setError(data.error || t.login.error);
+        let errorMsg = t.login.error;
+        if (data.error === 'INVALID_CREDENTIALS') {
+          errorMsg = t.login.invalidCredentials;
+        } else if (data.error === 'INTERNAL_ERROR') {
+          errorMsg = t.login.internalError;
+        } else if (data.error) {
+          errorMsg = data.error;
+        }
+        setError(errorMsg);
       }
-    } catch (err) {
+    } catch {
       setError(t.login.networkError);
     } finally {
       setLoading(false);
