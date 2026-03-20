@@ -47,15 +47,20 @@ fi
 # Auto-detect Identity and Team ID if not provided
 if [ -z "$IDENTITY" ]; then
     echo "Scanning for signing identity..."
-    # Match the first "Apple Development" identity
-    IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+    # Match the first "Developer ID Application" identity for distribution
+    IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
     if [ -z "$IDENTITY" ]; then
-        echo "Error: No Apple Development identity found. Please set IDENTITY in build.config"
+        # Fallback to Apple Development if not found (though notarization will fail)
+        IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+    fi
+    
+    if [ -z "$IDENTITY" ]; then
+        echo "Error: No signing identity found."
         exit 1
     fi
     echo "Using Identity: $IDENTITY"
     
-    # Extract Team ID from identity string, e.g. "Apple Development: Name (TEAMID)"
+    # Extract Team ID from identity string if not provided, e.g. "Developer ID Application: Name (TEAMID)"
     if [ -z "$TEAM_ID" ]; then
         TEAM_ID=$(echo "$IDENTITY" | sed -E 's/.*\(([^\)]+)\).*/\1/')
         echo "Detected Team ID: $TEAM_ID"
@@ -72,14 +77,11 @@ fi
 echo "Syncing static and public assets to standalone..."
 mkdir -p .next/standalone/.next/static
 cp -R .next/static/. .next/standalone/.next/static/
-mkdir -p .next/standalone/public
-cp -R public/. .next/standalone/public/
-
-# We use the existing Xcode project as the source of truth
-#echo "Regenerating Xcode project..."
-#cd macos
-#xcodegen generate
-#cd ..
+# Skip public if it doesn't exist yet (though it should)
+if [ -d "public" ]; then
+    mkdir -p .next/standalone/public
+    cp -R public/. .next/standalone/public/
+fi
 
 # Build the app (produces .app directly)
 echo "Building project..."
@@ -90,7 +92,7 @@ xcodebuild archive \
     -configuration Release \
     -archivePath "$BUILD_DIR/$APP_NAME.xcarchive" \
     CODE_SIGN_STYLE=Manual \
-    CODE_SIGN_IDENTITY="Developer ID Application" \
+    CODE_SIGN_IDENTITY="${IDENTITY}" \
     PROVISIONING_PROFILE_SPECIFIER="" \
     AD_HOC_CODE_SIGNING_ALLOWED=YES \
     ENABLE_HARDENED_RUNTIME=YES
@@ -121,8 +123,10 @@ cp -R .next/standalone/node_modules "$APP_DIR/Contents/Resources/node_modules"
 rm -rf "$APP_DIR/Contents/Resources/.next"
 cp -R .next/standalone/.next "$APP_DIR/Contents/Resources/.next"
 
-rm -rf "$APP_DIR/Contents/Resources/public"
-cp -R .next/standalone/public "$APP_DIR/Contents/Resources/public"
+if [ -d ".next/standalone/public" ]; then
+    rm -rf "$APP_DIR/Contents/Resources/public"
+    cp -R .next/standalone/public "$APP_DIR/Contents/Resources/public"
+fi
 
 if [ -f "config.json" ]; then
     cp config.json "$APP_DIR/Contents/Resources/config.json"
@@ -140,15 +144,25 @@ cp package.json "$APP_DIR/Contents/Resources/package.json"
 ENTITLEMENTS="$(pwd)/launcher/FluxLauncher/App.entitlements"
 echo "Performing deep signature..."
 
-# 1. 对 $APP_DIR/Contents/Resources 下所有可执行文件单独 codesign
-find "$APP_DIR/Contents/Resources" -type f \
-    \( -perm +111 -or -name "node" -or -name "server.js" \) | while read exe; do
-    echo "Signing resource executable: $exe"
-    codesign --force --options runtime --sign "Developer ID Application" --timestamp --entitlements "$ENTITLEMENTS" "$exe"
+# First, sign any injected frameworks or binaries in node_modules
+find "$APP_DIR/Contents/Resources/node_modules" -name "*.node" -o -name "*.dylib" -o -name "*.sh" | while read -r lib; do
+    echo "Signing injected library: $lib"
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$lib"
 done
 
-# 2. 最后对整个 $APP_DIR 再 codesign 一次（递归签名）
-codesign --force --deep --options runtime --sign "Developer ID Application" --timestamp --entitlements "$ENTITLEMENTS" "$APP_DIR"
+# Then sign Sparkle framework if it exists
+if [ -d "$APP_DIR/Contents/Frameworks/Sparkle.framework" ]; then
+    echo "Signing Sparkle Framework..."
+    # Sign nested components first
+    find "$APP_DIR/Contents/Frameworks/Sparkle.framework" -type f \( -perm -u+x -o -name "*.dylib" \) | while read -r binary; do
+        codesign --force --options runtime --timestamp --sign "$IDENTITY" "$binary"
+    done
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP_DIR/Contents/Frameworks/Sparkle.framework"
+fi
+
+# Finally sign the main app bundle
+codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$IDENTITY" "$APP_DIR"
+
 
 # Package into DMG
 echo "Packaging into DMG..."
@@ -183,18 +197,36 @@ ln -s /Applications "$STAGING_DIR/Applications"
 # Create the DMG using the staging directory
 hdiutil create -volname "$LOCALIZED_NAME" -srcfolder "$STAGING_DIR" -ov -format UDZO "$BUILD_DIR/$DMG_NAME"
 
+# Sign the DMG
+echo "Signing DMG..."
+codesign --force --sign "$IDENTITY" "$BUILD_DIR/$DMG_NAME"
+
 # Clean up staging directory
 rm -rf "$STAGING_DIR"
 
-# Sign DMG
-echo "Signing DMG..."
-codesign --force --sign "$IDENTITY" --timestamp "$BUILD_DIR/$DMG_NAME"
-
 echo "Build complete: $BUILD_DIR/$DMG_NAME"
 
-# GH Release
-if [ "$1" == "--release" ]; then
-    echo "Uploading to GitHub Release..."
-    TAG="v$VERSION"
-    gh release create "$TAG" "$BUILD_DIR/$DMG_NAME" --title "$TAG" --notes "Flux Launcher Release $TAG"
+
+# 4. Notarize DMG if credentials provided
+echo "4. Checking for notarization credentials..."
+DMG_PATH=$(ls $BUILD_DIR/*.dmg | head -1)
+# Use the detected TEAM_ID or fall back if not set
+if [ -z "$TEAM_ID" ]; then
+    TEAM_ID="U2NEAJ73J2"
+fi
+if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ]; then
+	echo "🔐 Submitting for notarization..."
+	xcrun notarytool submit "${DMG_PATH}" \
+		--apple-id "${APPLE_ID}" \
+		--password "${APPLE_PASSWORD}" \
+		--team-id "${TEAM_ID}" \
+		--wait
+
+	echo "🖋️ Stapling notarization ticket..."
+	xcrun stapler staple "${DMG_PATH}"
+    
+	echo "✅ Notarization and stapling complete!"
+else
+	echo "⚠️ Notarization skipped because APPLE_ID and APPLE_PASSWORD are not set."
+	echo "Please set them to ensure the DMG runs directly on other users' Macs."
 fi

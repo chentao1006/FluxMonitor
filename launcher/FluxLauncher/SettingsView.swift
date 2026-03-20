@@ -88,7 +88,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .groupedFormStyle()
         .frame(minWidth: 400)
         .onAppear(perform: loadConfig)
         .onChange(of: username) { _ in saveSettings() }
@@ -98,6 +98,7 @@ struct SettingsView: View {
     }
     
     private func updateLaunchAtLogin(enabled: Bool) {
+        #if compiler(>=5.7)
         if #available(macOS 13.0, *) {
             do {
                 if enabled {
@@ -109,6 +110,7 @@ struct SettingsView: View {
                 ProcessManager.shared.appendLog("Failed to update launch at login status: \(error.localizedDescription)\n")
             }
         }
+        #endif
     }
     
     private func loadConfig() {
@@ -131,5 +133,20 @@ struct SettingsView: View {
         
         // Notify user or UI
         AppDelegate.shared?.updateMenu()
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func groupedFormStyle() -> some View {
+        #if compiler(>=5.7)
+        if #available(macOS 13.0, *) {
+            self.formStyle(.grouped)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
     }
 }
