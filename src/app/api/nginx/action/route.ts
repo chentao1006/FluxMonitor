@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     if (action === 'restart') {
       try {
         await executeNginxCmd(`${NGINX_BIN} -s stop`);
-      } catch (e) {
+      } catch {
         // Ignore error if it was already stopped
       }
       await executeNginxCmd(NGINX_BIN);
@@ -86,8 +86,44 @@ export async function POST(request: Request) {
     }
 
     if (action === 'test') {
-      const { stdout, stderr } = await executeNginxCmd(`${NGINX_BIN} -t`);
-      return NextResponse.json({ success: true, details: stdout || stderr });
+      try {
+        const { stdout, stderr } = await executeNginxCmd(`${NGINX_BIN} -t`);
+        return NextResponse.json({ success: true, details: stdout || stderr });
+      } catch (err: unknown) {
+        const error = err as { stderr?: string; stdout?: string; message: string };
+        return NextResponse.json({ 
+          success: false, 
+          error: 'NGINX_TEST_FAILED',
+          details: error.stderr || error.stdout || error.message 
+        });
+      }
+    }
+
+    if (action === 'logs') {
+      try {
+        // Try multiple common paths for nginx error log
+        const logPaths = [
+          '/var/log/nginx/error.log',
+          '/opt/homebrew/var/log/nginx/error.log',
+          '/usr/local/var/log/nginx/error.log'
+        ];
+        
+        let logs = '';
+        for (const path of logPaths) {
+          try {
+            const { stdout } = await executeNginxCmd(`tail -n 100 ${path}`);
+            logs = stdout;
+            if (logs) break;
+          } catch {
+            continue;
+          }
+        }
+        
+        return NextResponse.json({ success: true, logs: logs || '未找到日志文件或无权访问' });
+      } catch (err: unknown) {
+        const error = err as Error;
+        return NextResponse.json({ success: false, logs: `读取日志异常: ${error.message}` });
+      }
     }
 
     return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });

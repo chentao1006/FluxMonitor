@@ -17,7 +17,7 @@
                BlueprintIdentifier = "110000000000000000000071"
                BuildableName = "FluxRemote.app"
                BlueprintName = "FluxRemote"
-               ReferencedContainer = "container:FluxRemote.xcodeproj">
+               ReferencedContainer = "container:Flux Remote.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,7 +46,7 @@
             BlueprintIdentifier = "110000000000000000000071"
             BuildableName = "FluxRemote.app"
             BlueprintName = "FluxRemote"
-            ReferencedContainer = "container:FluxRemote.xcodeproj">
+            ReferencedContainer = "container:Flux Remote.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>

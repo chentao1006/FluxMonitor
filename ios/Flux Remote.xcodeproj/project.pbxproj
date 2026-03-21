@@ -19,11 +19,9 @@
 		110000000000000000000203 /* Views/ProcessListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000213 /* Views/ProcessListView.swift */; };
 		110000000000000000000204 /* Views/LogModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000214 /* Views/LogModuleView.swift */; };
 		110000000000000000000205 /* Views/SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000215 /* Views/SettingsView.swift */; };
-		110000000000000000000206 /* Views/TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000216 /* Views/TerminalView.swift */; };
 		110000000000000000000207 /* Components/StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000217 /* Components/StatusBadge.swift */; };
 		110000000000000000000301 /* Views/ConfigsModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000311 /* Views/ConfigsModuleView.swift */; };
 		110000000000000000000302 /* Views/LaunchAgentModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000312 /* Views/LaunchAgentModuleView.swift */; };
-		110000000000000000000303 /* Views/OpenClawModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000313 /* Views/OpenClawModuleView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,11 +38,9 @@
 		110000000000000000000213 /* Views/ProcessListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ProcessListView.swift; sourceTree = "<group>"; };
 		110000000000000000000214 /* Views/LogModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/LogModuleView.swift; sourceTree = "<group>"; };
 		110000000000000000000215 /* Views/SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsView.swift; sourceTree = "<group>"; };
-		110000000000000000000216 /* Views/TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TerminalView.swift; sourceTree = "<group>"; };
 		110000000000000000000217 /* Components/StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/StatusBadge.swift; sourceTree = "<group>"; };
 		110000000000000000000311 /* Views/ConfigsModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ConfigsModuleView.swift; sourceTree = "<group>"; };
 		110000000000000000000312 /* Views/LaunchAgentModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/LaunchAgentModuleView.swift; sourceTree = "<group>"; };
-		110000000000000000000313 /* Views/OpenClawModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/OpenClawModuleView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,11 +77,9 @@
 				110000000000000000000213 /* Views/ProcessListView.swift */,
 				110000000000000000000214 /* Views/LogModuleView.swift */,
 				110000000000000000000215 /* Views/SettingsView.swift */,
-				110000000000000000000216 /* Views/TerminalView.swift */,
 				110000000000000000000217 /* Components/StatusBadge.swift */,
 				110000000000000000000311 /* Views/ConfigsModuleView.swift */,
 				110000000000000000000312 /* Views/LaunchAgentModuleView.swift */,
-				110000000000000000000313 /* Views/OpenClawModuleView.swift */,
 			);
 			path = FluxRemote;
 			sourceTree = "<group>";
@@ -135,13 +129,14 @@
 					};
 				};
 			};
-			buildConfigurationList = 1100000000000000000000C1 /* Build configuration list for PBXProject "FluxRemote" */;
+			buildConfigurationList = 1100000000000000000000C1 /* Build configuration list for PBXProject "Flux Remote" */;
 			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = 110000000000000000000041;
 			productRefGroup = 110000000000000000000061 /* Products */;
@@ -180,11 +175,9 @@
 				110000000000000000000203 /* Views/ProcessListView.swift in Sources */,
 				110000000000000000000204 /* Views/LogModuleView.swift in Sources */,
 				110000000000000000000205 /* Views/SettingsView.swift in Sources */,
-				110000000000000000000206 /* Views/TerminalView.swift in Sources */,
 				110000000000000000000207 /* Components/StatusBadge.swift in Sources */,
 				110000000000000000000301 /* Views/ConfigsModuleView.swift in Sources */,
 				110000000000000000000302 /* Views/LaunchAgentModuleView.swift in Sources */,
-				110000000000000000000303 /* Views/OpenClawModuleView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,7 +324,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		1100000000000000000000C1 /* Build configuration list for PBXProject "FluxRemote" */ = {
+		1100000000000000000000C1 /* Build configuration list for PBXProject "Flux Remote" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1100000000000000000000D1 /* Debug */,
