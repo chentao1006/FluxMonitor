@@ -5,7 +5,7 @@ import Combine
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
-        return true
+        return !UserDefaults.standard.bool(forKey: "silentStart")
     }
     
     var statusItem: NSStatusItem?
@@ -44,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let (u, p, _) = ConfigManager.shared.loadConfig()
         let hasCredentials = !(u?.isEmpty ?? true) && !(p?.isEmpty ?? true)
         let needsSetup = !ConfigManager.shared.configExists() || !hasCredentials
-        let isNodeInstalled = NodeInstaller.shared.isNodeInstalled()
+        let isNodeAvailable = ProcessManager.shared.findNodePath() != nil
         let silentStart = UserDefaults.standard.bool(forKey: "silentStart")
 
         if !isFirstRun && UserDefaults.standard.bool(forKey: "autoStartService") && hasCredentials {
@@ -52,7 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         
         // Show window if Node.js is missing OR setup is needed OR silent start is disabled
-        if !isNodeInstalled || needsSetup || !silentStart {
+        if !isNodeAvailable || needsSetup || !silentStart {
             showSettings()
         }
         

@@ -14,9 +14,10 @@ struct ServiceView: View {
                     HStack {
                         Circle()
                             .fill(pm.isRunning ? Color.green : Color.red)
-                            .frame(width: 10, height: 10)
+                            .frame(width: 12, height: 12)
+                            .shadow(color: (pm.isRunning ? Color.green : Color.red).opacity(0.5), radius: 4)
                         Text("\(i18n.t("status")): \(pm.isRunning ? i18n.t("running") : i18n.t("stopped"))")
-                            .font(.headline)
+                            .font(.system(size: 20, weight: .bold))
                     }
                     
                     if pm.isRunning {
@@ -44,12 +45,17 @@ struct ServiceView: View {
                     }
                     AppDelegate.shared?.updateMenu()
                 }) {
-                    Text(pm.isRunning ? i18n.t("stop") : i18n.t("start"))
-                        .font(.system(size: 14, weight: .bold))
-                        .frame(width: 80, height: 32)
+                    HStack(spacing: 4) {
+                        Image(systemName: pm.isRunning ? "stop.fill" : "play.fill")
+                            .font(.system(size: 11))
+                        Text(pm.isRunning ? i18n.t("stop") : i18n.t("start"))
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .frame(width: 70, height: 26)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(pm.isRunning ? .red : .blue)
+                .controlSize(.small)
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor).opacity(0.8))

@@ -24,7 +24,7 @@ class ProcessManager: ObservableObject {
         }
     }
     
-    private func findNodePath() -> String? {
+    func findNodePath() -> String? {
         // 1. Check bundled Resources (Legacy fallback)
         if let bundledNode = Bundle.main.url(forResource: "node", withExtension: nil)?.path {
             if FileManager.default.isExecutableFile(atPath: bundledNode) && isNodeVersionCompatible(at: bundledNode) {
