@@ -59,6 +59,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Ensure first run alert is shown if needed
         checkFirstRun()
     }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            showSettings()
+        }
+        return true
+    }
     
     private func checkFirstRun() {
         let (configUser, configPass, _) = ConfigManager.shared.loadConfig()
