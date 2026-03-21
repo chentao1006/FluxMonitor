@@ -1,0 +1,346 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		110000000000000000000001 /* FluxRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000011 /* FluxRemoteApp.swift */; };
+		110000000000000000000002 /* Core/RemoteAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000012 /* Core/RemoteAPIClient.swift */; };
+		110000000000000000000004 /* Views/FluxLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000014 /* Views/FluxLoginView.swift */; };
+		110000000000000000000007 /* Views/DockerModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000017 /* Views/DockerModuleView.swift */; };
+		110000000000000000000008 /* Views/NginxModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000018 /* Views/NginxModuleView.swift */; };
+		110000000000000000000009 /* Models/RemoteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000019 /* Models/RemoteModels.swift */; };
+		11000000000000000000000A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 11000000000000000000001A /* Assets.xcassets */; };
+		110000000000000000000201 /* Views/AppContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000211 /* Views/AppContainerView.swift */; };
+		110000000000000000000202 /* Views/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000212 /* Views/DashboardView.swift */; };
+		110000000000000000000203 /* Views/ProcessListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000213 /* Views/ProcessListView.swift */; };
+		110000000000000000000204 /* Views/LogModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000214 /* Views/LogModuleView.swift */; };
+		110000000000000000000205 /* Views/SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000215 /* Views/SettingsView.swift */; };
+		110000000000000000000206 /* Views/TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000216 /* Views/TerminalView.swift */; };
+		110000000000000000000207 /* Components/StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000217 /* Components/StatusBadge.swift */; };
+		110000000000000000000301 /* Views/ConfigsModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000311 /* Views/ConfigsModuleView.swift */; };
+		110000000000000000000302 /* Views/LaunchAgentModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000312 /* Views/LaunchAgentModuleView.swift */; };
+		110000000000000000000303 /* Views/OpenClawModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110000000000000000000313 /* Views/OpenClawModuleView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		110000000000000000000011 /* FluxRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluxRemoteApp.swift; sourceTree = "<group>"; };
+		110000000000000000000012 /* Core/RemoteAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/RemoteAPIClient.swift; sourceTree = "<group>"; };
+		110000000000000000000014 /* Views/FluxLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/FluxLoginView.swift; sourceTree = "<group>"; };
+		110000000000000000000017 /* Views/DockerModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/DockerModuleView.swift; sourceTree = "<group>"; };
+		110000000000000000000018 /* Views/NginxModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/NginxModuleView.swift; sourceTree = "<group>"; };
+		110000000000000000000019 /* Models/RemoteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/RemoteModels.swift; sourceTree = "<group>"; };
+		11000000000000000000001A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		110000000000000000000021 /* FluxRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FluxRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		110000000000000000000211 /* Views/AppContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/AppContainerView.swift; sourceTree = "<group>"; };
+		110000000000000000000212 /* Views/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/DashboardView.swift; sourceTree = "<group>"; };
+		110000000000000000000213 /* Views/ProcessListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ProcessListView.swift; sourceTree = "<group>"; };
+		110000000000000000000214 /* Views/LogModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/LogModuleView.swift; sourceTree = "<group>"; };
+		110000000000000000000215 /* Views/SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsView.swift; sourceTree = "<group>"; };
+		110000000000000000000216 /* Views/TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TerminalView.swift; sourceTree = "<group>"; };
+		110000000000000000000217 /* Components/StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/StatusBadge.swift; sourceTree = "<group>"; };
+		110000000000000000000311 /* Views/ConfigsModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ConfigsModuleView.swift; sourceTree = "<group>"; };
+		110000000000000000000312 /* Views/LaunchAgentModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/LaunchAgentModuleView.swift; sourceTree = "<group>"; };
+		110000000000000000000313 /* Views/OpenClawModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/OpenClawModuleView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		110000000000000000000031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		110000000000000000000041 = {
+			isa = PBXGroup;
+			children = (
+				110000000000000000000051 /* FluxRemote */,
+				110000000000000000000061 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		110000000000000000000051 /* FluxRemote */ = {
+			isa = PBXGroup;
+			children = (
+				110000000000000000000011 /* FluxRemoteApp.swift */,
+				110000000000000000000012 /* Core/RemoteAPIClient.swift */,
+				110000000000000000000014 /* Views/FluxLoginView.swift */,
+				110000000000000000000017 /* Views/DockerModuleView.swift */,
+				110000000000000000000018 /* Views/NginxModuleView.swift */,
+				110000000000000000000019 /* Models/RemoteModels.swift */,
+				11000000000000000000001A /* Assets.xcassets */,
+				110000000000000000000211 /* Views/AppContainerView.swift */,
+				110000000000000000000212 /* Views/DashboardView.swift */,
+				110000000000000000000213 /* Views/ProcessListView.swift */,
+				110000000000000000000214 /* Views/LogModuleView.swift */,
+				110000000000000000000215 /* Views/SettingsView.swift */,
+				110000000000000000000216 /* Views/TerminalView.swift */,
+				110000000000000000000217 /* Components/StatusBadge.swift */,
+				110000000000000000000311 /* Views/ConfigsModuleView.swift */,
+				110000000000000000000312 /* Views/LaunchAgentModuleView.swift */,
+				110000000000000000000313 /* Views/OpenClawModuleView.swift */,
+			);
+			path = FluxRemote;
+			sourceTree = "<group>";
+		};
+		110000000000000000000061 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				110000000000000000000021 /* FluxRemote.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		110000000000000000000071 /* FluxRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 110000000000000000000081 /* Build configuration list for PBXNativeTarget "FluxRemote" */;
+			buildPhases = (
+				110000000000000000000091 /* Sources */,
+				110000000000000000000031 /* Frameworks */,
+				1100000000000000000000A1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FluxRemote;
+			productName = FluxRemote;
+			productReference = 110000000000000000000021 /* FluxRemote.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1100000000000000000000B1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					110000000000000000000071 = {
+						CreatedOnToolsVersion = 16.0;
+						LastSwiftMigration = 1600;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 1100000000000000000000C1 /* Build configuration list for PBXProject "FluxRemote" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 110000000000000000000041;
+			productRefGroup = 110000000000000000000061 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				110000000000000000000071 /* FluxRemote */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1100000000000000000000A1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11000000000000000000000A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		110000000000000000000091 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				110000000000000000000001 /* FluxRemoteApp.swift in Sources */,
+				110000000000000000000002 /* Core/RemoteAPIClient.swift in Sources */,
+				110000000000000000000004 /* Views/FluxLoginView.swift in Sources */,
+				110000000000000000000007 /* Views/DockerModuleView.swift in Sources */,
+				110000000000000000000008 /* Views/NginxModuleView.swift in Sources */,
+				110000000000000000000009 /* Models/RemoteModels.swift in Sources */,
+				110000000000000000000201 /* Views/AppContainerView.swift in Sources */,
+				110000000000000000000202 /* Views/DashboardView.swift in Sources */,
+				110000000000000000000203 /* Views/ProcessListView.swift in Sources */,
+				110000000000000000000204 /* Views/LogModuleView.swift in Sources */,
+				110000000000000000000205 /* Views/SettingsView.swift in Sources */,
+				110000000000000000000206 /* Views/TerminalView.swift in Sources */,
+				110000000000000000000207 /* Components/StatusBadge.swift in Sources */,
+				110000000000000000000301 /* Views/ConfigsModuleView.swift in Sources */,
+				110000000000000000000302 /* Views/LaunchAgentModuleView.swift in Sources */,
+				110000000000000000000303 /* Views/OpenClawModuleView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1100000000000000000000D1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_RETAIN_RELEASE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		1100000000000000000000D2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_RETAIN_RELEASE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		1100000000000000000000E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U2NEAJ73J2;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FluxRemote/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flux Remote";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				IPHONEOS_DEPLOYMENT_TARGET = 17;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.chentao.flux-remote";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1100000000000000000000E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U2NEAJ73J2;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FluxRemote/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flux Remote";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				IPHONEOS_DEPLOYMENT_TARGET = 17;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.chentao.flux-remote";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		110000000000000000000081 /* Build configuration list for PBXNativeTarget "FluxRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1100000000000000000000E1 /* Debug */,
+				1100000000000000000000E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		1100000000000000000000C1 /* Build configuration list for PBXProject "FluxRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1100000000000000000000D1 /* Debug */,
+				1100000000000000000000D2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1100000000000000000000B1 /* Project object */;
+}
