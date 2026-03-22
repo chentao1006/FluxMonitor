@@ -192,7 +192,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Sync Node, Flux Monitor Standalone and Config into Bundle\n# This script is designed to fail gracefully if built outside of full bundle context\nDEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources\"\nSRC_ROOT=\"${PROJECT_DIR}/..\"\n\nif [ -d \"${SRC_ROOT}/.next/standalone\" ]; then\n  echo \"Syncing Flux Monitor Standalone resources...\"\n  mkdir -p \"${DEST}\"\n  \n  # Skip bundling node by default to save space (200MB+)\n  # NODE_BIN=$(which node || echo \"/usr/local/bin/node\")\n  # cp \"$NODE_BIN\" \"${DEST}/node\" || true\n  \n  # Sign the node binary for Hardened Runtime ONLY if it exists\n  if [ -f \"${DEST}/node\" ] && [ ! -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n    codesign --force --options runtime --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp --entitlements \"${SRC_ROOT}/Monitor/FluxMonitor/App.entitlements\" \"${DEST}/node\" || true\n  fi\n\n  cp \"${SRC_ROOT}/.next/standalone/server.js\" \"${DEST}/server.js\" || true\n\n  # Always ensure static and public are synced to standalone first\n  mkdir -p \"${SRC_ROOT}/.next/standalone/.next/static\"\n  cp -R \"${SRC_ROOT}/.next/static/.\" \"${SRC_ROOT}/.next/standalone/.next/static/\" || true\n  mkdir -p \"${SRC_ROOT}/.next/standalone/public\"\n  cp -R \"${SRC_ROOT}/public/.\" \"${SRC_ROOT}/.next/standalone/public/\" || true\n\n  # Sync folders to destination app bundle\n  rm -rf \"${DEST}/node_modules\" && cp -R \"${SRC_ROOT}/.next/standalone/node_modules\" \"${DEST}/node_modules\" || true\n  rm -rf \"${DEST}/.next\" && cp -R \"${SRC_ROOT}/.next/standalone/.next\" \"${DEST}/.next\" || true\n  rm -rf \"${DEST}/public\" && cp -R \"${SRC_ROOT}/.next/standalone/public\" \"${DEST}/public\" || true\n  cp \"${SRC_ROOT}/config.json\" \"${DEST}/config.json\" || true\nfi\n";
+			shellScript = "# Sync Node, Flux Monitor Standalone and Config into Bundle\n# This script is designed to fail gracefully if built outside of full bundle context\nDEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources\"\nSRC_ROOT=\"${PROJECT_DIR}/..\"\n\nif [ -d \"${SRC_ROOT}/.next/standalone\" ]; then\n  echo \"Syncing Flux Monitor Standalone resources...\"\n  mkdir -p \"${DEST}\"\n  \n  # Skip bundling node by default to save space (200MB+)\n  # NODE_BIN=$(which node || echo \"/usr/local/bin/node\")\n  # cp \"$NODE_BIN\" \"${DEST}/node\" || true\n  \n  # Sign the node binary for Hardened Runtime ONLY if it exists\n  if [ -f \"${DEST}/node\" ] && [ ! -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n    codesign --force --options runtime --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp --entitlements \"${SRC_ROOT}/launcher/FluxMonitor/App.entitlements\" \"${DEST}/node\" || true\n  fi\n\n  cp \"${SRC_ROOT}/.next/standalone/server.js\" \"${DEST}/server.js\" || true\n\n  # Always ensure static and public are synced to standalone first\n  mkdir -p \"${SRC_ROOT}/.next/standalone/.next/static\"\n  cp -R \"${SRC_ROOT}/.next/static/.\" \"${SRC_ROOT}/.next/standalone/.next/static/\" || true\n  mkdir -p \"${SRC_ROOT}/.next/standalone/public\"\n  cp -R \"${SRC_ROOT}/public/.\" \"${SRC_ROOT}/.next/standalone/public/\" || true\n\n  # Sync folders to destination app bundle\n  rm -rf \"${DEST}/node_modules\" && cp -R \"${SRC_ROOT}/.next/standalone/node_modules\" \"${DEST}/node_modules\" || true\n  rm -rf \"${DEST}/.next\" && cp -R \"${SRC_ROOT}/.next/standalone/.next\" \"${DEST}/.next\" || true\n  rm -rf \"${DEST}/public\" && cp -R \"${SRC_ROOT}/.next/standalone/public\" \"${DEST}/public\" || true\n  cp \"${SRC_ROOT}/config.json\" \"${DEST}/config.json\" || true\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -299,7 +299,7 @@
 				CODE_SIGN_ENTITLEMENTS = FluxMonitor/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 105;
+				CURRENT_PROJECT_VERSION = 110;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
@@ -314,7 +314,7 @@
 				);
 				LSUIElement = YES;
 				MACOSX_DEPLOYMENT_TARGET = 12.4;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.ct106.flux-Monitor";
 				RUNTIME_EXCEPTION_ALLOW_JIT = YES;
 				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = YES;
@@ -398,7 +398,7 @@
 				CODE_SIGN_ENTITLEMENTS = FluxMonitor/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 105;
+				CURRENT_PROJECT_VERSION = 110;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
@@ -413,7 +413,7 @@
 				);
 				LSUIElement = YES;
 				MACOSX_DEPLOYMENT_TARGET = 12.4;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.ct106.flux-Monitor";
 				RUNTIME_EXCEPTION_ALLOW_JIT = YES;
 				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = YES;

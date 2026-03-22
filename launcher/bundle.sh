@@ -29,8 +29,8 @@ fi
 set -e
 
 # Auto-detect Project/Scheme
-PROJECT="Monitor/FluxMonitor.xcodeproj"
-BUILD_DIR="Monitor/build"
+PROJECT="launcher/FluxMonitor.xcodeproj"
+BUILD_DIR="launcher/build"
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 if [ ! -d "$PROJECT" ]; then
     echo "Error: $PROJECT not found in $(pwd)"
@@ -135,7 +135,7 @@ xcodebuild archive \
 xcodebuild -exportArchive \
     -archivePath "$BUILD_DIR/$APP_NAME.xcarchive" \
     -exportPath "$BUILD_DIR/Release" \
-    -exportOptionsPlist "Monitor/ExportOptions.plist" \
+    -exportOptionsPlist "launcher/ExportOptions.plist" \
     -allowProvisioningUpdates
 
 # Final App Dir (xcodebuild build puts it in SYMROOT/Release/...)
@@ -176,7 +176,7 @@ cp package.json "$APP_DIR/Contents/Resources/package.json"
 
 # Sign the app bundle
 # IDENTITY is either sourced from build.config or auto-detected above
-ENTITLEMENTS="$(pwd)/Monitor/FluxMonitor/App.entitlements"
+ENTITLEMENTS="$(pwd)/launcher/FluxMonitor/App.entitlements"
 echo "Performing deep signature..."
 
 # First, sign any injected frameworks or binaries in node_modules
@@ -205,8 +205,8 @@ echo "Packaging into DMG..."
 # Detect if we should use localized name for filename (on Chinese systems)
 LOCALIZED_NAME="$APP_NAME"
 LANGUAGES=$(defaults read -g AppleLanguages)
-if [[ "$LANGUAGES" == *"zh-Hans"* ]] && [ -f "Monitor/FluxMonitor/zh-Hans.lproj/InfoPlist.strings" ]; then
-    ZH_NAME=$(grep "CFBundleDisplayName" "Monitor/FluxMonitor/zh-Hans.lproj/InfoPlist.strings" | head -1 | awk -F' = ' '{print $2}' | sed 's/[";]//g')
+if [[ "$LANGUAGES" == *"zh-Hans"* ]] && [ -f "launcher/FluxMonitor/zh-Hans.lproj/InfoPlist.strings" ]; then
+    ZH_NAME=$(grep "CFBundleDisplayName" "launcher/FluxMonitor/zh-Hans.lproj/InfoPlist.strings" | head -1 | awk -F' = ' '{print $2}' | sed 's/[";]//g')
     if [ ! -z "$ZH_NAME" ]; then
         LOCALIZED_NAME="$ZH_NAME"
         echo "Using Localized Product Name: $LOCALIZED_NAME"
@@ -278,7 +278,7 @@ if [ -x "${SPARKLE_BIN_PATH}/generate_appcast" ]; then
     "${SPARKLE_BIN_PATH}/generate_appcast" --download-url-prefix "$DOWNLOAD_PREFIX" -o appcast.xml "${BUILD_DIR}"
     
     # Also copy to Monitor folder for consistency
-    cp appcast.xml Monitor/appcast.xml
+    cp appcast.xml launcher/appcast.xml
     echo "✅ appcast.xml generated and synced."
 else
     echo "❌ Sparkle generate_appcast tool still missing at ${SPARKLE_BIN_PATH}."
