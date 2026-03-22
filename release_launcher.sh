@@ -22,7 +22,7 @@ npm run build
 
 echo "3. Bundling macOS application..."
 # Forward all arguments (like --release) to the bundle script
-./launcher/bundle.sh "$@"
+./Monitor/bundle.sh "$@"
 
 echo "✅ Bundle process finished successfully!"
 echo "================================================="
@@ -31,9 +31,9 @@ echo "================================================="
 
 # 1. Extract Version and Build Information
 # Find the built .app to get version info
-APP_PATH=$(ls -d launcher/build/Release/*.app 2>/dev/null | head -1)
+APP_PATH=$(ls -d Monitor/build/Release/*.app 2>/dev/null | head -1)
 if [ -z "$APP_PATH" ]; then
-    echo "❌ Error: Could not find the built application in launcher/build/Release/"
+    echo "❌ Error: Could not find the built application in Monitor/build/Release/"
     exit 1
 fi
 
@@ -57,7 +57,7 @@ git push origin "$BRANCH"
 git push origin "v$NEW_VERSION"
 
 # 4. GitHub Release
-RESULT_DIR="launcher/build"
+RESULT_DIR="Monitor/build"
 DMG_PATH=$(ls "$RESULT_DIR"/*.dmg 2>/dev/null | head -1)
 
 if command -v gh >/dev/null 2>&1; then

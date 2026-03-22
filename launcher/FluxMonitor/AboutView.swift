@@ -19,7 +19,7 @@ struct AboutView: View {
                     .foregroundColor(.secondary)
             }
             
-            Text("Flux Monitor launcher.")
+            Text("Flux Monitor Monitor.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)

@@ -34,7 +34,7 @@ class I18N: ObservableObject {
     }
     
     private let zhDict = [
-        "app_title": "浮光启动器",
+        "app_title": "浮光面板启动器",
         "service": "服务",
         "settings": "设置",
         "status": "状态",
@@ -63,7 +63,7 @@ class I18N: ObservableObject {
         "about": "关于",
         "copy": "复制",
         "select_all": "全选",
-        "welcome_title": "欢迎使用 浮光启动器",
+        "welcome_title": "欢迎使用 浮光面板",
         "welcome_message": "请设置您的初始登录凭据和端口号以继续。",
         "get_started": "开始使用",
         "download_node_title": "需要下载 Node.js",
@@ -73,7 +73,7 @@ class I18N: ObservableObject {
     ]
     
     private let enDict = [
-        "app_title": "Flux Launcher",
+        "app_title": "Flux Monitor Launcher",
         "service": "Service",
         "settings": "Settings",
         "status": "Status",
@@ -102,7 +102,7 @@ class I18N: ObservableObject {
         "about": "About",
         "copy": "Copy",
         "select_all": "Select All",
-        "welcome_title": "Welcome to Flux Launcher",
+        "welcome_title": "Welcome to Flux Monitor",
         "welcome_message": "Please set your initial login credentials and port to continue.",
         "get_started": "Get Started",
         "download_node_title": "Node.js Required",

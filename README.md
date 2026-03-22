@@ -21,7 +21,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ## Planned Features
 
-- [x] **Mac Launcher App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
+- [x] **Mac Monitor App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
 - [ ] **iOS Client App**: A native iOS application that can monitor and manage the system on the go.
 - [ ] **Android Client App**: A native Android application that can monitor and manage the system on the go.
 
@@ -43,10 +43,10 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ## Fast Installation (macOS)
 
-The easiest way to use Flux Monitor on macOS is by using the **Flux Launcher**.
+The easiest way to use Flux Monitor on macOS is by downlaoding the app.
 
-1.  **Download**: Go to the [Releases](https://github.com/chentao1006/FluxMonitor/releases) page and download `FluxLauncher.dmg`.
-2.  **Install**: Open the `.dmg` file and drag **Flux Launcher** to your **Applications** folder.
+1.  **Download**: Go to the [Releases](https://github.com/chentao1006/FluxMonitor/releases) page and download `FluxMonitor.dmg`.
+2.  **Install**: Open the `.dmg` file and drag **Flux Monitor** to your **Applications** folder.
 3.  **Launch**: Open the app. It will automatically start the backend server and provide a native menu bar icon for easy access.
 
 ---
