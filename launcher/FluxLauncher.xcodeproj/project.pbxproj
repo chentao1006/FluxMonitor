@@ -1,0 +1,468 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1D909EA758810603F2C1B0D2 /* NetworkUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9F682A360C374FC256EAE5 /* NetworkUtils.swift */; };
+		2D5D5D7B23C41047EBF9C42C /* ProcessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CABB224E49A7CF9D1D96CF2 /* ProcessManager.swift */; };
+		3C175DAE41651FCDF0A77C96 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C977157EF1FB1B8DEFEB72 /* MainView.swift */; };
+		6EDE5D9100A71EDDDBDC20FA /* LogViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D42E554697427FB4160773F /* LogViewer.swift */; };
+		794CB254DDE3B638215ADB1C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6414C59A89ED941499CAACA /* SettingsView.swift */; };
+		7E582D527BF3B019CE6784CB /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CF550FA2890795A898E2DA0 /* WelcomeView.swift */; };
+		8B1498759B1E992502CF17AB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0D47F3C7A9B0BCF0D348999F /* Assets.xcassets */; };
+		9F9AE2F03F3C699D98B3128E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5C4A4E749C03739375DEE5 /* AppDelegate.swift */; };
+		AABBCCD01234567890ABCDE0 /* NodeInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCD01234567890ABCDEF /* NodeInstaller.swift */; };
+		BE84BB595B073EB883790509 /* i18n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFBCA42DF81FB121BCD14F6 /* i18n.swift */; };
+		C620CCAD47C1630EC2DDCC4D /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5662DE609534DFCC1E144FA9 /* InfoPlist.strings */; };
+		D09F5FADDBD668BAE4497C25 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 465F879BFF9EBC7C9C88BD52 /* Sparkle */; };
+		DDFCB55E4E3A38AA88D80A79 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03BFEE759758B114455EF06B /* main.swift */; };
+		E4CDD74FD89425946A2812A0 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 200577B0F0BB078ECEA93BFB /* AppIcon.icns */; };
+		FA3B2DE51A2AD83AB616C38C /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA649293D6EEBD8A0CDFD409 /* AboutView.swift */; };
+		FDD93ABC7B4C4B8846FFE688 /* ServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD95961A54AE7D60D4DB779D /* ServiceView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		03BFEE759758B114455EF06B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		0BFBCA42DF81FB121BCD14F6 /* i18n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = i18n.swift; sourceTree = "<group>"; };
+		0D47F3C7A9B0BCF0D348999F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1F5D880187626A330EB04585 /* Flux Launcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Flux Launcher.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		200577B0F0BB078ECEA93BFB /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		4A9F682A360C374FC256EAE5 /* NetworkUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkUtils.swift; sourceTree = "<group>"; };
+		4C5C4A4E749C03739375DEE5 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		4F183FAFC92F0F1C0BFD13E7 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		5D42E554697427FB4160773F /* LogViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogViewer.swift; sourceTree = "<group>"; };
+		612DB725B6F66EE5B4167C8E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9CABB224E49A7CF9D1D96CF2 /* ProcessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessManager.swift; sourceTree = "<group>"; };
+		9CF550FA2890795A898E2DA0 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		AA649293D6EEBD8A0CDFD409 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		AABBCCD01234567890ABCDEF /* NodeInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeInstaller.swift; sourceTree = "<group>"; };
+		B8C977157EF1FB1B8DEFEB72 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		BDDEA3ED4DB9636E1F415A71 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		CC0D7807E9C1E45DF24911FF /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		DD95961A54AE7D60D4DB779D /* ServiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceView.swift; sourceTree = "<group>"; };
+		F6414C59A89ED941499CAACA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		39439C195B0A3F47B1C0B9F7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D09F5FADDBD668BAE4497C25 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1AB425D963DC7A60FF55F51F /* FluxLauncher */ = {
+			isa = PBXGroup;
+			children = (
+				AA649293D6EEBD8A0CDFD409 /* AboutView.swift */,
+				BDDEA3ED4DB9636E1F415A71 /* App.entitlements */,
+				4C5C4A4E749C03739375DEE5 /* AppDelegate.swift */,
+				200577B0F0BB078ECEA93BFB /* AppIcon.icns */,
+				0D47F3C7A9B0BCF0D348999F /* Assets.xcassets */,
+				0BFBCA42DF81FB121BCD14F6 /* i18n.swift */,
+				612DB725B6F66EE5B4167C8E /* Info.plist */,
+				5D42E554697427FB4160773F /* LogViewer.swift */,
+				03BFEE759758B114455EF06B /* main.swift */,
+				B8C977157EF1FB1B8DEFEB72 /* MainView.swift */,
+				4A9F682A360C374FC256EAE5 /* NetworkUtils.swift */,
+				AABBCCD01234567890ABCDEF /* NodeInstaller.swift */,
+				9CABB224E49A7CF9D1D96CF2 /* ProcessManager.swift */,
+				DD95961A54AE7D60D4DB779D /* ServiceView.swift */,
+				F6414C59A89ED941499CAACA /* SettingsView.swift */,
+				9CF550FA2890795A898E2DA0 /* WelcomeView.swift */,
+				5662DE609534DFCC1E144FA9 /* InfoPlist.strings */,
+			);
+			path = FluxLauncher;
+			sourceTree = "<group>";
+		};
+		53477B806968C8E83747C333 = {
+			isa = PBXGroup;
+			children = (
+				1AB425D963DC7A60FF55F51F /* FluxLauncher */,
+				ABCC748EFE28213186017544 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		ABCC748EFE28213186017544 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1F5D880187626A330EB04585 /* Flux Launcher.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BFD20FE5940831C16ADCAB3D /* Flux Launcher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 682160192527743EFA3E88C3 /* Build configuration list for PBXNativeTarget "Flux Launcher" */;
+			buildPhases = (
+				41BE471358CB10BD0072A4D9 /* Sources */,
+				C16624D7B5BD396C84A23D8C /* Resources */,
+				39439C195B0A3F47B1C0B9F7 /* Frameworks */,
+				359791E589C2C9F4A93A4049 /* Sync Backend Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Flux Launcher";
+			packageProductDependencies = (
+				465F879BFF9EBC7C9C88BD52 /* Sparkle */,
+			);
+			productName = "Flux Launcher";
+			productReference = 1F5D880187626A330EB04585 /* Flux Launcher.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		969991CEC1F4A579A1E8CDA7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					BFD20FE5940831C16ADCAB3D = {
+						DevelopmentTeam = U2NEAJ73J2;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = DDD9566CCD13C8E61CDEAA5A /* Build configuration list for PBXProject "FluxLauncher" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+			);
+			mainGroup = 53477B806968C8E83747C333;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9B038AA210084A2A9FB20C88 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = ABCC748EFE28213186017544 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BFD20FE5940831C16ADCAB3D /* Flux Launcher */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C16624D7B5BD396C84A23D8C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4CDD74FD89425946A2812A0 /* AppIcon.icns in Resources */,
+				8B1498759B1E992502CF17AB /* Assets.xcassets in Resources */,
+				C620CCAD47C1630EC2DDCC4D /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		359791E589C2C9F4A93A4049 /* Sync Backend Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Sync Backend Resources";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Sync Node, Flux Launcher Standalone and Config into Bundle\n# This script is designed to fail gracefully if built outside of full bundle context\nDEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources\"\nSRC_ROOT=\"${PROJECT_DIR}/..\"\n\nif [ -d \"${SRC_ROOT}/.next/standalone\" ]; then\n  echo \"Syncing Flux Launcher Standalone resources...\"\n  mkdir -p \"${DEST}\"\n  \n  # Skip bundling node by default to save space (200MB+)\n  # NODE_BIN=$(which node || echo \"/usr/local/bin/node\")\n  # cp \"$NODE_BIN\" \"${DEST}/node\" || true\n  \n  # Sign the node binary for Hardened Runtime ONLY if it exists\n  if [ -f \"${DEST}/node\" ] && [ ! -z \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n    codesign --force --options runtime --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp --entitlements \"${SRC_ROOT}/launcher/FluxLauncher/App.entitlements\" \"${DEST}/node\" || true\n  fi\n\n  cp \"${SRC_ROOT}/.next/standalone/server.js\" \"${DEST}/server.js\" || true\n\n  # Always ensure static and public are synced to standalone first\n  mkdir -p \"${SRC_ROOT}/.next/standalone/.next/static\"\n  cp -R \"${SRC_ROOT}/.next/static/.\" \"${SRC_ROOT}/.next/standalone/.next/static/\" || true\n  mkdir -p \"${SRC_ROOT}/.next/standalone/public\"\n  cp -R \"${SRC_ROOT}/public/.\" \"${SRC_ROOT}/.next/standalone/public/\" || true\n\n  # Sync folders to destination app bundle\n  rm -rf \"${DEST}/node_modules\" && cp -R \"${SRC_ROOT}/.next/standalone/node_modules\" \"${DEST}/node_modules\" || true\n  rm -rf \"${DEST}/.next\" && cp -R \"${SRC_ROOT}/.next/standalone/.next\" \"${DEST}/.next\" || true\n  rm -rf \"${DEST}/public\" && cp -R \"${SRC_ROOT}/.next/standalone/public\" \"${DEST}/public\" || true\n  cp \"${SRC_ROOT}/config.json\" \"${DEST}/config.json\" || true\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		41BE471358CB10BD0072A4D9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA3B2DE51A2AD83AB616C38C /* AboutView.swift in Sources */,
+				9F9AE2F03F3C699D98B3128E /* AppDelegate.swift in Sources */,
+				6EDE5D9100A71EDDDBDC20FA /* LogViewer.swift in Sources */,
+				3C175DAE41651FCDF0A77C96 /* MainView.swift in Sources */,
+				1D909EA758810603F2C1B0D2 /* NetworkUtils.swift in Sources */,
+				AABBCCD01234567890ABCDE0 /* NodeInstaller.swift in Sources */,
+				2D5D5D7B23C41047EBF9C42C /* ProcessManager.swift in Sources */,
+				FDD93ABC7B4C4B8846FFE688 /* ServiceView.swift in Sources */,
+				794CB254DDE3B638215ADB1C /* SettingsView.swift in Sources */,
+				7E582D527BF3B019CE6784CB /* WelcomeView.swift in Sources */,
+				BE84BB595B073EB883790509 /* i18n.swift in Sources */,
+				DDFCB55E4E3A38AA88D80A79 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		5662DE609534DFCC1E144FA9 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				CC0D7807E9C1E45DF24911FF /* en */,
+				4F183FAFC92F0F1C0BFD13E7 /* zh-Hans */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		323CF472A777A46912C21E3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = U2NEAJ73J2;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		7B3751F2735B71125CCB1853 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FluxLauncher/App.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 105;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FluxLauncher/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flux Launcher";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0.5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.ct106.flux-launcher";
+				RUNTIME_EXCEPTION_ALLOW_JIT = YES;
+				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = YES;
+				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		9EAEA5F7F2F2D3297BA9F04D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = U2NEAJ73J2;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F19E67177CA0CCBEF997CB10 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FluxLauncher/App.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 105;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FluxLauncher/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flux Launcher";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
+				MARKETING_VERSION = 1.0.5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.ct106.flux-launcher";
+				RUNTIME_EXCEPTION_ALLOW_JIT = YES;
+				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = YES;
+				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		682160192527743EFA3E88C3 /* Build configuration list for PBXNativeTarget "Flux Launcher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F19E67177CA0CCBEF997CB10 /* Debug */,
+				7B3751F2735B71125CCB1853 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DDD9566CCD13C8E61CDEAA5A /* Build configuration list for PBXProject "FluxLauncher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9EAEA5F7F2F2D3297BA9F04D /* Debug */,
+				323CF472A777A46912C21E3D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9B038AA210084A2A9FB20C88 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		465F879BFF9EBC7C9C88BD52 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B038AA210084A2A9FB20C88 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 969991CEC1F4A579A1E8CDA7 /* Project object */;
+}

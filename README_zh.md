@@ -43,7 +43,7 @@
 
 在 macOS 上使用 Flux Monitor 最简单的方法是使用 **Flux Launcher**。
 
-1.  **下载**: 前往 [Releases](https://github.com/chentao1006/FluxLauncher/releases) 页面下载 `FluxLauncher.dmg`。
+1.  **下载**: 前往 [Releases](https://github.com/chentao1006/FluxMonitor/releases) 页面下载 `FluxLauncher.dmg`。
 2.  **安装**: 打开 `.dmg` 文件，将 **Flux Launcher** 拖入 **Applications** (应用程序) 文件夹。
 3.  **启动**: 打开应用程序。它会自动启动后台服务器，并提供原生菜单栏图标以便快速访问。
 
