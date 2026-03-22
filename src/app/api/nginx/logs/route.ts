@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { execAsync } from '@/lib/exec';
 import fs from 'fs';
-
-const execAsync = promisify(exec);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -34,7 +31,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ success: true, logs: stdout });
           }
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
       return NextResponse.json({ success: false, error: 'LOG_FILE_NOT_FOUND' });
@@ -43,7 +40,20 @@ export async function GET(request: Request) {
     // Use tail to get the last N lines
     const { stdout } = await execAsync(`tail -n ${lines} ${logFile}`);
     return NextResponse.json({ success: true, logs: stdout });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (err: any) {
+    const errorMsg = err?.message || '';
+    let errorCode = 'logFetchFailed';
+
+    if (errorMsg.includes('Permission denied')) {
+      errorCode = 'permissionDenied';
+    } else if (errorMsg.includes('command not found')) {
+      errorCode = 'commandNotFound';
+    }
+
+    return NextResponse.json({ 
+      success: false, 
+      error: errorCode, 
+      details: errorMsg 
+    }, { status: 500 });
   }
 }

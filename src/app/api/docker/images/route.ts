@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { execAsync } from '@/lib/exec';
 
 export async function GET() {
   try {
@@ -49,7 +46,6 @@ export async function GET() {
 
     const finalImages = Object.values(groupedImages).map(img => ({
       ...img,
-      // Create a display string for multiple tags/repos if needed
       Tag: img.Tags.join(', '),
       Repository: img.Repositories.join(', ')
     }));
@@ -58,11 +54,17 @@ export async function GET() {
       success: true,
       data: finalImages,
     });
-  } catch (error: unknown) {
-    const err = error as Error;
+  } catch (error: any) {
+    const message = error?.message || '';
+    if (message.includes('command not found')) {
+      return NextResponse.json({
+        error: 'DOCKER_NOT_FOUND',
+        details: 'Docker is not installed or not in the PATH.'
+      }, { status: 500 });
+    }
     return NextResponse.json({
       error: 'FETCH_FAILED',
-      details: err?.message || 'UNKNOWN_ERROR'
+      details: message
     }, { status: 500 });
   }
 }

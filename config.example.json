@@ -18,8 +18,7 @@
     "configs": true,
     "launchagent": true,
     "docker": true,
-    "nginx": true,
-    "openclaw": true
+    "nginx": true
   },
   "deploy": {
     "path": "~/Applications/flux-monitor",

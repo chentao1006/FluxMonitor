@@ -1,16 +1,10 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
-
-const COMMON_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin';
+import { execAsync } from '@/lib/exec';
 
 export async function GET() {
   try {
     const { stdout } = await execAsync('docker ps -a --format "{{json .}}"', {
       maxBuffer: 100 * 1024 * 1024,
-      env: { ...process.env, PATH: `${COMMON_PATH}:${process.env.PATH || ''}` }
     });
 
     // stdout contains one JSON object per line.

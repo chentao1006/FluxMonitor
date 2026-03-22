@@ -15,7 +15,6 @@
 - **自启服务管理**: 管理 macOS 的 LaunchAgents 与 LaunchDaemons 服务。
 - **Docker**: 管理容器与镜像。
 - **Nginx**: 管理站点及全局配置。
-- **OpenClaw**: 查看进程及内存统计信息。
 - **选配 AI 助手**: 绑定 OpenAI API 密钥后，可使用日志诊断、参数配置审查及故障排查辅助功能。
 
 **待开发功能**
@@ -44,7 +43,7 @@
 
 在 macOS 上使用 Flux Monitor 最简单的方法是使用 **Flux Launcher**。
 
-1.  **下载**: 前往 [Releases](https://github.com/chentao1006/FluxMonitor/releases) 页面下载 `FluxLauncher.dmg`。
+1.  **下载**: 前往 [Releases](https://github.com/chentao1006/FluxLauncher/releases) 页面下载 `FluxLauncher.dmg`。
 2.  **安装**: 打开 `.dmg` 文件，将 **Flux Launcher** 拖入 **Applications** (应用程序) 文件夹。
 3.  **启动**: 打开应用程序。它会自动启动后台服务器，并提供原生菜单栏图标以便快速访问。
 
@@ -104,8 +103,7 @@ chmod +x deploy.sh
     "configs": true,
     "launchagent": true,
     "docker": true,
-    "nginx": true,
-    "openclaw": true
+    "nginx": true
   },
   "deploy": {
     "path": "~/Applications/flux-monitor", // 一键部署的目标路径

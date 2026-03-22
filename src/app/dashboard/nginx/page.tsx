@@ -93,7 +93,8 @@ export default function NginxDashboard() {
         // Scroll after state update
         setTimeout(scrollLogsToBottom, 100);
       } else {
-        setNginxLogs(`Error: ${data.error}`);
+        const errorMsg = (t.common.errors as any)[data.error] || data.details || data.error;
+        setNginxLogs(`Error: ${errorMsg}`);
       }
     } catch (e) {
       setNginxLogs('Failed to fetch logs');

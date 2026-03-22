@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { execAsync } from '@/lib/exec';
 
 export async function POST(request: Request) {
   try {
@@ -89,7 +86,11 @@ export async function POST(request: Request) {
       try {
         const { stdout, stderr } = await executeNginxCmd(`${NGINX_BIN} -t`);
         return NextResponse.json({ success: true, details: stdout || stderr });
-      } catch (err: unknown) {
+      } catch (err: any) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        if (errorMsg === 'REQUIRES_SUDO_PASSWORD' || errorMsg === 'SUDO_AUTH_FAILED') {
+          throw err;
+        }
         const error = err as { stderr?: string; stdout?: string; message: string };
         return NextResponse.json({ 
           success: false, 
@@ -119,10 +120,14 @@ export async function POST(request: Request) {
           }
         }
         
-        return NextResponse.json({ success: true, logs: logs || '未找到日志文件或无权访问' });
-      } catch (err: unknown) {
+        return NextResponse.json({ success: true, logs: logs || '' });
+      } catch (err: any) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        if (errorMsg === 'REQUIRES_SUDO_PASSWORD' || errorMsg === 'SUDO_AUTH_FAILED') {
+          throw err;
+        }
         const error = err as Error;
-        return NextResponse.json({ success: false, logs: `读取日志异常: ${error.message}` });
+        return NextResponse.json({ success: false, error: 'logReadError', details: error.message });
       }
     }
 

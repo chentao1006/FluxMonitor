@@ -15,7 +15,6 @@ A system monitoring and management dashboard designed for **Macs running as serv
 - **LaunchAgent**: Manage macOS LaunchAgents and LaunchDaemons.
 - **Docker**: Manage containers and images.
 - **Nginx**: Manage sites and global configurations.
-- **OpenClaw**: View process and memory statistics.
 - **Optional AI Assistant**: Connect an OpenAI API key for log parsing, configuration auditing, and troubleshooting suggestions.
 
 ---
@@ -46,7 +45,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 The easiest way to use Flux Monitor on macOS is by using the **Flux Launcher**.
 
-1.  **Download**: Go to the [Releases](https://github.com/chentao1006/FluxMonitor/releases) page and download `FluxLauncher.dmg`.
+1.  **Download**: Go to the [Releases](https://github.com/chentao1006/FluxLauncher/releases) page and download `FluxLauncher.dmg`.
 2.  **Install**: Open the `.dmg` file and drag **Flux Launcher** to your **Applications** folder.
 3.  **Launch**: Open the app. It will automatically start the backend server and provide a native menu bar icon for easy access.
 
@@ -106,8 +105,7 @@ The system uses `config.json` for global settings. You can copy `config.example.
     "configs": true,
     "launchagent": true,
     "docker": true,
-    "nginx": true,
-    "openclaw": true
+    "nginx": true
   },
   "deploy": {
     "path": "~/Applications/flux-monitor",
