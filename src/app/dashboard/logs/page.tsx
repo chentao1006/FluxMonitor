@@ -141,6 +141,9 @@ export default function LogsPage() {
         setAnalysisResult(data.data);
       } else if (data.error === 'AI_CONFIG_MISSING') {
         setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+      } else {
+        const errorMsg = (t.common.errors as Record<string, string>)[data.error] || data.details || data.error;
+        setAnalysisResult(errorMsg);
       }
     } catch (e) {
       console.error(e);
@@ -280,7 +283,7 @@ export default function LogsPage() {
 
   return (
     <div className="page-shell grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
-      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1.5rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Activity size={24} color="var(--color-primary)" />
@@ -294,7 +297,7 @@ export default function LogsPage() {
       </div>
 
       <div className={`logs-layout ${activeFile ? 'showing-content' : 'showing-list'}`}>
-        <div className="logs-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+        <div className="logs-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <div style={{ position: 'relative', marginBottom: '1rem' }}>
             <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
             <input
@@ -350,7 +353,7 @@ export default function LogsPage() {
                   whiteSpace: 'nowrap',
                   border: '1px solid',
                   borderColor: activeCategory === cat ? 'var(--color-primary)' : 'transparent',
-                  background: activeCategory === cat ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)',
+                  background: activeCategory === cat ? 'var(--color-primary-light)' : 'var(--color-surface-bg)',
                   color: activeCategory === cat ? 'var(--color-primary)' : 'var(--color-text-muted)',
                   cursor: 'pointer',
                   fontWeight: activeCategory === cat ? 600 : 400,
@@ -377,7 +380,7 @@ export default function LogsPage() {
                       marginBottom: '0.5rem',
                       borderRadius: 'var(--radius-sm)',
                       cursor: 'pointer',
-                      background: isActive ? 'var(--color-primary-light)' : 'rgba(255,255,255,0.3)',
+                      background: isActive ? 'var(--color-primary-light)' : 'var(--color-surface-bg)',
                       border: isActive ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
                       transition: 'all 0.2s',
                       minWidth: 0,
@@ -441,7 +444,7 @@ export default function LogsPage() {
                       <span>{formatAbsoluteTime(file.mtime || 0)}</span>
                     </div>
                     {isActioning && (
-                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.6)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ position: 'absolute', inset: 0, background: 'var(--color-surface-bg)', opacity: 0.8, borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>{t.common.loading}</span>
                       </div>
                     )}
@@ -455,16 +458,16 @@ export default function LogsPage() {
           </div>
         </div>
 
-        <div className="logs-viewer card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
+        <div className="logs-viewer card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', padding: 0, overflow: 'hidden' }}>
           {activeFile && currentFile ? (
             <>
-              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)' }}>
+              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'var(--color-surface-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
                   <button className="btn btn-ghost mobile-only" onClick={() => setActiveFile(null)}><ChevronLeft size={20} /></button>
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{currentFile.name}</div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', background: 'rgba(0,0,0,0.05)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 500 }}>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', background: 'var(--color-primary-light)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 500 }}>
                         {formatSize(currentFile.size)} · {formatAbsoluteTime(currentFile.mtime)}
                       </div>
                     </div>
@@ -498,8 +501,8 @@ export default function LogsPage() {
               </div>
 
               {analysisResult && (
-                <div className="ai-panel" style={{ background: 'rgba(59,130,246,0.03)', borderBottom: '1px solid rgba(59,130,246,0.1)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(240,247,255,0.9)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
+                <div className="ai-panel" style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'var(--color-surface-bg)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
                     <Brain size={16} color="var(--color-primary)" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>AI {t.logs.analyzeTitle}</span>
                     <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setAnalysisResult('')}><X size={14} /></button>
@@ -515,7 +518,7 @@ export default function LogsPage() {
                 </div>
               )}
 
-              <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '1rem' }}>
+              <div style={{ flex: 1, padding: '1.5rem', background: 'var(--color-surface-bg)', overflow: 'hidden' }}>
                 {readLoading ? (
                   <div className="flex-center" style={{ height: '100%' }}>{t.common.loading}</div>
                 ) : (
@@ -525,8 +528,8 @@ export default function LogsPage() {
                     className="no-scrollbar"
                     style={{
                       width: '100%', height: '100%', border: 'none', outline: 'none',
-                      background: 'transparent', fontFamily: 'monospace', fontSize: '0.8rem',
-                      resize: 'none', color: '#1e293b', lineHeight: 1.5
+                      background: 'transparent', fontFamily: 'monospace', fontSize: '0.85rem',
+                      resize: 'none', color: 'var(--color-text)', lineHeight: 1.6
                     }}
                     value={content}
                   />
@@ -656,7 +659,7 @@ export default function LogsPage() {
       {/* Add File Modal */}
       {addModal.isOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <div className="card glass-panel" style={{ padding: '1.5rem', maxWidth: '450px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div className="modal-content" style={{ background: 'var(--color-bg)', padding: '1.5rem', maxWidth: '450px', width: '90%', boxShadow: '0 20px 60px var(--color-shadow)', border: '1px solid var(--color-surface-border)', borderRadius: 'var(--radius-lg)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
               <div style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: '8px' }}>
                 <Plus size={20} color="var(--color-primary)" />

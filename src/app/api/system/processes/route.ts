@@ -12,34 +12,37 @@ export async function GET(request: Request) {
       }
 
       // Get detailed info for a single process
-      // macOS ps options: pid,ppid,pcpu,pmem,state,start,time,user,comm,args
+      // macOS ps options: pid,ppid,pcpu,pmem,state,start,time,user,command
       // Use -ww for wide output to avoid truncation
-      const { stdout: psOut } = await execAsync(`ps -p ${pidParam} -o pid,ppid,pcpu,pmem,state,start,time,user,comm,args -ww | tail -n +2`);
+      // We use discrete calls or careful splitting to avoid parsing errors with spaces in 'start' or 'time'
+      const { stdout: psOut } = await execAsync(`ps -p ${pidParam} -o pid,ppid,pcpu,pmem,state,start,time,user -ww | tail -n +2`);
 
       if (!psOut.trim()) {
         return NextResponse.json({ error: 'PROCESS_NOT_FOUND' }, { status: 404 });
       }
 
-      // Robust parsing: the first 8 fields are guaranteed not to have spaces (mostly)
-      // except for 'start' which might have multiple parts in some ps versions, 
-      // but on macOS 'start' is usually a single string like '14:00' or ' 5Mar24' (with potential space)
-      // To be safe, let's use a regex that matches the first 8 columns.
-      // pid, ppid, pcpu, pmem, state, start, time, user
-      const match = psOut.trim().match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/);
+      const parts = psOut.trim().split(/\s+/);
+      // ps -o pid,ppid,pcpu,pmem,state,start,time,user
+      // Start time might have a space if it's old (e.g. "Sat 02AM" or "22 Mar 26")
+      // But typically with default '-o start' it's one token.
+      // To be safer, we extract tokens from end and start.
+      const pid = parts[0];
+      const ppid = parts[1];
+      const cpu = parts[2];
+      const mem = parts[3];
+      const state = parts[4];
+      const user = parts[parts.length - 1];
+      const time = parts[parts.length - 2];
+      // Everything between state and time is the 'start' field
+      const start = parts.slice(5, parts.length - 2).join(' ');
 
-      if (!match) {
-        return NextResponse.json({ error: 'PARSE_FAILED' }, { status: 500 });
-      }
-
-      const [_, pid, ppid, cpu, mem, state, start, time, user, rest] = match;
-
-      // Now we need to separate 'comm' and 'args'. 
-      // This is still tricky because 'args' usually starts with 'comm'.
-      // However, for the detail view, we can often just use 'comm' as the path.
-      // Let's try to get 'comm' specifically to be sure.
+      // Get command path specifically
       const { stdout: commOut } = await execAsync(`ps -p ${pidParam} -o comm= -ww`);
       const commandPath = commOut.trim();
-      const fullCommand = rest.trim();
+
+      // Get full command with arguments
+      const { stdout: argsOut } = await execAsync(`ps -p ${pidParam} -o command= -ww`);
+      const fullCommand = argsOut.trim();
 
       // Get parent process name
       let ppidName = '';

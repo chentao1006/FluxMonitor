@@ -4,7 +4,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain, Plus, MinusCircle } from 'lucide-react';
 
@@ -20,7 +20,7 @@ interface ConfigItem {
 }
 
 export default function ConfigsDashboard() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   const formatSize = (bytes?: number) => {
     if (!bytes) return '0 B';
@@ -48,7 +48,7 @@ export default function ConfigsDashboard() {
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState('');
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const aiCacheRef = useRef<Record<string, string>>({});
+  // aiCacheRef removed as unused
   const [searchQuery, setSearchQuery] = useState('');
   const [homePath, setHomePath] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -64,32 +64,7 @@ export default function ConfigsDashboard() {
     { id: 'System', label: t.configs.categories.sys }
   ];
 
-  const fetchConfigs = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/configs');
-      const data = await res.json();
-      if (data.success) {
-        setConfigs(data.data || []);
-        if (data.home) setHomePath(data.home);
-
-        // Auto-select first one on big screens if none selected
-        if (data.data && data.data.length > 0 && !editingId && typeof window !== 'undefined' && window.innerWidth > 768) {
-          openConfig(data.data[0]);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchConfigs();
-  }, []);
-
-  const openConfig = async (config: ConfigItem) => {
+  const openConfig = useCallback(async (config: ConfigItem) => {
     setEditingId(config.id);
     setReadLoading(true);
     setAnalysisResult('');
@@ -110,7 +85,32 @@ export default function ConfigsDashboard() {
     } finally {
       setReadLoading(false);
     }
-  };
+  }, [t.common.fetchFailed]);
+
+  const fetchConfigs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/configs');
+      const data = await res.json();
+      if (data.success) {
+        setConfigs(data.data || []);
+        if (data.home) setHomePath(data.home);
+
+        // Auto-select first one on big screens if none selected
+        if (data.data && data.data.length > 0 && !editingId && typeof window !== 'undefined' && window.innerWidth > 768) {
+          openConfig(data.data[0]);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, [editingId, openConfig]);
+
+  useEffect(() => {
+    fetchConfigs();
+  }, [fetchConfigs]);
 
   const handleSave = async () => {
     if (!editingId) return;
@@ -129,7 +129,7 @@ export default function ConfigsDashboard() {
       } else {
         setSaveStatus(t.common.saveFailed);
       }
-    } catch (e) {
+    } catch {
       setSaveStatus(t.common.networkError);
     }
   };
@@ -221,7 +221,7 @@ export default function ConfigsDashboard() {
 
   return (
     <div className="page-shell grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
-      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1.5rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Settings size={24} color="var(--color-primary)" />
@@ -235,7 +235,7 @@ export default function ConfigsDashboard() {
       </div>
 
       <div className={`responsive-grid ${editingId ? 'showing-content' : 'showing-list'}`}>
-        <div className="configs-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+        <div className="configs-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <div style={{ position: 'relative', marginBottom: '1rem' }}>
             <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
             <input
@@ -291,7 +291,7 @@ export default function ConfigsDashboard() {
                   whiteSpace: 'nowrap',
                   border: '1px solid',
                   borderColor: activeCategory === cat.id ? 'var(--color-primary)' : 'transparent',
-                  background: activeCategory === cat.id ? 'var(--color-primary-light)' : 'rgba(0,0,0,0.05)',
+                  background: activeCategory === cat.id ? 'var(--color-primary-light)' : 'var(--color-surface-bg)',
                   color: activeCategory === cat.id ? 'var(--color-primary)' : 'var(--color-text-muted)',
                   cursor: 'pointer',
                   fontWeight: activeCategory === cat.id ? 600 : 400,
@@ -315,8 +315,8 @@ export default function ConfigsDashboard() {
                     marginBottom: '0.5rem',
                     borderRadius: 'var(--radius-sm)',
                     cursor: 'pointer',
-                    background: editingId === config.id ? 'var(--color-primary-light)' : 'rgba(255,255,255,0.3)',
-                    border: editingId === config.id ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
+                    background: editingId === config.id ? 'var(--color-primary-light)' : 'var(--color-surface-bg)',
+                    border: editingId === config.id ? '1px solid rgba(59,130,246,0.2)' : '1px solid var(--color-surface-border)',
                     transition: 'all 0.2s',
                     minWidth: 0,
                     overflow: 'hidden'
@@ -351,16 +351,16 @@ export default function ConfigsDashboard() {
           </div>
         </div>
 
-        <div className="configs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
+        <div className="configs-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', padding: 0, overflow: 'hidden' }}>
           {activeConfig ? (
             <>
-              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)' }}>
+              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'var(--color-surface-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
                   <button className="btn btn-ghost mobile-only" onClick={() => setEditingId(null)}><ChevronLeft size={20} /></button>
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 700, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{activeConfig.name}</div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', background: 'rgba(0,0,0,0.05)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 500 }}>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', background: 'var(--color-primary-light)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 500 }}>
                         {formatSize(activeConfig.size)} · {formatAbsoluteTime(activeConfig.mtime)}
                       </div>
                     </div>
@@ -379,8 +379,8 @@ export default function ConfigsDashboard() {
               </div>
 
               {showAiPanel && (
-                <div className="ai-panel" style={{ background: 'rgba(59,130,246,0.03)', borderBottom: '1px solid rgba(59,130,246,0.1)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(240,247,255,0.9)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
+                <div className="ai-panel" style={{ background: 'var(--color-primary-light)', opacity: 0.95, borderBottom: '1px solid var(--color-surface-border)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'var(--color-surface-bg)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
                     <Brain size={16} color="var(--color-primary)" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.configs.aiAnalyzeTitle}</span>
                     <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowAiPanel(false)}><X size={16} color="var(--color-text-muted)" /></button>
@@ -406,7 +406,7 @@ export default function ConfigsDashboard() {
                 </div>
               )}
 
-              <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '1.5rem', background: '#fafafa' }}>
+              <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '1.5rem', background: 'var(--color-surface-bg)' }}>
                 {readLoading ? (
                   <div className="flex-center" style={{ height: '100%' }}>{t.common.loading}</div>
                 ) : (
@@ -415,7 +415,7 @@ export default function ConfigsDashboard() {
                     style={{
                       width: '100%', height: '100%', border: 'none', outline: 'none',
                       background: 'transparent', fontFamily: 'monospace', fontSize: '0.85rem',
-                      resize: 'none', color: '#334155', lineHeight: 1.6
+                      resize: 'none', color: 'var(--color-text)', lineHeight: 1.6
                     }}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
@@ -424,7 +424,7 @@ export default function ConfigsDashboard() {
                 )}
               </div>
 
-              <div style={{ padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.02)', borderTop: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '0.5rem 1rem', background: 'var(--color-surface-bg)', borderTop: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', visibility: saveStatus ? 'visible' : 'hidden' }}>{saveStatus}</span>
                 <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', opacity: 0.6 }}>UTF-8 Plain Text</span>
               </div>

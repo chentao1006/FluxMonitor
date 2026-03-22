@@ -65,7 +65,7 @@ export default function LoginPage() {
               value={language}
               onChange={(e) => setLanguage(e.target.value as 'zh' | 'en' | 'auto')}
               className="input"
-              style={{ padding: '0.3rem 1.5rem 0.3rem 0.6rem', fontSize: '0.85rem', height: 'auto', background: 'rgba(255, 255, 255, 0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer' }}
+              style={{ padding: '0.3rem 1.5rem 0.3rem 0.6rem', fontSize: '0.85rem', height: 'auto', background: 'var(--color-surface-bg)', backdropFilter: 'blur(16px)', border: '1px solid var(--color-surface-border)', cursor: 'pointer' }}
             >
               <option value="auto">{t.common.systemDefault}</option>
               <option value="zh">中文</option>

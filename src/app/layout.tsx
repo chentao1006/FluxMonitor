@@ -27,6 +27,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 import { LanguageProvider } from "@/lib/LanguageContext";
+import { ThemeProvider } from "@/lib/ThemeContext";
+import { SettingsProvider } from "@/lib/SettingsContext";
 
 export default function RootLayout({
   children,
@@ -36,9 +38,13 @@ export default function RootLayout({
   return (
     <html lang="zh" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <LanguageProvider>
-          {children}
-        </LanguageProvider>
+        <ThemeProvider>
+          <SettingsProvider>
+            <LanguageProvider>
+              {children}
+            </LanguageProvider>
+          </SettingsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

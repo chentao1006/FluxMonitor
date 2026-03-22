@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, RefreshCw, Eraser, Play, Square, Repeat } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -50,7 +50,30 @@ export default function LaunchAgentDashboard() {
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [modalError, setModalError] = useState<{ title: string, content: string } | null>(null);
 
-  const fetchPlists = async () => {
+  const openEditor = useCallback(async (item: PlistItem) => {
+    setEditingFile(item);
+    setEditName(item.name.replace('.plist', ''));
+    setFileContent(t.common.loading);
+    setSaveStatus('');
+    setAnalysisResult('');
+    try {
+      const res = await fetch('/api/launchagent/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: item.path, action: 'read' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFileContent(data.data);
+      } else {
+        setFileContent(`${t.common.error}: ${data.error}`);
+      }
+    } catch (e) {
+      setFileContent(t.common.networkError);
+    }
+  }, [t.common.error, t.common.loading, t.common.networkError]);
+
+  const fetchPlists = useCallback(async () => {
     try {
       const res = await fetch('/api/launchagent/list');
       const data = await res.json();
@@ -64,11 +87,17 @@ export default function LaunchAgentDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t.common.fetchFailed, t.common.networkError]);
 
   useEffect(() => {
     fetchPlists();
-  }, []);
+  }, [fetchPlists]);
+
+  useEffect(() => {
+    if (!loading && plists.length > 0 && !editingFile && window.innerWidth > 768) {
+      openEditor(plists[0]);
+    }
+  }, [plists, loading, editingFile, openEditor]);
 
   const handleAction = async (filePath: string, action: string) => {
     setActionLoading(`${filePath}-${action}`);
@@ -88,7 +117,7 @@ export default function LaunchAgentDashboard() {
         });
       }
     } catch (e) {
-      setModalError({ title: t.common.networkError, content: t.common.networkConnectionFailed });
+      setModalError({ title: t.common.networkError, content: 'Network connection failed.' });
     } finally {
       setActionLoading(null);
     }
@@ -149,29 +178,6 @@ export default function LaunchAgentDashboard() {
       setModalError({ title: t.common.networkError, content: 'Network connection failed.' });
     } finally {
       setActionLoading(null);
-    }
-  };
-
-  const openEditor = async (item: PlistItem) => {
-    setEditingFile(item);
-    setEditName(item.name.replace('.plist', ''));
-    setFileContent(t.common.loading);
-    setSaveStatus('');
-    setAnalysisResult('');
-    try {
-      const res = await fetch('/api/launchagent/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: item.path, action: 'read' }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFileContent(data.data);
-      } else {
-        setFileContent(`${t.common.error}: ${data.error}`);
-      }
-    } catch (e) {
-      setFileContent(t.common.networkError);
     }
   };
 
@@ -257,7 +263,7 @@ export default function LaunchAgentDashboard() {
 
   return (
     <div className="page-shell grid no-scrollbar animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
-      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Rocket size={24} color="var(--color-primary)" />
@@ -271,7 +277,7 @@ export default function LaunchAgentDashboard() {
       </div>
 
       <div className={`responsive-grid ${editingFile ? 'showing-content' : 'showing-list'} ${!editingFile ? 'responsive-grid-auto' : ''}`}>
-        <div className="launchagent-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+        <div className="launchagent-sidebar card glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', overflow: 'hidden', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           <h2 style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', marginBottom: '1rem', fontWeight: 600 }}>~/Library/LaunchAgents</h2>
 
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', paddingRight: '0.2rem' }}>
@@ -286,7 +292,7 @@ export default function LaunchAgentDashboard() {
                   borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  background: editingFile?.name === plist.name ? 'var(--color-primary-light)' : 'rgba(255,255,255,0.4)',
+                  background: editingFile?.name === plist.name ? 'var(--color-primary-light)' : 'var(--color-surface-bg)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.5rem',
@@ -323,10 +329,10 @@ export default function LaunchAgentDashboard() {
           </div>
         </div>
 
-        <div className="launchagent-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', padding: 0, overflow: 'hidden' }}>
+        <div className="launchagent-content card glass-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', padding: 0, overflow: 'hidden' }}>
           {editingFile ? (
             <>
-              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'rgba(255,255,255,0.3)' }}>
+              <div className="flex-between" style={{ padding: '1rem', borderBottom: '1px solid var(--color-surface-border)', background: 'var(--color-surface-bg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                   <button className="btn btn-ghost mobile-only" onClick={() => setEditingFile(null)}><ChevronLeft size={20} /></button>
                   <input
@@ -357,8 +363,8 @@ export default function LaunchAgentDashboard() {
               {analysisResult && (
                 <div className="ai-output-block" style={{
                   padding: 0,
-                  background: 'rgba(59, 130, 246, 0.03)',
-                  borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+                  background: 'var(--color-primary-light)',
+                  borderBottom: '1px solid var(--color-surface-border)',
                   maxHeight: '300px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -372,7 +378,7 @@ export default function LaunchAgentDashboard() {
                     color: 'var(--color-primary)',
                     position: 'sticky',
                     top: 0,
-                    background: 'rgba(240, 247, 255, 0.95)',
+                    background: 'var(--color-surface-bg)',
                     backdropFilter: 'blur(8px)',
                     zIndex: 5
                   }}>
@@ -380,7 +386,7 @@ export default function LaunchAgentDashboard() {
                     <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{t.launchagent.aiExplainTitle}</span>
                     <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--color-text-muted)' }}><X size={14} /></button>
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem', overflowY: 'auto' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.6, padding: '1rem', overflowY: 'auto' }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
                     {analysisResult.includes(t.common.errors.aiConfigMissing) && (
                       <div style={{ marginTop: '0.75rem' }}>
@@ -399,7 +405,7 @@ export default function LaunchAgentDashboard() {
                 spellCheck={false}
               />
 
-              <div style={{ padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.02)', borderTop: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '0.5rem 1rem', background: 'var(--color-surface-bg)', borderTop: '1px solid var(--color-surface-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="save-status" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', visibility: saveStatus ? 'visible' : 'hidden' }}>
                   {saveStatus}
                 </span>
@@ -409,9 +415,9 @@ export default function LaunchAgentDashboard() {
               </div>
             </>
           ) : (
-            <div className="flex-center" style={{ flex: 1, flexDirection: 'column', color: 'var(--color-text-muted)' }}>
-              <Rocket size={64} strokeWidth={1} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-              <p>{t.common.loading.replace('...', '')}</p>
+            <div className="flex-center" style={{ flex: 1, flexDirection: 'column', color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem' }}>
+              <Rocket size={64} strokeWidth={1} style={{ opacity: 0.1, marginBottom: '1.5rem' }} />
+              <p style={{ fontSize: '0.9rem', maxWidth: '300px' }}>{t.launchagent.selectConfig}</p>
             </div>
           )}
         </div>
@@ -421,7 +427,7 @@ export default function LaunchAgentDashboard() {
         <div className="modal-overlay" onClick={() => setModalError(null)}>
           <div className="card glass-panel modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%' }}>
             <h3 style={{ margin: 0, color: 'var(--color-danger)', marginBottom: '1rem' }}>⚠️ {modalError.title}</h3>
-            <pre style={{ background: '#f8fafc', padding: '1rem', borderRadius: '4px', fontSize: '0.8rem', whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
+            <pre style={{ background: 'var(--color-surface-bg)', padding: '1rem', borderRadius: '4px', fontSize: '0.8rem', whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--color-surface-border)' }}>
               {modalError.content}
             </pre>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
@@ -460,7 +466,7 @@ export default function LaunchAgentDashboard() {
             overflow-x: hidden !important;
           }
         }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); display: flex; alignItems: center; justifyContent: center; zIndex: 1000; padding: 1rem; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
       `}</style>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -15,7 +15,7 @@ interface NginxSite {
 }
 
 export default function NginxDashboard() {
-  const { t, language, effectiveLang } = useLanguage();
+  const { t } = useLanguage();
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -57,13 +57,15 @@ export default function NginxDashboard() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const aiCacheRef = useRef<Record<string, string>>({});
 
-  const scrollLogsToBottom = () => {
+  const refreshInterval = 5000;
+  const scrollLogsToBottom = useCallback(() => {
     if (logTextareaRef.current) {
       logTextareaRef.current.scrollTop = logTextareaRef.current.scrollHeight;
     }
-  };
+  }, []);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch('/api/nginx/action', {
         method: 'POST',
@@ -74,36 +76,35 @@ export default function NginxDashboard() {
       if (data.success) {
         setIsRunning(data.running);
         setPids(data.pids || []);
-        if (data.binPath) setBinPath(data.binPath);
+        setBinPath(data.binPath || '');
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setIsRunning(false);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchLogs = async (type: 'error' | 'access' = logType) => {
+  const fetchLogs = useCallback(async () => {
     setLogLoading(true);
     try {
-      const res = await fetch(`/api/nginx/logs?type=${type}&lines=100`);
+      const res = await fetch(`/api/nginx/logs?type=${logType}&limit=1000`);
       const data = await res.json();
       if (data.success) {
-        setNginxLogs(data.logs);
-        // Scroll after state update
+        setNginxLogs(data.data);
         setTimeout(scrollLogsToBottom, 100);
       } else {
         const errorMsg = (t.common.errors as any)[data.error] || data.details || data.error;
         setNginxLogs(`Error: ${errorMsg}`);
       }
-    } catch (e) {
+    } catch {
       setNginxLogs('Failed to fetch logs');
     } finally {
       setLogLoading(false);
     }
-  };
+  }, [logType, t.common.errors, scrollLogsToBottom]);
 
-  const fetchSites = async () => {
+  const fetchSites = useCallback(async () => {
     try {
       const res = await fetch('/api/nginx/sites');
       const data = await res.json();
@@ -112,26 +113,24 @@ export default function NginxDashboard() {
         if (data.dir) setSitesDir(data.dir);
         if (data.hasMainConfig) setHasMainConfig(true);
       }
-    } catch (e) {
-      console.error('获取站点列表失败', e);
+    } catch {
+      // ignore
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStatus();
     fetchSites();
-    fetchLogs();
-    const interval = setInterval(() => {
-      fetchStatus();
-      fetchLogs();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchStatus, fetchSites]);
 
   useEffect(() => {
     fetchLogs();
-    setLogAnalysisResult(''); // Type change, clear analysis
-  }, [logType]);
+  }, [fetchLogs]);
+
+  useEffect(() => {
+    const timer = setInterval(fetchLogs, refreshInterval);
+    return () => clearInterval(timer);
+  }, [fetchLogs, refreshInterval]);
 
   useEffect(() => {
     setAnalysisResult('');
@@ -452,7 +451,7 @@ export default function NginxDashboard() {
   if (loading && isRunning === null) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
-    <div className="grid">
+    <div className="grid no-scrollbar" style={{ overflowY: 'hidden', height: 'calc(100vh - 24px)', display: 'flex', flexDirection: 'column' }}>
       {toast && (
         <div style={{
           position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
@@ -465,7 +464,7 @@ export default function NginxDashboard() {
           {toast.message}
         </div>
       )}
-      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Server size={24} color="var(--color-primary)" />
@@ -477,7 +476,7 @@ export default function NginxDashboard() {
             <div className="desktop-only" style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 500 }}>{t.nginx.binPath}:</span>
               <code style={{
-                background: 'rgba(255, 255, 255, 0.4)',
+                background: 'var(--color-surface-bg)',
                 padding: '0.15rem 0.5rem',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--color-surface-border)',
@@ -495,10 +494,10 @@ export default function NginxDashboard() {
         </div>
       </div>
 
-      <div className="responsive-grid responsive-grid-2">
+      <div className="responsive-grid responsive-grid-2" style={{ flexShrink: 0, marginBottom: '0.4rem' }}>
         {/* Left column: Process & Control */}
-        <div className="card glass-panel flex-column" style={{ height: '100%', minHeight: '340px' }}>
-          <div className="flex-between" style={{ marginBottom: '1rem' }}>
+        <div className="card glass-panel flex-column" style={{ height: '220px' }}>
+          <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>{t.nginx.controlPanel}</h3>
             <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
               {t.nginx.pids}: <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{isRunning ? (pids.length > 0 ? pids.join(', ') : t.common.unknown) : t.common.none}</span>
@@ -541,7 +540,7 @@ export default function NginxDashboard() {
             </div>
 
             <button
-              className="btn btn-ghost" style={{ width: '100%', border: '1px solid #e2e8f0' }}
+              className="btn btn-ghost" style={{ width: '100%', border: '1px solid var(--color-surface-border)' }}
               onClick={() => handleAction('test')}
               disabled={actionLoading === 'test'}
             >
@@ -551,7 +550,7 @@ export default function NginxDashboard() {
 
           {testResult && (
             <div style={{
-              marginTop: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
+              marginTop: '1rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
               fontFamily: 'monospace', color: testResult.includes('failed') || testResult.includes('失败') ? 'var(--color-danger)' : 'var(--color-success)',
               whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.75rem',
               border: '1px solid var(--color-surface-border)', maxHeight: '120px', overflowY: 'auto', flex: 1
@@ -564,25 +563,25 @@ export default function NginxDashboard() {
         </div>
 
         {/* Right column: Log Viewer */}
-        <div className="card glass-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <div className="flex-between" style={{ marginBottom: '1rem' }}>
+        <div className="card glass-panel" style={{ height: '220px', display: 'flex', flexDirection: 'column' }}>
+          <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>{t.nginx.logsTitle}</h3>
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={handleAnalyzeLogs}
                 disabled={isLogAnalyzing || !nginxLogs}
-                style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.05)', fontSize: '0.7rem' }}
+                style={{ color: 'var(--color-success)', background: 'var(--color-primary-light)', fontSize: '0.7rem' }}
               >
                 <Sparkles size={12} style={{ marginRight: '0.3rem' }} />
                 {t.nginx.aiAnalyzeLogs}
               </button>
-              <div className="tabs" style={{ background: '#f1f5f9', padding: '0.2rem', borderRadius: 'var(--radius-md)', display: 'flex', gap: '0.2rem' }}>
+              <div className="tabs" style={{ background: 'var(--color-surface-bg)', padding: '0.2rem', borderRadius: 'var(--radius-md)', display: 'flex', gap: '0.2rem', border: '1px solid var(--color-surface-border)' }}>
                 <button
                   onClick={() => setLogType('error')}
                   style={{
                     padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: 'var(--radius-sm)',
-                    backgroundColor: logType === 'error' ? 'white' : 'transparent',
+                    backgroundColor: logType === 'error' ? 'var(--color-bg)' : 'transparent',
                     color: logType === 'error' ? 'var(--color-primary)' : 'var(--color-text-muted)',
                     border: 'none', cursor: 'pointer'
                   }}
@@ -593,7 +592,7 @@ export default function NginxDashboard() {
                   onClick={() => setLogType('access')}
                   style={{
                     padding: '0.3rem 0.6rem', fontSize: '0.7rem', borderRadius: 'var(--radius-sm)',
-                    backgroundColor: logType === 'access' ? 'white' : 'transparent',
+                    backgroundColor: logType === 'access' ? 'var(--color-bg)' : 'transparent',
                     color: logType === 'access' ? 'var(--color-primary)' : 'var(--color-text-muted)',
                     border: 'none', cursor: 'pointer'
                   }}
@@ -603,11 +602,11 @@ export default function NginxDashboard() {
               </div>
             </div>
           </div>
-          <div style={{ position: 'relative', flex: 1, minHeight: '180px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {logAnalysisResult && (
               <div className="ai-output-block" style={{
-                padding: '0.75rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: 'var(--radius-sm)',
-                border: '1px solid rgba(16, 185, 129, 0.1)', maxHeight: '150px', overflowY: 'auto'
+                padding: '0.75rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--color-surface-border)', maxHeight: '100px', overflowY: 'auto', marginBottom: '0.5rem'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', color: 'var(--color-success)', fontWeight: 600, fontSize: '0.75rem' }}>
                   <Brain size={14} /> {t.nginx.logAnalysisResult}
@@ -629,9 +628,9 @@ export default function NginxDashboard() {
                 readOnly
                 value={nginxLogs}
                 style={{
-                  width: '100%', height: '100%', background: '#f8fafc', color: '#334155',
+                  width: '100%', height: '100%', background: 'var(--color-surface-bg)', color: 'var(--color-text)',
                   padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontFamily: 'monospace',
-                  fontSize: '0.75rem', resize: 'none', border: '1px solid #e2e8f0',
+                  fontSize: '0.75rem', resize: 'none', border: '1px solid var(--color-surface-border)',
                   whiteSpace: 'pre-wrap', overflowX: 'auto'
                 }}
               />
@@ -640,7 +639,7 @@ export default function NginxDashboard() {
                 className="btn btn-ghost"
                 style={{
                   position: 'absolute', bottom: '10px', right: '20px',
-                  backgroundColor: 'rgba(0,0,0,0.05)', color: 'var(--color-text)',
+                  backgroundColor: 'var(--color-surface-bg)', color: 'var(--color-text)',
                   padding: '0.4rem', borderRadius: '50%', minWidth: 'auto', width: '32px', height: '32px', zIndex: 10
                 }}
                 title={t.common.refresh}
@@ -652,10 +651,10 @@ export default function NginxDashboard() {
         </div>
       </div>
 
-      <div className={`responsive-grid ${editingSite ? 'responsive-grid-2' : ''}`} style={{ transition: 'all 0.3s', marginTop: '1rem' }}>
-        <div className="card glass-panel" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-          <div className="flex-between">
-            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>{t.nginx.siteManager} ({sitesDir})</h3>
+      <div className={`responsive-grid ${editingSite ? 'responsive-grid-2' : ''}`} style={{ transition: 'all 0.3s', marginTop: '0.5rem', flex: 1, minHeight: 0 }}>
+        <div className="card glass-panel" style={{ height: '100%', overflowY: 'auto' }}>
+          <div className="flex-between" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-bg)', zIndex: 10, padding: '1rem', margin: '-1rem -1rem 1rem -1rem', borderBottom: '1px solid var(--color-surface-border)' }}>
+            <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>{t.nginx.siteManager} ({sitesDir})</h3>
             <div style={{ display: 'flex', gap: '0.4rem' }}>
               {hasMainConfig && (
                 <button
@@ -675,9 +674,9 @@ export default function NginxDashboard() {
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, marginTop: '1rem' }}>
             {sites.map(site => (
               <li key={site.name} style={{
-                padding: '0.75rem', borderBottom: '1px solid rgba(0,0,0,0.05)',
+                padding: '0.75rem', borderBottom: '1px solid var(--color-surface-border)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                background: editingSite === site.name ? 'var(--color-primary-light)' : 'transparent',
+                background: editingSite === site.name ? 'var(--color-primary-light)' : 'var(--color-surface-bg)',
                 borderRadius: 'var(--radius-sm)'
               }}>
                 <div>
@@ -727,7 +726,7 @@ export default function NginxDashboard() {
                   className="btn btn-ghost btn-sm"
                   onClick={handleAiAnalyze}
                   disabled={siteLoading || isAiAnalyzing || !siteContent}
-                  style={{ color: 'var(--color-success)', background: 'rgba(16, 185, 129, 0.05)', height: '32px' }}
+                  style={{ color: 'var(--color-success)', background: 'var(--color-primary-light)', height: '32px' }}
                 >
                   <Sparkles size={14} style={{ marginRight: '0.4rem' }} className={isAiAnalyzing ? 'animate-pulse' : ''} />
                   {isAiAnalyzing ? t.common.analyzing : t.nginx.aiAudit}
@@ -736,7 +735,7 @@ export default function NginxDashboard() {
                   className="btn btn-ghost btn-sm"
                   onClick={() => setShowAiPanel(!showAiPanel)}
                   disabled={siteLoading || isAiEditing || !siteContent}
-                  style={{ color: 'var(--color-primary)', background: 'rgba(59, 130, 246, 0.05)', height: '32px' }}
+                  style={{ color: 'var(--color-primary)', background: 'var(--color-primary-light)', height: '32px' }}
                 >
                   <Wand2 size={14} style={{ marginRight: '0.4rem' }} />
                   {t.common.aiAdjust}
@@ -746,7 +745,7 @@ export default function NginxDashboard() {
             </div>
 
             {showAiPanel && (
-              <div style={{ marginBottom: '1rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(59, 130, 246, 0.1)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', animation: 'slideInDown 0.3s ease', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)' }}>
                   <Wand2 size={14} />
                   <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{t.nginx.aiEditAssistant}</span>
@@ -794,10 +793,10 @@ export default function NginxDashboard() {
                   color: 'var(--color-primary)',
                   position: 'sticky',
                   top: 0,
-                  background: 'rgba(240, 247, 255, 0.95)',
+                  background: 'var(--color-surface-bg)',
                   backdropFilter: 'blur(8px)',
                   zIndex: 5,
-                  borderBottom: '1px solid rgba(59, 130, 246, 0.05)'
+                  borderBottom: '1px solid var(--color-surface-border)'
                 }}>
                   <Brain size={16} />
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Nginx Config Audit</span>
@@ -816,7 +815,7 @@ export default function NginxDashboard() {
 
             <textarea
               className="input"
-              style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', resize: 'none', background: '#fafafa' }}
+              style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', resize: 'none', background: 'var(--color-surface-bg)', color: 'var(--color-text)', border: '1px solid var(--color-surface-border)', borderRadius: 'var(--radius-sm)' }}
               value={siteContent}
               onChange={(e) => setSiteContent(e.target.value)}
             />

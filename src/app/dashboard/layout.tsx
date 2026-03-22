@@ -4,42 +4,29 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import { Languages } from 'lucide-react';
+import GlobalTerminal from '@/components/GlobalTerminal';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { t, language, effectiveLang, setLanguage } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const { config, loading: settingsLoading } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [features, setFeatures] = useState<any>(null);
-  const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          if (data.data.features) {
-            setFeatures(data.data.features);
-          } else {
-            setFeatures({});
-          }
-          setVersion(data.data.version || '');
-        } else {
-          setFeatures({});
-        }
-        setMounted(true);
-      })
-      .catch(err => {
-        console.error('Load features failed', err);
-        setFeatures({});
-        setMounted(true);
-      });
-  }, []);
+    if (!settingsLoading) {
+      setMounted(true);
+    }
+  }, [settingsLoading]);
+
+  const features = config?.features || {};
+  const version = config?.version || '';
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -200,6 +187,7 @@ export default function DashboardLayout({
       <main className="app-main animate-fade-in">
         {children}
       </main>
+      <GlobalTerminal />
     </div>
   );
 }

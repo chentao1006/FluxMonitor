@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
@@ -65,7 +65,7 @@ export default function DockerDashboard() {
     setAnalysisResult('');
   }, [isLogsOpen]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       if (activeTab === 'containers') {
         const res = await fetch('/api/docker/containers');
@@ -90,19 +90,19 @@ export default function DockerDashboard() {
           setError(data.error || t.docker.fetchImagesFailed);
         }
       }
-    } catch (e) {
+    } catch {
       setError(t.common.networkError);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, t.common.errors.dockerNotRunning, t.common.networkError, t.docker.fetchContainersFailed, t.docker.fetchImagesFailed]);
 
   useEffect(() => {
     setLoading(true);
     fetchData();
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, [fetchData]);
 
   const handleAction = async (id: string, action: string) => {
     setActionLoading(`${id}-${action}`);
@@ -267,13 +267,13 @@ export default function DockerDashboard() {
   };
 
   return (
-    <div className="grid">
-      <div className="flex-between dashboard-page-header" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
-            <Box size={24} color="var(--color-primary)" />
+    <div className="grid no-scrollbar animate-fade-in" style={{ height: 'calc(100vh - 24px)', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.4rem', borderRadius: 'var(--radius-md)' }}>
+            <Box size={20} color="var(--color-primary)" />
           </div>
-          <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.docker.title}</h1>
+          <h1 className="card-title" style={{ fontSize: '1.25rem', margin: 0 }}>{t.docker.title}</h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -300,46 +300,42 @@ export default function DockerDashboard() {
       </div>
 
       {showAiInput && (
-        <div className="card glass-panel" style={{ marginBottom: '1rem', padding: '1.25rem', animation: 'slideInDown 0.3s ease', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
-            <Wand2 size={18} />
-            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{t.docker.aiOneClick}</span>
+        <div className="card glass-panel" style={{ marginBottom: '0.5rem', padding: '0.75rem', animation: 'slideInDown 0.3s ease', border: '1px solid rgba(59, 130, 246, 0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--color-primary)' }}>
+            <Wand2 size={16} />
+            <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{t.docker.aiOneClick}</span>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>{t.docker.aiDesc}</p>
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: generatedCmd ? '1rem' : 0 }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <input
-              className="input"
-              placeholder={t.docker.aiPlaceholder}
-              style={{ width: '100%', paddingRight: aiDemand ? '2.5rem' : '0.75rem' }}
-              value={aiDemand}
-              onChange={(e) => setAiDemand(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleGenerateCmd()}
-            />
-            {aiDemand && (
-              <button
-                onClick={() => setAiDemand('')}
-                style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-            <button className="btn btn-primary" onClick={handleGenerateCmd} disabled={isAiGenerating || !aiDemand.trim()}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: generatedCmd ? '0.5rem' : 0 }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input
+                className="input"
+                placeholder={t.docker.aiPlaceholder}
+                style={{ width: '100%', paddingLeft: '0.75rem', paddingRight: aiDemand ? '2.5rem' : '0.75rem', fontSize: '0.85rem' }}
+                value={aiDemand}
+                onChange={(e) => setAiDemand(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGenerateCmd()}
+              />
+              {aiDemand && (
+                <button
+                  onClick={() => setAiDemand('')}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center' }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <button className="btn btn-primary" style={{ padding: '0 1rem', height: '36px' }} onClick={handleGenerateCmd} disabled={isAiGenerating || !aiDemand.trim()}>
               {isAiGenerating ? t.docker.generating : t.docker.generateCmd}
             </button>
           </div>
           {generatedCmd && (
-            <div style={{ marginTop: '1rem', background: '#f8fafc', padding: '1.25rem', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', fontSize: '0.65rem', color: '#64748b', fontWeight: 600 }}>GENERATED COMMAND</div>
-              <code style={{ color: 'var(--color-primary)', fontSize: '0.85rem', fontFamily: 'monospace' }}>{generatedCmd}</code>
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  style={{ color: 'var(--color-text-header)', border: '1px solid rgba(0,0,0,0.1)' }}
-                  onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
-                >{t.docker.copy}</button>
-              </div>
+            <div style={{ marginTop: '0.5rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', position: 'relative' }}>
+              <code style={{ color: 'var(--color-primary)', fontSize: '0.8rem', fontFamily: 'monospace' }}>{generatedCmd}</code>
+              <button
+                className="btn btn-sm btn-ghost"
+                style={{ marginLeft: '1rem', border: '1px solid rgba(0,0,0,0.1)', height: '24px', padding: '0 0.5rem', fontSize: '0.7rem' }}
+                onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
+              >{t.docker.copy}</button>
             </div>
           )}
         </div>
@@ -351,44 +347,43 @@ export default function DockerDashboard() {
         </div>
       )}
 
-      <div className="tab-scroll-container no-scrollbar" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--color-surface-border)', overflowX: 'auto', paddingBottom: '2px' }}>
-        <button
-          className={`btn ${activeTab === 'containers' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setActiveTab('containers')}
-          style={{ borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
-        >
-          <Server size={18} /> {t.docker.containers}
-        </button>
-        <button
-          className={`btn ${activeTab === 'images' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setActiveTab('images')}
-          style={{ borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
-        >
-          <HardDrive size={18} /> {t.docker.images}
-        </button>
-      </div>
+      <div className="flex-between" style={{ marginBottom: '0.5rem', borderBottom: '1px solid var(--color-surface-border)', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="tab-scroll-container no-scrollbar" style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '2px' }}>
+          <button
+            className={`btn ${activeTab === 'containers' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setActiveTab('containers')}
+            style={{ borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+          >
+            <Server size={18} /> {t.docker.containers}
+          </button>
+          <button
+            className={`btn ${activeTab === 'images' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setActiveTab('images')}
+            style={{ borderRadius: '8px 8px 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+          >
+            <HardDrive size={18} /> {t.docker.images}
+          </button>
+        </div>
 
-      <div className="card glass-panel flex-between" style={{ alignItems: 'flex-start', padding: '1rem' }}>
-        <div>
-          <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-            {activeTab === 'containers' ? t.docker.totalContainers : t.docker.totalImages}
-          </h3>
-          <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-            {activeTab === 'containers' ? containers.length : images.length}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', paddingRight: '1rem' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>{activeTab === 'containers' ? t.docker.totalContainers : t.docker.totalImages}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{activeTab === 'containers' ? containers.length : images.length}</div>
           </div>
           {activeTab === 'containers' && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-              {t.docker.running}: {containers.filter(c => c.Status.includes('Up')).length}
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: 'var(--color-success)', fontSize: '0.75rem' }}>{t.docker.running}</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{containers.filter(c => c.Status?.includes('Up')).length}</div>
             </div>
           )}
-        </div>
-        <div className={`badge ${!error ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem' }}>
-          {!error ? t.docker.healthy : t.docker.errorStatus}
+          <div className={`badge ${!error ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.7rem' }}>
+            {!error ? t.docker.healthy : t.docker.errorStatus}
+          </div>
         </div>
       </div>
 
-      <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="docker-table-container">
+      <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div className="docker-table-container" style={{ flex: 1, overflowY: 'auto' }}>
           {activeTab === 'containers' ? (
             <table className="docker-table">
               <thead>
@@ -590,7 +585,7 @@ export default function DockerDashboard() {
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.docker.aiContainerDiagnosis}</span>
                   <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem 1.25rem', overflowY: 'auto' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.6, padding: '1rem 1.25rem', overflowY: 'auto' }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
                   {analysisResult.includes(t.common.errors.aiConfigMissing) && (
                     <div style={{ marginTop: '0.75rem' }}>
@@ -603,10 +598,10 @@ export default function DockerDashboard() {
             <div
               ref={logRef}
               style={{
-                flex: 1, backgroundColor: '#ffffff', color: '#1e293b',
                 fontFamily: 'monospace', padding: '1rem', overflowY: 'auto',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.85rem',
                 lineHeight: '1.6', border: '1px solid var(--color-surface-border)',
+                background: 'var(--color-surface-bg)', color: 'var(--color-text)',
                 borderRadius: '0 0 var(--radius-sm) var(--radius-sm)'
               }}
             >
@@ -639,6 +634,13 @@ export default function DockerDashboard() {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        .docker-table th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: var(--color-bg);
+          box-shadow: inset 0 -1px 0 var(--color-surface-border);
         }
         .docker-table td.col-status {
           overflow: visible;

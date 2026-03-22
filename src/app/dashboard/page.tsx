@@ -1,19 +1,17 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useSettings } from '@/lib/SettingsContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Camera, X, Maximize2, Download, Activity, Sparkles, Brain, Square } from 'lucide-react';
+import { Camera, X, Download, Activity, Layers } from 'lucide-react';
 
 export default function DashboardOverview() {
   const { t } = useLanguage();
+  const { config: settingsConfig } = useSettings();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stats, setStats] = useState<any>(null);
-  const [cmd, setCmd] = useState('');
-  const [cmdResult, setCmdResult] = useState('');
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [history, setHistory] = useState<any[]>(() => {
@@ -30,34 +28,19 @@ export default function DashboardOverview() {
     });
   });
   const [prevNetBytes, setPrevNetBytes] = useState<{ in: number, out: number } | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const [isExecuting, setIsExecuting] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const aiCacheRef = useRef<Record<string, string>>({});
 
-  const quickCommands = [
-    { label: t.monitor.quickCmds.ls, cmd: 'ls -FhG' },
-    { label: t.monitor.quickCmds.df, cmd: 'df -h' },
-    { label: t.monitor.quickCmds.memSort, cmd: 'ps -e -o pmem,comm | sort -rn | head -n 10' },
-    { label: t.monitor.quickCmds.cpuSort, cmd: 'ps -e -o pcpu,comm | sort -rn | head -n 10' },
-    { label: t.monitor.quickCmds.ip, cmd: 'ifconfig | grep "inet " | grep -v 127.0.0.1' },
-    { label: t.monitor.quickCmds.ports, cmd: 'lsof -i -P | grep LISTEN' },
-    { label: t.monitor.quickCmds.uptime, cmd: 'uptime' },
-    { label: t.monitor.quickCmds.brew, cmd: 'brew list --versions' },
-    { label: t.monitor.quickCmds.vers, cmd: 'sw_vers' },
-    { label: t.monitor.quickCmds.procCount, cmd: 'ps aux | wc -l' },
-    { label: t.monitor.quickCmds.space, cmd: 'du -sh ~/* | sort -rh | head -n 5' },
-    { label: t.monitor.quickCmds.downloads, cmd: 'ls -lt ~/Downloads | head -n 5' },
-    { label: t.monitor.quickCmds.arch, cmd: 'uname -m' },
-    { label: t.monitor.quickCmds.who, cmd: 'who' },
-    { label: t.monitor.quickCmds.dns, cmd: 'cat /etc/resolv.conf' },
-  ];
+  // Summary stats states
+  const [dockerSummary, setDockerSummary] = useState({ running: 0, total: 0 });
+  const [nginxSummary, setNginxSummary] = useState({ active: 0, total: 0 });
+  const [procSummary, setProcSummary] = useState({ total: 0, topName: '', topCpu: '' });
+  const [agentSummary, setAgentSummary] = useState({ loaded: 0, total: 0 });
+  const [logSummary, setLogSummary] = useState({ total: 0, lastFile: '', lastTime: '' });
+  const [configSummary, setConfigSummary] = useState({ total: 0, sysCount: 0, userCount: 0 });
+  
+  const features = settingsConfig?.features || {};
 
   const takeScreenshot = async () => {
     setScreenshotLoading(true);
@@ -128,157 +111,91 @@ export default function DashboardOverview() {
     }
   };
 
+  const fetchAllSummaries = async () => {
+    try {
+      // Docker
+      const resDocker = await fetch('/api/docker/containers');
+      const dataDocker = await resDocker.json();
+      if (dataDocker.success) {
+        setDockerSummary({
+          running: (dataDocker.data as { State: string }[]).filter((c) => c.State === 'running').length,
+          total: dataDocker.data.length
+        });
+      }
+
+      // Nginx
+      const resNginx = await fetch('/api/nginx/sites');
+      const dataNginx = await resNginx.json();
+      if (dataNginx.success) {
+        setNginxSummary({
+          active: (dataNginx.data as { status: string }[]).filter((s) => s.status === 'enabled').length,
+          total: dataNginx.data.length
+        });
+      }
+
+      // Processes
+      const resProc = await fetch('/api/system/processes?sort=cpu');
+      const dataProc = await resProc.json();
+      if (dataProc.success && dataProc.data.length > 0) {
+        const top = dataProc.data[0];
+        setProcSummary({ 
+          total: dataProc.data.length,
+          topName: top.command,
+          topCpu: `${top.cpu}%`
+        });
+      }
+
+      // LaunchAgents
+      const resAgent = await fetch('/api/launchagent/list');
+      const dataAgent = await resAgent.json();
+      if (dataAgent.success) {
+        setAgentSummary({
+          loaded: (dataAgent.data as { isLoaded: boolean }[]).filter((a) => a.isLoaded).length,
+          total: dataAgent.data.length
+        });
+      }
+
+      // Logs
+      const resLog = await fetch('/api/logs');
+      const dataLog = await resLog.json();
+      if (dataLog.success && dataLog.data.length > 0) {
+        const sorted = [...dataLog.data].sort((a, b: any) => b.mtime - a.mtime);
+        const last = sorted[0];
+        setLogSummary({ 
+          total: dataLog.data.length,
+          lastFile: last.name,
+          lastTime: last.mtime
+        });
+      }
+
+      // Configs
+      const resConfig = await fetch('/api/configs');
+      const dataConfig = await resConfig.json();
+      if (dataConfig.success && dataConfig.data.length > 0) {
+        const sysCount = (dataConfig.data as { type: string }[]).filter(c => c.type === 'system').length;
+        const userCount = dataConfig.data.length - sysCount;
+        setConfigSummary({ 
+          total: dataConfig.data.length,
+          sysCount,
+          userCount
+        });
+      }
+
+      // Features are now handled by SettingsContext
+    } catch (e) {
+      console.error('Fetch summaries failed', e);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 5000);
+    fetchAllSummaries();
+    const interval = setInterval(() => {
+      fetchStats();
+      fetchAllSummaries();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [cmdResult]);
-
-  const stopCommand = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setIsExecuting(false);
-  };
-
-  const executeCommand = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isExecuting || !cmd) return;
-
-    setIsExecuting(true);
-    setCmdResult('');
-    setAnalysisResult('');
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    try {
-      const response = await fetch('/api/system/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd }),
-        signal: controller.signal
-      });
-
-      if (!response.body) {
-        setIsExecuting(false);
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          if (value) {
-            const chunk = decoder.decode(value);
-            setCmdResult(prev => prev + chunk);
-          }
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          setCmdResult(prev => prev + '\n[Stopped: Interrupted]\n');
-        } else {
-          throw err;
-        }
-      } finally {
-        reader.releaseLock();
-      }
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
-        setCmdResult(prev => prev + `\n[Error]: ${t.common.networkError} (${e.message})`);
-      }
-    } finally {
-      setIsExecuting(false);
-      abortControllerRef.current = null;
-    }
-  };
-
-  const translateAICommand = async () => {
-    if (!cmd) return;
-    setAiLoading(true);
-    setCmdResult(t.monitor.aiTranslating);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.monitor.aiTranslatePrompt.replace('{demand}', cmd)
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCmd(data.data);
-        setCmdResult(t.monitor.aiTranslateDone);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        const msg = `${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`;
-        setCmdResult(msg);
-      } else {
-        setCmdResult(`${t.monitor.aiTranslateFailed}: ${data.error || data.details}`);
-      }
-    } catch {
-      setCmdResult(t.common.networkError);
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setAnalysisResult('');
-  }, [cmdResult]);
-
-  const analyzeOutput = async () => {
-    if (!cmdResult || cmdResult === 'Executing...' || cmdResult.includes('AI is translating')) return;
-
-    if (analysisResult) {
-      setAnalysisResult('');
-      return;
-    }
-
-    if (aiCacheRef.current[cmdResult]) {
-      setAnalysisResult(aiCacheRef.current[cmdResult]);
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setAnalysisResult(`${t.common.analyzing}... 🪄`);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.monitor.aiAnalyzeOutputPrompt.replace('{lang}', t.common.systemDefault).replace('{output}', cmdResult.slice(-4000)),
-          systemPrompt: 'You are an expert system administrator.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cmdResult] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setAnalysisResult(`${t.monitor.aiAnalyzeFailed}: ${data.error}`);
-      }
-    } catch (e) {
-      setAnalysisResult(t.common.networkError);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   if (loading && !stats) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
@@ -307,7 +224,7 @@ export default function DashboardOverview() {
           className="screenshot-modal-overlay"
           onClick={() => setShowScreenshot(false)}
           style={{
-            position: 'fixed', inset: 0, backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.4)',
             backdropFilter: 'blur(12px)', zIndex: 1000, display: 'flex',
             alignItems: 'flex-start', justifyContent: 'center', padding: '4rem 1rem 1rem 1rem',
             animation: 'fadeIn 0.3s ease'
@@ -348,7 +265,7 @@ export default function DashboardOverview() {
             </div>
             <div style={{
               overflow: 'auto', borderRadius: 'var(--radius-md)',
-              background: '#f1f5f9', display: 'flex', justifyContent: 'center', flex: 1
+              background: 'var(--color-bg)', display: 'flex', justifyContent: 'center', flex: 1
             }}>
               <img
                 src={screenshot}
@@ -359,6 +276,7 @@ export default function DashboardOverview() {
           </div>
         </div>
       )}
+
 
       <div className="responsive-grid responsive-grid-2">
         <div className="card glass-panel chart-card" style={{ padding: '1rem', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
@@ -380,11 +298,13 @@ export default function DashboardOverview() {
                     <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-border)" />
                 <XAxis dataKey="time" hide />
                 <YAxis domain={[0, 100]} stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
-                  contentStyle={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', borderRadius: '8px', border: '1px solid var(--color-surface-border)' }}
+                  contentStyle={{ background: 'var(--color-surface-bg)', backdropFilter: 'blur(10px)', borderRadius: '8px', border: '1px solid var(--color-surface-border)' }}
+                  itemStyle={{ color: 'var(--color-text)' }}
+                  labelStyle={{ color: 'var(--color-text)' }}
                 />
                 <Area type="monotone" dataKey="cpu" name="CPU (%)" stroke="var(--color-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
               </AreaChart>
@@ -411,7 +331,7 @@ export default function DashboardOverview() {
                     <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-border)" />
                 <XAxis dataKey="time" hide />
                 <YAxis domain={[0, 100]} stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
@@ -449,7 +369,7 @@ export default function DashboardOverview() {
                     <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-border)" />
                 <XAxis dataKey="time" hide />
                 <YAxis domain={['auto', 'auto']} stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.9)' }} />
@@ -482,105 +402,152 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      <div className="grid">
-        <div className="card glass-panel terminal-section" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', minHeight: '550px', maxWidth: '100%', overflow: 'hidden' }}>
-          <div className="flex-between" style={{ marginBottom: '1.25rem' }}>
-            <h2 className="card-title" style={{ margin: 0 }}>{t.monitor.terminalTitle}</h2>
-          </div>
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            {quickCommands.map((q, i) => (
-              <button key={i} type="button" className="btn btn-ghost btn-sm" onClick={() => setCmd(q.cmd)} style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', background: 'rgba(59, 130, 246, 0.05)', color: 'var(--color-primary)' }}>
-                {q.label}
-              </button>
-            ))}
-          </div>
-          <form onSubmit={executeCommand} className="command-form" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <input type="text" className="input terminal-input" placeholder={t.monitor.terminalHint} value={cmd} onChange={e => setCmd(e.target.value)} disabled={isExecuting} style={{ width: '100%', fontFamily: 'monospace', paddingRight: cmd ? '2.5rem' : '0.75rem' }} />
-              {cmd && !isExecuting && (
-                <button
-                  type="button"
-                  onClick={() => setCmd('')}
-                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {isExecuting ? (
-              <button type="button" className="btn btn-danger" onClick={(e) => stopCommand(e)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Square size={16} fill="white" /> {t.common.stop}
-              </button>
-            ) : (
-              <button type="submit" className="btn btn-primary">{t.common.run}</button>
-            )}
-            <button type="button" className="btn" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }} onClick={translateAICommand} disabled={aiLoading || !cmd || isExecuting}>
-              <Sparkles size={16} className={aiLoading ? 'animate-pulse' : ''} />
-              {aiLoading ? t.monitor.translating : t.monitor.aiTranslate}
-            </button>
-            {cmdResult && !isExecuting && !aiLoading && (
-              <button
-                type="button"
-                className="btn"
-                onClick={analyzeOutput}
-                disabled={isAnalyzing}
-                style={{
-                  background: 'white',
-                  border: '1px solid var(--color-primary)',
-                  color: 'var(--color-primary)',
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Sparkles size={14} className={isAnalyzing ? 'animate-pulse' : ''} />
-                {isAnalyzing ? t.common.analyzing : t.monitor.aiAnalyzeBtn}
-              </button>
-            )}
-          </form>
-          {analysisResult && (
-            <div className="ai-output-block" style={{ marginBottom: '1.25rem', background: 'rgba(59, 130, 246, 0.03)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(59, 130, 246, 0.1)', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', color: 'var(--color-primary)', background: 'rgba(240, 247, 255, 0.95)', backdropFilter: 'blur(8px)', zIndex: 5, borderBottom: '1px solid rgba(59, 130, 246, 0.05)' }}>
-                <Brain size={18} /> <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.monitor.aiAdvice}</span>
-                <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>&times;</button>
+      {/* Summary Cards Row */}
+      <div className="responsive-grid responsive-grid-3" style={{ marginBottom: '1.5rem' }}>
+        {features?.processes !== false && (
+          <Link href="/dashboard/processes" style={{ textDecoration: 'none', display: 'block' }}>
+            <div className="stat-card glass-panel">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <Layers size={20} />
+                </div>
+                <div className="stat-card-label">{t.sidebar.processes}</div>
               </div>
-              <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', maxHeight: '350px', overflowY: 'auto' }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
-                {analysisResult.includes(t.common.errors.aiConfigMissing) && (
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
-                  </div>
-                )}
+              <div className="stat-card-value-container">
+                <div className="stat-card-value" style={{ fontSize: procSummary.topName ? '1.4rem' : '1.85rem' }}>
+                  {procSummary.topName || procSummary.total}
+                </div>
+                <div className="stat-card-unit" style={{ color: 'var(--color-primary)' }}>
+                  {procSummary.topCpu}
+                </div>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '-8px' }}>
+                {procSummary.total} {t.monitor.processes}
               </div>
             </div>
-          )}
-          <div ref={terminalRef} className="terminal-output" style={{ flex: 1, background: '#ffffff', color: '#1e293b', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', padding: '1.25rem', overflowY: 'auto', fontFamily: 'monospace', whiteSpace: 'pre-wrap', fontSize: '0.85rem', minHeight: '400px', position: 'relative' }}>
-            {cmdResult || <span style={{ color: '#94a3b8' }}>{t.monitor.waiting}</span>}
-            {cmdResult.includes(t.common.errors.aiConfigMissing) && (
-              <div style={{ marginTop: '1rem' }}>
-                <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+          </Link>
+        )}
+
+        {features?.logs !== false && (
+          <Link href="/dashboard/logs" style={{ textDecoration: 'none', display: 'block' }}>
+            <div className="stat-card glass-panel">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                </div>
+                <div className="stat-card-label">{t.sidebar.logs}</div>
               </div>
-            )}
-          </div>
-        </div>
+              <div className="stat-card-value-container">
+                <div className="stat-card-value" style={{ fontSize: '1.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {logSummary.lastFile || t.common.none}
+                </div>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '-8px' }}>
+                {logSummary.total} {t.sidebar.logs}
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {features?.configs !== false && (
+          <Link href="/dashboard/configs" style={{ textDecoration: 'none', display: 'block' }}>
+            <div className="stat-card glass-panel">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                  </svg>
+                </div>
+                <div className="stat-card-label">{t.sidebar.configs}</div>
+              </div>
+              <div className="stat-card-value-container">
+                <div className="stat-card-value" style={{ fontSize: '1.6rem' }}>
+                  {configSummary.sysCount} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>Sys</span>
+                  <span style={{ margin: '0 8px', color: 'var(--color-surface-border)' }}>|</span>
+                  {configSummary.userCount} <span style={{ fontSize: '1rem', color: 'var(--color-text-muted)', fontWeight: 400 }}>User</span>
+                </div>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '-8px' }}>
+                {configSummary.total} {t.sidebar.configs}
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {features?.launchagent !== false && (
+          <Link href="/dashboard/launchagent" style={{ textDecoration: 'none', display: 'block' }}>
+            <div className="stat-card glass-panel">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" /><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" /><path d="M9 12H4s.55-3.03 2-5a2 2 0 0 1 3-1" /><path d="M12 15v5s3.03-.55 5-2a2 2 0 0 0 1-3" />
+                  </svg>
+                </div>
+                <div className="stat-card-label">{t.sidebar.launchagent}</div>
+              </div>
+              <div className="stat-card-value-container">
+                <div className="stat-card-value">
+                  {agentSummary.loaded} <span className="stat-card-value-total">/ {agentSummary.total}</span>
+                </div>
+                <div className="stat-card-unit">{t.launchagent.totalAgents}</div>
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {features?.docker !== false && (
+          <Link href="/dashboard/docker" style={{ textDecoration: 'none', display: 'block' }}>
+            <div className="stat-card glass-panel">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  </svg>
+                </div>
+                <div className="stat-card-label">{t.sidebar.docker}</div>
+              </div>
+              <div className="stat-card-value-container">
+                <div className="stat-card-value">
+                  {dockerSummary.running} <span className="stat-card-value-total">/ {dockerSummary.total}</span>
+                </div>
+                <div className="stat-card-unit">{t.docker.running}</div>
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {features?.nginx !== false && (
+          <Link href="/dashboard/nginx" style={{ textDecoration: 'none', display: 'block' }}>
+            <div className="stat-card glass-panel">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line>
+                  </svg>
+                </div>
+                <div className="stat-card-label">{t.sidebar.nginx}</div>
+              </div>
+              <div className="stat-card-value-container">
+                <div className="stat-card-value">
+                  {nginxSummary.active} <span className="stat-card-value-total">/ {nginxSummary.total}</span>
+                </div>
+                <div className="stat-card-unit">{t.nginx.activeSites}</div>
+              </div>
+            </div>
+          </Link>
+        )}
       </div>
     </div>
   );
 }
 
-function StatRow({ label, value, color, small }: { label: string, value: any, color?: string, small?: boolean }) {
+function StatRow({ label, value, color, small }: { label: string; value: string; color?: string; small?: boolean }) {
   return (
-    <div className="flex-between" style={{ borderBottom: '1px solid rgba(0,0,0,0.03)', paddingBottom: '0.3rem' }}>
-      <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', margin: 0 }}>{label}</h3>
-      <div style={{ fontSize: small ? '0.7rem' : '0.85rem', fontWeight: 600, color: color || 'inherit', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }}>
-        {value || 'N/A'}
-      </div>
+    <div className="flex-between" style={{ padding: '0.2rem 0' }}>
+      <span style={{ fontSize: small ? '0.7rem' : '0.8rem', color: 'var(--color-text-muted)' }}>{label}</span>
+      <span style={{ fontSize: small ? '0.7rem' : '0.85rem', fontWeight: 600, color: color || 'var(--color-text)' }}>{value || 'N/A'}</span>
     </div>
   );
 }

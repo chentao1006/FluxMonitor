@@ -4,7 +4,7 @@ import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import {
   Search,
@@ -32,8 +32,8 @@ interface Process {
 }
 
 export default function ProcessManager() {
-  const { t, language, effectiveLang } = useLanguage();
-  const [processes, setProcesses] = useState<Process[]>([]);
+  const { t } = useLanguage();
+  const [processes, setProcesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<'cpu' | 'mem' | 'pid' | 'command' | 'user'>('cpu');
@@ -47,7 +47,7 @@ export default function ProcessManager() {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const fetchProcesses = async () => {
+  const fetchProcesses = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/system/processes?limit=1000&sort=${sortField === 'mem' ? 'mem' : 'cpu'}`);
@@ -60,7 +60,7 @@ export default function ProcessManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortField]);
 
   const fetchProcessDetail = async (pid: string) => {
     setLoadingDetail(true);
@@ -105,7 +105,7 @@ export default function ProcessManager() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: language === 'en' ? `Analyze this macOS process: ${prompt}. Answer in English.` : prompt,
+          prompt: `Analyze this macOS process: ${prompt}. Answer in English.`,
           systemPrompt: "You are a macOS system expert. Analyze the provided process information and provide a helpful diagnosis."
         }),
       });
@@ -126,7 +126,7 @@ export default function ProcessManager() {
 
   useEffect(() => {
     fetchProcesses();
-  }, []);
+  }, [fetchProcesses]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -134,7 +134,7 @@ export default function ProcessManager() {
       interval = setInterval(fetchProcesses, refreshInterval);
     }
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, sortField]);
+  }, [autoRefresh, refreshInterval, fetchProcesses]);
 
   const getStateMessage = (state: string) => {
     const s = state.charAt(0);
@@ -202,8 +202,8 @@ export default function ProcessManager() {
   }, [processes, searchTerm, sortField, sortOrder, filterUser]);
 
   return (
-    <div className="grid no-scrollbar" style={{ gap: '1.5rem', maxHeight: '100%', overflowY: 'auto' }}>
-      <div className="flex-between dashboard-page-header" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: '0.5rem' }}>
+    <div className="grid no-scrollbar" style={{ gap: '1rem', height: 'calc(100vh - 24px)', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-between dashboard-page-header" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
             <Layers size={24} color="var(--color-primary)" />
@@ -299,8 +299,8 @@ export default function ProcessManager() {
       </div>
 
       {/* Process Table / Card List */}
-      <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div className="process-table-container">
+      <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div className="process-table-container" style={{ flex: 1, overflowY: 'auto' }}>
           <table className="process-table">
             <thead>
               <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
@@ -335,7 +335,7 @@ export default function ProcessManager() {
             <tbody>
               {filteredAndSortedProcesses.map((p, i) => (
                 <tr
-                  key={p.pid + i}
+                  key={p.pid}
                   className={`process-row hover-scale ${selectedPid === p.pid ? 'selected' : ''}`}
                   onClick={() => handleRowClick(p.pid)}
                   style={{ cursor: 'pointer' }}
@@ -394,10 +394,7 @@ export default function ProcessManager() {
         </div>
       </div>
 
-      <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-        <Info size={14} />
-        <span>{t.processes.signalDescription}</span>
-      </div>
+
 
       {/* Detail Modal */}
       {selectedPid && (
@@ -443,8 +440,8 @@ export default function ProcessManager() {
                 <>
                   {/* AI Analysis Result Section - Show only if analyzing or has result */}
                   {(aiAnalysis || analyzing) && (
-                    <div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px dashed var(--color-surface-border)' }}>
-                      <div className="card" style={{ background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%)', padding: '1.25rem', border: '1px solid rgba(59, 130, 246, 0.1)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ marginBottom: '0.5rem', paddingBottom: '1.5rem', borderBottom: '1px dashed var(--color-surface-border)' }}>
+                      <div className="card" style={{ background: 'var(--color-bg)', padding: '1.25rem', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 20px var(--color-shadow)' }}>
                         <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
                           <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-primary)' }}>
                             <Sparkles size={18} />
@@ -540,7 +537,7 @@ export default function ProcessManager() {
                       <div className="value code-block" style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '0.8rem' }}>
                         {processDetail.openFiles && processDetail.openFiles.length > 0 ? (
                           processDetail.openFiles.map((f: string, idx: number) => (
-                            <div key={idx} style={{ padding: '0.2rem 0', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>{f}</div>
+                            <div key={idx} style={{ padding: '0.2rem 0', borderBottom: '1px solid var(--color-surface-border)' }}>{f}</div>
                           ))
                         ) : (
                           <span style={{ color: 'var(--color-text-muted)' }}>{t.common.none}</span>
@@ -557,17 +554,17 @@ export default function ProcessManager() {
             </div>
 
             {/* Modal Footer - Fixed */}
-            <div className="flex-center" style={{ padding: '1.5rem 2rem', gap: '1rem', borderTop: '1px solid var(--color-surface-border)', background: '#fcfcfc' }}>
+            <div className="flex-center" style={{ padding: '1.5rem 2rem', gap: '1rem', borderTop: '1px solid var(--color-surface-border)', background: 'var(--color-surface-bg)' }}>
               <button
-                className="btn btn-outline"
-                style={{ flex: 1, borderColor: 'var(--color-warning)', color: 'var(--color-warning)' }}
+                className="btn btn-warning"
+                style={{ flex: 1 }}
                 onClick={() => handleAction(selectedPid, 'term')}
               >
                 {t.processes.terminate}
               </button>
               <button
-                className="btn btn-outline"
-                style={{ flex: 1, borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
+                className="btn btn-danger"
+                style={{ flex: 1 }}
                 onClick={() => handleAction(selectedPid, 'kill')}
               >
                 {t.processes.forceKill}
@@ -597,6 +594,13 @@ export default function ProcessManager() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .process-table th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: var(--color-bg);
+          box-shadow: inset 0 -1px 0 var(--color-surface-border);
+        }
         .col-pid { width: 90px; font-family: monospace; }
         .col-command { width: 35%; font-weight: 600; }
         .col-user { width: 120px; color: var(--color-text-muted); }
@@ -605,7 +609,7 @@ export default function ProcessManager() {
         .col-actions { width: 100px; text-align: right; }
         
         .sortable { cursor: pointer; transition: background 0.2s; }
-        .sortable:hover { background: rgba(59, 130, 246, 0.05); }
+        .sortable:hover { background: var(--color-primary-light); }
 
         .action-buttons {
           display: flex;
@@ -630,7 +634,7 @@ export default function ProcessManager() {
         }
 
         .process-row {
-          border-bottom: 1px solid rgba(0,0,0,0.03);
+          border-bottom: 1px solid var(--color-surface-border);
           transition: all 0.2s;
         }
 
@@ -669,7 +673,7 @@ export default function ProcessManager() {
         }
 
         .hover-scale:hover {
-          background: rgba(59, 130, 246, 0.03);
+          background: var(--color-primary-light);
           transform: translateX(4px);
         }
 
@@ -679,7 +683,7 @@ export default function ProcessManager() {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(255, 255, 255, 0.7);
+          background: rgba(0, 0, 0, 0.4);
           backdrop-filter: blur(10px);
           display: flex;
           align-items: center;
@@ -690,9 +694,9 @@ export default function ProcessManager() {
 
         .modal-content {
           padding: 2rem;
-          background: #ffffff;
+          background: var(--color-bg);
           border-radius: var(--radius-lg);
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 20px 50px var(--color-shadow);
           animation: slideUp 0.3s ease-out;
           border: 1px solid var(--color-surface-border);
           position: relative;
@@ -732,7 +736,7 @@ export default function ProcessManager() {
         }
 
         .code-block {
-          background: var(--color-primary-light);
+          background: var(--color-surface-bg);
           padding: 0.75rem;
           border-radius: var(--radius-md);
           font-family: monospace;
@@ -758,7 +762,7 @@ export default function ProcessManager() {
           margin: 0.5rem 0;
         }
         .markdown-body :global(code) {
-          background: rgba(0,0,0,0.05);
+          background: var(--color-primary-light);
           padding: 0.1rem 0.3rem;
           border-radius: 3px;
           font-family: monospace;
