@@ -16,7 +16,19 @@ export default function DashboardOverview() {
   const [cmdResult, setCmdResult] = useState('');
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>(() => {
+    const now = new Date();
+    return Array.from({ length: 24 }, (_, i) => {
+      const d = new Date(now.getTime() - (23 - i) * 5000);
+      return {
+        time: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`,
+        cpu: null,
+        memory: null,
+        netIn: null,
+        netOut: null
+      };
+    });
+  });
   const [prevNetBytes, setPrevNetBytes] = useState<{ in: number, out: number } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [screenshot, setScreenshot] = useState<string | null>(null);
@@ -103,7 +115,7 @@ export default function DashboardOverview() {
               netOut: Number(netOutSpeed.toFixed(1))
             };
             const newHistory = [...prev, newPoint];
-            if (newHistory.length > 30) newHistory.shift();
+            if (newHistory.length > 24) newHistory.shift();
             return newHistory;
           });
           return dataStats.data.netBytes || currentPrevNet;
