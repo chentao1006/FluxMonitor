@@ -351,7 +351,7 @@ export default function DockerDashboard() {
                 style={{ height: '24px', padding: '0 0.75rem', fontSize: '0.7rem', marginLeft: '0.5rem' }}
                 onClick={handleExecAiCmd}
                 disabled={!generatedCmd}
-              >{t.docker.execOneClick || '一键执行'}</button>
+              >{t.docker.execOneClick || ''}</button>
             </div>
           )}
           <ExecModal isOpen={isExecModalOpen} onClose={() => setIsExecModalOpen(false)} command={execCmd} />

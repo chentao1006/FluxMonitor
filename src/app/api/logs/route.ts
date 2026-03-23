@@ -48,8 +48,9 @@ export async function GET(request: Request) {
       });
 
       return NextResponse.json({ success: true, data: stdout });
-    } catch (error: any) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return NextResponse.json({ success: false, error: message }, { status: 500 });
     }
   }
 
@@ -114,9 +115,10 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: files });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Logs API error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -133,8 +135,8 @@ export async function POST(request: Request) {
       }
       try {
         await execAsync(`echo "${password}" | sudo -S ${cmd}`);
-      } catch (err: any) {
-        if (err.message.includes('incorrect password') || err.message.includes('Sorry, try again')) {
+      } catch (err: unknown) {
+        if (err instanceof Error && (err.message.includes('incorrect password') || err.message.includes('Sorry, try again'))) {
           throw new Error('SUDO_AUTH_FAILED');
         }
         throw err;
@@ -145,8 +147,8 @@ export async function POST(request: Request) {
       if (action === 'clear') {
         try {
           await fs.writeFile(file, '');
-        } catch (e: any) {
-          if (e.code === 'EACCES' || e.code === 'EPERM') {
+        } catch (e: unknown) {
+          if (typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code && ((e as { code: string }).code === 'EACCES' || (e as { code: string }).code === 'EPERM')) {
             await executeWithSudo(`truncate -s 0 "${file}"`);
           } else throw e;
         }
@@ -156,18 +158,18 @@ export async function POST(request: Request) {
       if (action === 'delete') {
         try {
           await fs.unlink(file);
-        } catch (e: any) {
-          if (e.code === 'EACCES' || e.code === 'EPERM') {
+        } catch (e: unknown) {
+          if (typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code && ((e as { code: string }).code === 'EACCES' || (e as { code: string }).code === 'EPERM')) {
             await executeWithSudo(`rm "${file}"`);
           } else throw e;
         }
         return NextResponse.json({ success: true });
       }
-    } catch (err: any) {
-      if (err.message === 'REQUIRES_SUDO_PASSWORD') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'REQUIRES_SUDO_PASSWORD') {
         return NextResponse.json({ success: false, requiresPassword: true });
       }
-      if (err.message === 'SUDO_AUTH_FAILED') {
+      if (err instanceof Error && err.message === 'SUDO_AUTH_FAILED') {
         return NextResponse.json({ success: false, error: 'Wrong password' }, { status: 401 });
       }
       throw err;
@@ -192,8 +194,9 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
-    } catch (err: any) {
-    console.error('Logs POST error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
+    } catch (err: unknown) {
+      console.error('Logs POST error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ success: false, error: message }, { status: 500 });
+    }
 }

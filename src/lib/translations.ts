@@ -15,8 +15,8 @@ export const translations = {
       logoutConfirm: '确定要退出登录吗？',
     },
     login: {
-      title: 'FLUX',
-      logoText: '浮光',
+      title: 'Flux Monitor',
+      logoText: '浮光面板',
       subtitle: 'macOS 服务器管理面板',
       username: '用户名',
       password: '密码',
@@ -143,6 +143,7 @@ export const translations = {
       translating: '翻译中...',
       waiting: '结果将在此处显示...',
       aiAnalyzeBtn: 'AI 分析输出',
+      aiAnalysisTitle: 'AI 诊断见解',
       quickCmds: {
         ls: '目录',
         df: '磁盘',
@@ -352,6 +353,8 @@ export const translations = {
       aiLogPrompt: '请作为 Docker 专家，分析容器 "{name}" ({id}) 的运行日志。请解释日志中出现的任何异常、报错或警告，并给出具体的排查方向或修复建议。要求使用中文 Markdown。日志如下：\n\n{logs}',
       aiStatusPrompt: '容器 "{name}" 目前状态为 "{status}"。镜像是 "{image}"。请分析该状态是否正常，如果处于异常状态（如反复重启、Exited），请根据此状态信息结合你对该常用镜像的了解，推测可能的失败原因并给出诊断建议。要求使用中文 Markdown。',
       aiGenPrompt: '请根据用户的需求，生成一条或多条 Docker 或 Docker Compose 命令。\n用户需求：{demand}\n\n请直接返回可执行的命令代码，不要包含任何解释。',
+      execOneClick: '一键执行',
+      exec: '执行命令',
     },
     nginx: {
       title: 'Nginx 管理',
@@ -474,8 +477,8 @@ export const translations = {
       logoutConfirm: 'Are you sure you want to logout?',
     },
     login: {
-      title: 'FLUX',
-      logoText: 'FLUX',
+      title: 'Flux Monitor',
+      logoText: '浮光面板',
       subtitle: 'macOS Server Dashboard',
       username: 'Username',
       password: 'Password',
@@ -602,6 +605,7 @@ export const translations = {
       translating: 'Translating...',
       waiting: 'Results will show here...',
       aiAnalyzeBtn: 'AI Analyze Output',
+      aiAnalysisTitle: 'AI Diagnostic Insights',
       quickCmds: {
         ls: 'Listed Files',
         df: 'Disk Usage',
@@ -812,6 +816,8 @@ export const translations = {
       aiLogPrompt: 'As a Docker expert, please analyze the running logs of container "{name}" ({id}). Explain any anomalies, errors, or warnings in the logs, and provide specific troubleshooting directions or fix suggestions. Use English Markdown. Logs:\n\n{logs}',
       aiStatusPrompt: 'The container "{name}" is currently in status "{status}". The image is "{image}". Please analyze whether this status is normal. If it is in an abnormal state (e.g., repeated restarts, Exited), please speculate on possible causes based on this status information and your knowledge of this common image, and provide diagnostic suggestions. Use English Markdown.',
       aiGenPrompt: 'Please generate one or more Docker or Docker Compose commands based on the user\'s needs.\nUser requirements: {demand}\n\nPlease directly return the executable command code without any explanation.',
+      execOneClick: 'One-click Execute',
+      exec: 'Execute Command',
     },
     nginx: {
       title: 'Nginx Management',

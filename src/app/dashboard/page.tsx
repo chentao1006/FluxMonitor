@@ -228,7 +228,7 @@ export default function DashboardOverview() {
       const resLog = await fetch('/api/logs');
       const dataLog = await resLog.json();
       if (dataLog.success && dataLog.data.length > 0) {
-        const sorted = [...dataLog.data].sort((a, b: any) => b.mtime - a.mtime);
+        const sorted = [...dataLog.data].sort((a: { mtime: number }, b: { mtime: number }) => b.mtime - a.mtime);
         const last = sorted[0];
         setLogSummary({ 
           total: dataLog.data.length,
@@ -294,7 +294,7 @@ export default function DashboardOverview() {
             }}
           >
             <Sparkles size={20} className={aiAnalyzing ? 'animate-pulse' : ''} />
-            <span style={{ fontWeight: 600 }}>{aiAnalyzing ? t.common.analyzing : t.common.analyze || 'AI分析'}</span>
+            <span style={{ fontWeight: 600 }}>{aiAnalyzing ? t.common.analyzing : t.common.analyze || ''}</span>
           </button>
           <button
             className="btn btn-primary mobile-full-width"
@@ -313,7 +313,7 @@ export default function DashboardOverview() {
           <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
             <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-primary)' }}>
               <Sparkles size={18} />
-              <span style={{ fontWeight: 600 }}>{t.monitor.aiAnalysisTitle || 'AI 系统健康分析'}</span>
+              <span style={{ fontWeight: 600 }}>{t.monitor.aiAnalysisTitle || ''}</span>
             </div>
             {aiAnalyzing && <RefreshCw size={16} className="animate-spin" color="var(--color-primary)" />}
             <button style={{ marginLeft: '1rem', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setAiAnalysis(null)}><X size={16} /></button>
@@ -321,7 +321,7 @@ export default function DashboardOverview() {
           {aiAnalyzing ? (
             <div className="flex-center" style={{ padding: '1.5rem', flexDirection: 'column', gap: '0.5rem' }}>
               <RefreshCw size={24} className="animate-spin" color="var(--color-primary)" style={{ opacity: 0.5 }} />
-              <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0, color: 'var(--color-text-muted)' }}>{t.common.analyzing || 'AI 分析中...'}</p>
+              <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0, color: 'var(--color-text-muted)' }}>{t.common.analyzing || ''}</p>
             </div>
           ) : (
             <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.95rem', color: 'var(--color-text)', lineHeight: 1.7, maxHeight: '400px', overflowY: 'auto' }}>

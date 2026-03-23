@@ -17,13 +17,7 @@ export default function DashboardLayout({
   const { config, loading: settingsLoading } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    if (!settingsLoading) {
-      setMounted(true);
-    }
-  }, [settingsLoading]);
+  const mounted = !settingsLoading;
 
   const features = config?.features || {};
   const version = config?.version || '';
@@ -194,11 +188,6 @@ export default function DashboardLayout({
 
 function NavLink({ href, children, icon, onClick, isIconOnly, title }: { href: string; children: React.ReactNode; icon: string; onClick?: () => void; isIconOnly?: boolean; title?: string }) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const isActive = pathname === href || (href !== '/dashboard' && pathname?.startsWith(href));
 
@@ -227,15 +216,6 @@ function NavLink({ href, children, icon, onClick, isIconOnly, title }: { href: s
     }
   }
 
-  // If not mounted, render a placeholder or the same structure but without children/logic that triggers extensions
-  if (!mounted) {
-    return (
-      <div className="btn btn-ghost" style={{ width: isIconOnly ? '42px' : '100%', padding: isIconOnly ? '0.5rem' : '0.85rem 1rem', opacity: 0 }}>
-        <div style={{ width: '20px', height: '20px' }} />
-        {!isIconOnly && <span>{children}</span>}
-      </div>
-    );
-  }
 
   return (
     <Link href={href} style={{ textDecoration: 'none' }} onClick={onClick} title={title}>

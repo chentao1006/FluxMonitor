@@ -120,7 +120,7 @@ export default function ConfigsDashboard() {
 
     setSaveStatus(t.common.saving);
     try {
-      const payload: any = { action: 'write', id: editingId, content };
+      const payload: { action: string; id: string; content: string; sudoPassword?: string } = { action: 'write', id: editingId, content };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/configs', {

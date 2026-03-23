@@ -5,6 +5,7 @@
 ---
 
 一款专为**作为服务器运行的 Mac** 设计的监控与服务管理面板。
+下载最新版: [Releases](https://github.com/chentao1006/FluxMonitor/releases)
 
 ### 功能
 
@@ -19,7 +20,7 @@
 
 **待开发功能**
 
-- [x] **浮光面板 (macOS)**: 原生 macOS 应用程序，可启动监控 Web 服务器，无需手动部署。
+- [x] **浮光面板启动器**: 原生 macOS 应用程序，可启动监控 Web 服务器，无需手动部署。
 - [ ] **iOS 客户端**: 原生 iOS 应用程序，可随时随地监控和管理系统。
 - [ ] **Android 客户端**: 原生 Android 应用程序，可随时随地监控和管理系统。
 
@@ -34,10 +35,6 @@
 ![Screenshot 5](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164249.jpg)
 ![Screenshot 6](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164316.jpg)
 ![Screenshot 7](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164341.jpg)
-![Screenshot 8](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164412.jpg)
-![Screenshot 9](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164523.jpg)
-![Screenshot 10](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164539.jpg)
-![Screenshot 11](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164605.jpg)
 
 ## 快速安装 (macOS)
 

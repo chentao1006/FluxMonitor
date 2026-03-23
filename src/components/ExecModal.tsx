@@ -63,8 +63,11 @@ export default function ExecModal({ isOpen, onClose, command }: ExecModalProps) 
       }
       reader.releaseLock();
     } catch (e: unknown) {
-      if (typeof e === 'object' && e && 'name' in e && (e as any).name !== 'AbortError') {
-        setError(t.common.networkError + ((e as any).message ? `: ${(e as any).message}` : ""));
+      if (typeof e === 'object' && e && 'name' in e && (e as { name?: string }).name !== 'AbortError') {
+        const message = typeof e === 'object' && e && 'message' in e && typeof (e as { message?: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : "";
+        setError(t.common.networkError + (message ? `: ${message}` : ""));
       }
     } finally {
       setIsExecuting(false);
@@ -126,7 +129,7 @@ export default function ExecModal({ isOpen, onClose, command }: ExecModalProps) 
           }}
         >
           <span style={{ fontWeight: 600, fontSize: "1rem" }}>
-            {t.docker.title + " - " + (t.docker.exec || "执行命令")}
+            {t.docker.title + " - " + (t.docker.exec || "")}
           </span>
           <button className="btn btn-ghost" onClick={onClose} style={{ width: 32, height: 32, padding: 0 }}>
             <X size={18} />
@@ -153,7 +156,7 @@ export default function ExecModal({ isOpen, onClose, command }: ExecModalProps) 
               lineHeight: 1.6,
             }}
           >
-            {result || (isExecuting ? t.common.loading + '...' : t.common.none || '无输出')}
+            {result || (isExecuting ? t.common.loading + '...' : t.common.none || '')}
           </div>
           {error && <div style={{ color: 'var(--color-danger)', marginTop: '0.5rem' }}>{error}</div>}
         </div>

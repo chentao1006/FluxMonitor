@@ -95,7 +95,7 @@ export default function NginxDashboard() {
         setNginxLogs(data.logs);
         setTimeout(scrollLogsToBottom, 100);
       } else {
-        const errorMsg = (t.common.errors as any)[data.error] || data.details || data.error;
+        const errorMsg = (t.common.errors as Record<string, string>)[data.error] || data.details || data.error;
         setNginxLogs(`Error: ${errorMsg}`);
       }
     } catch {
@@ -392,7 +392,7 @@ export default function NginxDashboard() {
     if (!editingSite) return;
     setSaveStatus(t.common.saving);
     try {
-      const payload: any = { action: 'write', filename: editingSite, content: siteContent };
+      const payload: { action: string; filename: string; content: string; sudoPassword?: string } = { action: 'write', filename: editingSite, content: siteContent };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/nginx/sites', {
@@ -436,7 +436,7 @@ export default function NginxDashboard() {
     const action = currentStatus === 'enabled' ? 'disable' : 'enable';
     setSiteLoading(true);
     try {
-      const payload: any = { action, filename };
+      const payload: { action: string; filename: string; sudoPassword?: string } = { action, filename };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/nginx/sites', {
@@ -477,7 +477,7 @@ export default function NginxDashboard() {
     if (!password && !window.confirm(t.common.deleteConfirm)) return;
     setSiteLoading(true);
     try {
-      const payload: any = { action: 'delete', filename };
+      const payload: { action: string; filename: string; sudoPassword?: string } = { action: 'delete', filename };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/nginx/sites', {

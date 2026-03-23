@@ -5,6 +5,7 @@
 ---
 
 A system monitoring and management dashboard designed for **Macs running as servers**.
+Download the latest version: [Releases](https://github.com/chentao1006/FluxMonitor/releases)
 
 ### Features
 
@@ -21,7 +22,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 ## Planned Features
 
-- [x] **Mac Monitor App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
+- [x] **Mac Launcher App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
 - [ ] **iOS Client App**: A native iOS application that can monitor and manage the system on the go.
 - [ ] **Android Client App**: A native Android application that can monitor and manage the system on the go.
 
@@ -36,10 +37,6 @@ A system monitoring and management dashboard designed for **Macs running as serv
 ![Screenshot 5](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164249.jpg)
 ![Screenshot 6](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164316.jpg)
 ![Screenshot 7](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164341.jpg)
-![Screenshot 8](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164412.jpg)
-![Screenshot 9](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164523.jpg)
-![Screenshot 10](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164539.jpg)
-![Screenshot 11](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164605.jpg)
 
 ## Fast Installation (macOS)
 

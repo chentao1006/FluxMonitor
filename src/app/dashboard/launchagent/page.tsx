@@ -109,7 +109,7 @@ export default function LaunchAgentDashboard() {
   const handleAction = async (filePath: string, action: string, password?: string) => {
     setActionLoading(`${filePath}-${action}`);
     try {
-      const payload: any = { filePath, action };
+      const payload: { filePath: string; action: string; sudoPassword?: string } = { filePath, action };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/launchagent/action', {
@@ -150,7 +150,7 @@ export default function LaunchAgentDashboard() {
   };
 
   const handleAddNew = () => {
-    let defaultName = 'com.example.agent.plist';
+    const defaultName = 'com.example.agent.plist';
     let basePath = '';
     if (plists.length > 0) {
       const firstPath = plists[0].path;
@@ -221,7 +221,7 @@ export default function LaunchAgentDashboard() {
 
     setActionLoading(`${filePath}-delete`);
     try {
-      const payload: any = { filePath, action: 'delete' };
+      const payload: { filePath: string; action: string; sudoPassword?: string } = { filePath, action: 'delete' };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/launchagent/action', {
@@ -288,7 +288,7 @@ export default function LaunchAgentDashboard() {
         }
       }
 
-      const payload: any = { filePath: currentPath, action: 'write', content: fileContent };
+      const payload: { filePath: string; action: string; content: string; sudoPassword?: string } = { filePath: currentPath, action: 'write', content: fileContent };
       if (password) payload.sudoPassword = password;
 
       const res = await fetch('/api/launchagent/action', {
