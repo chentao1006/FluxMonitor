@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box, Sparkles, Brain, Wand2, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
 
 interface Container {
   ID: string;
@@ -26,6 +27,8 @@ interface DockerImage {
   CreatedAt: string;
   InUse?: boolean;
 }
+
+const ExecModal = dynamic(() => import('@/components/ExecModal'), { ssr: false });
 
 export default function DockerDashboard() {
   const { t, language, effectiveLang } = useLanguage();
@@ -49,6 +52,8 @@ export default function DockerDashboard() {
   const [generatedCmd, setGeneratedCmd] = useState('');
   const aiCacheRef = useRef<Record<string, string>>({});
   const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
+  const [isExecModalOpen, setIsExecModalOpen] = useState(false);
+  const [execCmd, setExecCmd] = useState('');
 
   useEffect(() => {
     if (logRef.current) {
@@ -266,6 +271,11 @@ export default function DockerDashboard() {
     }
   };
 
+  const handleExecAiCmd = () => {
+    setExecCmd(generatedCmd);
+    setIsExecModalOpen(true);
+  };
+
   return (
     <div className="grid no-scrollbar animate-fade-in" style={{ height: 'calc(100vh - 24px)', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -329,15 +339,22 @@ export default function DockerDashboard() {
             </button>
           </div>
           {generatedCmd && (
-            <div style={{ marginTop: '0.5rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', position: 'relative' }}>
-              <code style={{ color: 'var(--color-primary)', fontSize: '0.8rem', fontFamily: 'monospace' }}>{generatedCmd}</code>
+            <div style={{ marginTop: '0.5rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', position: 'relative', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <code style={{ color: 'var(--color-primary)', fontSize: '0.8rem', fontFamily: 'monospace', flex: 1 }}>{generatedCmd}</code>
               <button
                 className="btn btn-sm btn-ghost"
-                style={{ marginLeft: '1rem', border: '1px solid rgba(0,0,0,0.1)', height: '24px', padding: '0 0.5rem', fontSize: '0.7rem' }}
+                style={{ border: '1px solid rgba(0,0,0,0.1)', height: '24px', padding: '0 0.5rem', fontSize: '0.7rem' }}
                 onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
               >{t.docker.copy}</button>
+              <button
+                className="btn btn-sm btn-primary"
+                style={{ height: '24px', padding: '0 0.75rem', fontSize: '0.7rem', marginLeft: '0.5rem' }}
+                onClick={handleExecAiCmd}
+                disabled={!generatedCmd}
+              >{t.docker.execOneClick || '一键执行'}</button>
             </div>
           )}
+          <ExecModal isOpen={isExecModalOpen} onClose={() => setIsExecModalOpen(false)} command={execCmd} />
         </div>
       )}
 

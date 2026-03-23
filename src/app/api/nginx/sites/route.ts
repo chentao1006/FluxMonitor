@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { runCommandWithSudo, writeFileWithSudo } from '@/lib/exec';
 
 async function getNginxDirs() {
   const possibleAvailableDirs = [
@@ -117,7 +118,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { action, filename, content } = await request.json();
+    const { action, filename, content, sudoPassword } = await request.json();
     if (!action || !filename) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
@@ -140,7 +141,25 @@ export async function POST(request: Request) {
     }
 
     if (action === 'write') {
-      await fs.writeFile(filePath, content || '', 'utf-8');
+      try {
+        await fs.writeFile(filePath, content || '', 'utf-8');
+      } catch (error: any) {
+        if (error.code === 'EACCES' || error.code === 'EPERM') {
+          try {
+            await writeFileWithSudo(filePath, content || '', sudoPassword);
+          } catch (sudoErr: any) {
+            if (sudoErr.code === 'SUDO_REQUIRED') {
+              return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
+            }
+            if (sudoErr.stderr?.toLowerCase().includes('password')) {
+              return NextResponse.json({ error: 'SUDO_PASSWORD_INCORRECT' }, { status: 403 });
+            }
+            throw sudoErr;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       // Auto-symlink if sites-enabled exists
       if (enabledDir) {
@@ -158,60 +177,101 @@ export async function POST(request: Request) {
     }
 
     if (action === 'delete') {
-      // Delete the main file if it exists
-      if (existsSync(filePath)) {
-        await fs.unlink(filePath);
-      }
-
-      // Also delete the .disabled version if it exists
-      const disabledPath = filePath + '.disabled';
-      if (existsSync(disabledPath)) {
-        await fs.unlink(disabledPath);
-      }
-
-      if (enabledDir) {
-        const enabledFile = path.join(enabledDir, filename);
-        if (existsSync(enabledFile)) {
-          try {
-            await fs.unlink(enabledFile);
-          } catch (e) { }
+      // Helper for deletion with sudo support
+      const deleteFile = async (p: string) => {
+        if (!existsSync(p)) return;
+        try {
+          await fs.unlink(p);
+        } catch (error: any) {
+          if (error.code === 'EACCES' || error.code === 'EPERM') {
+            await runCommandWithSudo(`rm "${p}"`, sudoPassword);
+          } else {
+            throw error;
+          }
         }
+      };
 
-        // Also check if there's a enabledFile with .disabled suffix (though unlikely in enabledDir)
-        const enabledDisabledFile = enabledFile + '.disabled';
-        if (existsSync(enabledDisabledFile)) {
-          try {
-            await fs.unlink(enabledDisabledFile);
-          } catch (e) { }
+      try {
+        await deleteFile(filePath);
+        await deleteFile(filePath + '.disabled');
+
+        if (enabledDir) {
+          const enabledFile = path.join(enabledDir, filename);
+          await deleteFile(enabledFile);
+          await deleteFile(enabledFile + '.disabled');
         }
+      } catch (sudoErr: any) {
+        if (sudoErr.code === 'SUDO_REQUIRED') {
+          return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
+        }
+        if (sudoErr.stderr?.toLowerCase().includes('password')) {
+          return NextResponse.json({ error: 'SUDO_PASSWORD_INCORRECT' }, { status: 403 });
+        }
+        throw sudoErr;
       }
 
       return NextResponse.json({ success: true });
     }
 
     if (action === 'enable') {
-      if (enabledDir) {
-        const enabledFile = path.join(enabledDir, filename);
-        if (!existsSync(enabledFile)) {
-          await fs.symlink(filePath, enabledFile);
+      try {
+        if (enabledDir) {
+          const enabledFile = path.join(enabledDir, filename);
+          if (!existsSync(enabledFile)) {
+            try {
+              await fs.symlink(filePath, enabledFile);
+            } catch (error: any) {
+              if (error.code === 'EACCES' || error.code === 'EPERM') {
+                await runCommandWithSudo(`ln -s "${filePath}" "${enabledFile}"`, sudoPassword);
+              } else throw error;
+            }
+          }
+        } else if (filename.endsWith('.disabled')) {
+          const newFilename = filename.replace('.disabled', '');
+          const newPath = path.join(availableDir, newFilename);
+          try {
+            await fs.rename(filePath, newPath);
+          } catch (error: any) {
+            if (error.code === 'EACCES' || error.code === 'EPERM') {
+              await runCommandWithSudo(`mv "${filePath}" "${newPath}"`, sudoPassword);
+            } else throw error;
+          }
         }
-      } else if (filename.endsWith('.disabled')) {
-        const newFilename = filename.replace('.disabled', '');
-        const newPath = path.join(availableDir, newFilename);
-        await fs.rename(filePath, newPath);
+      } catch (sudoErr: any) {
+        if (sudoErr.code === 'SUDO_REQUIRED') return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
+        if (sudoErr.stderr?.toLowerCase().includes('password')) return NextResponse.json({ error: 'SUDO_PASSWORD_INCORRECT' }, { status: 403 });
+        throw sudoErr;
       }
       return NextResponse.json({ success: true });
     }
 
     if (action === 'disable') {
-      if (enabledDir) {
-        const enabledFile = path.join(enabledDir, filename);
-        if (existsSync(enabledFile)) {
-          await fs.unlink(enabledFile);
+      try {
+        if (enabledDir) {
+          const enabledFile = path.join(enabledDir, filename);
+          if (existsSync(enabledFile)) {
+            try {
+              await fs.unlink(enabledFile);
+            } catch (error: any) {
+              if (error.code === 'EACCES' || error.code === 'EPERM') {
+                await runCommandWithSudo(`rm "${enabledFile}"`, sudoPassword);
+              } else throw error;
+            }
+          }
+        } else if (!filename.endsWith('.disabled')) {
+          const newPath = filePath + '.disabled';
+          try {
+            await fs.rename(filePath, newPath);
+          } catch (error: any) {
+            if (error.code === 'EACCES' || error.code === 'EPERM') {
+              await runCommandWithSudo(`mv "${filePath}" "${newPath}"`, sudoPassword);
+            } else throw error;
+          }
         }
-      } else if (!filename.endsWith('.disabled')) {
-        const newPath = filePath + '.disabled';
-        await fs.rename(filePath, newPath);
+      } catch (sudoErr: any) {
+        if (sudoErr.code === 'SUDO_REQUIRED') return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
+        if (sudoErr.stderr?.toLowerCase().includes('password')) return NextResponse.json({ error: 'SUDO_PASSWORD_INCORRECT' }, { status: 403 });
+        throw sudoErr;
       }
       return NextResponse.json({ success: true });
     }

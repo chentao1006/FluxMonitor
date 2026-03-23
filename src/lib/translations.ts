@@ -98,6 +98,10 @@ export const translations = {
         logReadError: '读取日志异常',
       },
       goToSettings: '前往设置',
+      sudoTitle: '需要管理员权限',
+      sudoDesc: '该文件受系统保护，继续此操作需要您的 Mac 开机密码。该密码仅用于单次命令执行。',
+      sudoPlaceholder: '在此输入管理员密码',
+      passwordIncorrect: '密码错误，请重试。',
     },
     monitor: {
       title: '系统概览',
@@ -404,7 +408,7 @@ export const translations = {
       aiEditPrompt: '请根据用户的需求修改现有的 Nginx 配置文件。\n现有内容如下：\n---\n{content}\n---\n用户需求：{demand}\n\n请直接返回修改后的完整 Nginx 配置代码，不要包含任何解释或 Markdown 代码块容器。',
     },
     launchagent: {
-      newConfigPrompt: '请输入新建配置的名称 (如 com.example.app.plist):',
+      newConfigPrompt: '配置名称',
       aiGenerating: 'AI 魔法生成中... 🪄',
       generateSuccess: '✅ 生成完成！请核对',
       generateFailed: '生成失败',
@@ -423,6 +427,7 @@ export const translations = {
       aiPromptExisting: '请参考以下已有的 macOS LaunchAgent plist 内容，并根据新的需求进行修改：\n\n---当前内容---\n{content}\n---当前内容---\n\n新的修改需求: {demand}\n\n注意：必须仅返回修改后的纯 plist XML 代码文本，不要包含任何 markdown 语法（如 ```xml） and 多余对话，直接以 <?xml 打头。',
       aiPromptNew: '请根据以下需求，为我生成一份 macOS LaunchAgent 的 plist 配置文件。\n需求: {demand}\n注意：必须仅返回纯 plist XML 代码文本，不要包含任何 markdown 语法（如 ```xml） and 多余对话，直接以 <?xml 打头。',
       selectConfig: '请在左侧选择一个自启服务配置进行查看或编辑',
+      configContent: '配置内容',
     },
     settings: {
       title: '系统设置',
@@ -552,6 +557,10 @@ export const translations = {
         logReadError: 'Error reading logs',
       },
       goToSettings: 'Go to Settings',
+      sudoTitle: 'Sudo Permission Required',
+      sudoDesc: 'This file is protected by the system. Admin password is required to continue. It will only be used for this single operation.',
+      sudoPlaceholder: 'Enter admin password here',
+      passwordIncorrect: 'Incorrect password, please try again.',
     },
     monitor: {
       title: 'System Overview',
@@ -876,6 +885,7 @@ export const translations = {
       aiPromptExisting: 'Please refer to the following existing macOS LaunchAgent plist content and modify it according to the new requirements:\n\n---Current Content---\n{content}\n---Current Content---\n\nNew modification requirements: {demand}\n\nNote: You must only return the modified raw plist XML code text, without any markdown syntax (e.g., ```xml) or extra dialogue, starting directly with <?xml.',
       aiPromptNew: 'Please generate a macOS LaunchAgent plist configuration file for me according to the following requirements.\nRequirements: {demand}\nNote: You must only return the raw plist XML code text, without any markdown syntax (e.g., ```xml) or extra dialogue, starting directly with <?xml.',
       selectConfig: 'Please select a configuration on the left to view or edit',
+      configContent: 'Config Content',
     },
     settings: {
       title: 'Settings',

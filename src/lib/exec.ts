@@ -45,3 +45,30 @@ export async function execAsync(command: string, options: Record<string, any> = 
     env: { ...EXEC_ENV, ...(options.env || {}) }
   }) as unknown as Promise<{ stdout: string; stderr: string }>;
 }
+
+export async function runCommandWithSudo(command: string, password?: string) {
+  if (!password) {
+    const error = new Error('SUDO_REQUIRED');
+    (error as any).code = 'SUDO_REQUIRED';
+    throw error;
+  }
+
+  // Use sudo -S to read password from stdin
+  const escapedPassword = password.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+  const sudoCommand = `echo "${escapedPassword}" | sudo -S -p '' ${command}`;
+  return execAsync(sudoCommand);
+}
+
+export async function writeFileWithSudo(filePath: string, content: string, password?: string) {
+  const tempPath = path.join(os.tmpdir(), `flux_config_${Math.random().toString(36).substring(7)}`);
+  await fs.promises.writeFile(tempPath, content, 'utf-8');
+
+  try {
+    await runCommandWithSudo(`mv "${tempPath}" "${filePath}"`, password);
+  } catch (error: any) {
+    if (fs.existsSync(tempPath)) {
+      try { await fs.promises.unlink(tempPath); } catch { }
+    }
+    throw error;
+  }
+}

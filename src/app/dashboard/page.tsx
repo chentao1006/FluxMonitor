@@ -1,13 +1,82 @@
-"use client";
 
+"use client";
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useSettings } from '@/lib/SettingsContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Camera, X, Download, Activity, Layers } from 'lucide-react';
+import { Camera, X, Download, Activity, Layers, Sparkles, RefreshCw } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 
 export default function DashboardOverview() {
+    // AI Analysis states
+    const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+    const [aiAnalyzing, setAiAnalyzing] = useState(false);
+    const aiCacheRef = useRef<{ [k: string]: string }>({});
+
+    // 组装系统健康分析 prompt
+    const buildSystemHealthPrompt = () => {
+      const lines = [];
+      lines.push(`# System Health Overview`);
+      if (stats) {
+        lines.push(`- Hostname: ${stats.hostname}`);
+        lines.push(`- Uptime: ${stats.uptime}`);
+        lines.push(`- LoadAvg: ${stats.loadAvg}`);
+        lines.push(`- CPU: user ${stats.cpu?.user ?? 'N/A'}%, sys ${stats.cpu?.sys ?? 'N/A'}%`);
+        lines.push(`- Memory: ${stats.memory?.usedMB ?? 'N/A'}MB / ${stats.memory?.totalMB ?? 'N/A'}MB`);
+        lines.push(`- Swap: ${stats.swap ?? 'N/A'}`);
+        lines.push(`- Disk: ${stats.disk?.used ?? 'N/A'} / ${stats.disk?.total ?? 'N/A'}`);
+        lines.push(`- Network: ${stats.network ?? 'N/A'}`);
+        lines.push(`- MemPressure: ${stats.memPressure ?? 'N/A'}`);
+        lines.push(`- Battery: ${stats.battery ?? 'N/A'}`);
+        lines.push(`- OS: ${stats.osVersion ?? 'N/A'}, Kernel: ${stats.kernel ?? 'N/A'}, Arch: ${stats.arch ?? 'N/A'}`);
+        lines.push(`- CPU Model: ${stats.cpuModel ?? 'N/A'}`);
+      }
+      lines.push(`- Docker: running ${dockerSummary.running} / total ${dockerSummary.total}`);
+      lines.push(`- Nginx: active ${nginxSummary.active} / total ${nginxSummary.total}`);
+      lines.push(`- Processes: total ${procSummary.total}, top: ${procSummary.topName} (${procSummary.topCpu})`);
+      lines.push(`- LaunchAgents: loaded ${agentSummary.loaded} / total ${agentSummary.total}`);
+      lines.push(`- Logs: total ${logSummary.total}, last: ${logSummary.lastFile}`);
+      lines.push(`- Configs: total ${configSummary.total}, sys: ${configSummary.sysCount}, user: ${configSummary.userCount}`);
+      return lines.join('\n');
+    };
+
+    const handleAiAnalyze = async () => {
+      if (aiAnalyzing) return;
+      const prompt = buildSystemHealthPrompt();
+      const cacheKey = `overview:${prompt}`;
+      if (aiCacheRef.current[cacheKey]) {
+        setAiAnalysis(aiCacheRef.current[cacheKey]);
+        return;
+      }
+      setAiAnalyzing(true);
+      setAiAnalysis(null);
+      try {
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `${prompt}\n\n请用简明扼要的方式分析当前系统健康状况，指出潜在风险、性能瓶颈或异常，并给出优化建议。必要时可用表格。`,
+            systemPrompt: '你是资深 macOS/Linux 系统运维专家，擅长健康诊断、性能分析和风险提示。回答务必专业、简明、实用。',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setAiAnalysis(data.data);
+          aiCacheRef.current[cacheKey] = data.data;
+        } else if (data.error === 'AI_CONFIG_MISSING') {
+          setAiAnalysis('AI 配置缺失，请前往设置页面配置 API KEY。');
+        } else {
+          setAiAnalysis(`AI 分析失败: ${data.error}`);
+        }
+      } catch (e) {
+        setAiAnalysis('网络错误，AI 分析失败');
+      } finally {
+        setAiAnalyzing(false);
+      }
+    };
   const { t } = useLanguage();
   const { config: settingsConfig } = useSettings();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -208,16 +277,64 @@ export default function DashboardOverview() {
           </div>
           <h1 className="card-title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>{t.monitor.title}</h1>
         </div>
-        <button
-          className="btn btn-primary mobile-full-width"
-          onClick={takeScreenshot}
-          disabled={screenshotLoading}
-          style={{ gap: '0.75rem', padding: '0.6rem 1.25rem' }}
-        >
-          <Camera size={20} className={screenshotLoading ? 'animate-pulse' : ''} />
-          {screenshotLoading ? t.monitor.executing : t.monitor.screenshotBtn}
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            className="btn mobile-full-width"
+            onClick={handleAiAnalyze}
+            disabled={aiAnalyzing || loading}
+            style={{
+              gap: '0.75rem',
+              padding: '0.6rem 1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
+              color: '#fff',
+              border: 'none',
+              boxShadow: '0 2px 8px 0 rgba(139,92,246,0.10)'
+            }}
+          >
+            <Sparkles size={20} className={aiAnalyzing ? 'animate-pulse' : ''} />
+            <span style={{ fontWeight: 600 }}>{aiAnalyzing ? t.common.analyzing : t.common.analyze || 'AI分析'}</span>
+          </button>
+          <button
+            className="btn btn-primary mobile-full-width"
+            onClick={takeScreenshot}
+            disabled={screenshotLoading}
+            style={{ gap: '0.75rem', padding: '0.6rem 1.25rem' }}
+          >
+            <Camera size={20} className={screenshotLoading ? 'animate-pulse' : ''} />
+            {screenshotLoading ? t.monitor.executing : t.monitor.screenshotBtn}
+          </button>
+        </div>
       </div>
+      {/* AI 分析结果卡片 */}
+      {(aiAnalysis || aiAnalyzing) && (
+        <div className="card glass-panel" style={{ marginBottom: '1.2rem', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 20px var(--color-shadow)', padding: '1.25rem', maxWidth: 900, marginLeft: 'auto', marginRight: 'auto' }}>
+          <div className="flex-between" style={{ marginBottom: '0.75rem' }}>
+            <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-primary)' }}>
+              <Sparkles size={18} />
+              <span style={{ fontWeight: 600 }}>{t.monitor.aiAnalysisTitle || 'AI 系统健康分析'}</span>
+            </div>
+            {aiAnalyzing && <RefreshCw size={16} className="animate-spin" color="var(--color-primary)" />}
+            <button style={{ marginLeft: '1rem', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setAiAnalysis(null)}><X size={16} /></button>
+          </div>
+          {aiAnalyzing ? (
+            <div className="flex-center" style={{ padding: '1.5rem', flexDirection: 'column', gap: '0.5rem' }}>
+              <RefreshCw size={24} className="animate-spin" color="var(--color-primary)" style={{ opacity: 0.5 }} />
+              <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0, color: 'var(--color-text-muted)' }}>{t.common.analyzing || 'AI 分析中...'}</p>
+            </div>
+          ) : (
+            <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.95rem', color: 'var(--color-text)', lineHeight: 1.7, maxHeight: '400px', overflowY: 'auto' }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis || ''}</ReactMarkdown>
+              {aiAnalysis?.includes(t.common.errors?.aiConfigMissing) && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {showScreenshot && screenshot && (
         <div

@@ -6,7 +6,8 @@ import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain, Plus, MinusCircle } from 'lucide-react';
+import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain, Plus, MinusCircle, Shield } from 'lucide-react';
+import SudoModal from '@/components/SudoModal';
 
 interface ConfigItem {
   id: string;
@@ -53,6 +54,8 @@ export default function ConfigsDashboard() {
   const [homePath, setHomePath] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [addModal, setAddModal] = useState({ isOpen: false, path: '', loading: false });
+  const [sudoModal, setSudoModal] = useState({ isOpen: false, isError: false });
+  const [sudoPassword, setSudoPassword] = useState('');
   const addInputRef = useRef<HTMLInputElement>(null);
 
   const configCategories = [
@@ -112,26 +115,50 @@ export default function ConfigsDashboard() {
     fetchConfigs();
   }, [fetchConfigs]);
 
-  const handleSave = async () => {
+  const handleSave = async (password?: string) => {
     if (!editingId) return;
 
     setSaveStatus(t.common.saving);
     try {
+      const payload: any = { action: 'write', id: editingId, content };
+      if (password) payload.sudoPassword = password;
+
       const res = await fetch('/api/configs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'write', id: editingId, content }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      if (data.error === 'SUDO_REQUIRED') {
+        setSudoModal({ isOpen: true, isError: false });
+        setSaveStatus('');
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        setSaveStatus(t.common.passwordIncorrect);
+        return;
+      }
+
       if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
         setSaveStatus(t.common.saveSuccess);
         setTimeout(() => setSaveStatus(''), 2000);
       } else {
-        setSaveStatus(t.common.saveFailed);
+        setSaveStatus(t.common.saveFailed + (data.details ? ': ' + data.details : ''));
       }
     } catch {
       setSaveStatus(t.common.networkError);
     }
+  };
+
+  const handleSudoSubmit = (password: string) => {
+    setSudoPassword(password);
+    handleSave(password);
   };
 
   const handleAiAction = async () => {
@@ -372,7 +399,7 @@ export default function ConfigsDashboard() {
                     <Sparkles size={15} className={isAiAnalyzing ? 'animate-pulse' : ''} />
                     <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{isAiAnalyzing ? t.common.analyzing : t.common.analyze}</span>
                   </button>
-                  <button className="btn btn-primary btn-sm" style={{ height: '32px' }} onClick={handleSave}>
+                  <button className="btn btn-primary btn-sm" style={{ height: '32px' }} onClick={() => handleSave()}>
                     <Save size={14} style={{ marginRight: '6px' }} /> {t.common.save}
                   </button>
                 </div>
@@ -509,6 +536,13 @@ export default function ConfigsDashboard() {
           </div>
         </div>
       )}
+      {/* Sudo Modal */}
+      <SudoModal 
+        isOpen={sudoModal.isOpen}
+        isError={sudoModal.isError}
+        onClose={() => setSudoModal({ isOpen: false, isError: false })}
+        onSubmit={handleSudoSubmit}
+      />
     </div>
   );
 }

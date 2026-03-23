@@ -5,7 +5,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Server, Sparkles, Brain, Wand2, RotateCw } from 'lucide-react';
+import { Server, Sparkles, Brain, Wand2, RotateCw, Shield } from 'lucide-react';
+import SudoModal from '@/components/SudoModal';
 
 interface NginxSite {
   name: string;
@@ -28,8 +29,8 @@ export default function NginxDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [testResult, setTestResult] = useState('');
 
-  const [showSudoPrompt, setShowSudoPrompt] = useState(false);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [sudoModal, setSudoModal] = useState({ isOpen: false, isError: false });
+  const [pendingAction, setPendingAction] = useState<{ type: 'service' | 'config', action: string, filename?: string } | null>(null);
   const [sudoPassword, setSudoPassword] = useState('');
 
   const [sites, setSites] = useState<NginxSite[]>([]);
@@ -91,7 +92,7 @@ export default function NginxDashboard() {
       const res = await fetch(`/api/nginx/logs?type=${logType}&limit=1000`);
       const data = await res.json();
       if (data.success) {
-        setNginxLogs(data.data);
+        setNginxLogs(data.logs);
         setTimeout(scrollLogsToBottom, 100);
       } else {
         const errorMsg = (t.common.errors as any)[data.error] || data.details || data.error;
@@ -153,15 +154,22 @@ export default function NginxDashboard() {
       });
       const data = await res.json();
 
-      if (data.requiresPassword) {
-        setPendingAction(action);
-        setShowSudoPrompt(true);
+      if (data.requiresPassword || data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'service', action });
+        setSudoModal({ isOpen: true, isError: false });
+        setActionLoading(null);
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT' || data.error === 'password_incorrect') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
         setActionLoading(null);
         return;
       }
 
       if (password) {
-        setShowSudoPrompt(false);
+        setSudoModal({ isOpen: false, isError: false });
         setSudoPassword('');
         setPendingAction(null);
       }
@@ -190,7 +198,7 @@ export default function NginxDashboard() {
     } catch (e) {
       showToast(t.common.networkError, 'error');
     } finally {
-      if (!showSudoPrompt) {
+      if (!sudoModal.isOpen) {
         setActionLoading(null);
       }
     }
@@ -342,10 +350,20 @@ export default function NginxDashboard() {
     }
   };
 
-  const submitSudoAction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pendingAction && sudoPassword) {
-      handleAction(pendingAction, sudoPassword);
+  const handleSudoSubmit = (password: string) => {
+    setSudoPassword(password);
+    if (!pendingAction) return;
+
+    if (pendingAction.type === 'service') {
+      handleAction(pendingAction.action, password);
+    } else if (pendingAction.type === 'config') {
+      if (pendingAction.action === 'write') {
+        handleSaveSite(password);
+      } else if (pendingAction.action === 'enable' || pendingAction.action === 'disable') {
+        handleToggleStatus(pendingAction.filename!, pendingAction.action === 'enable' ? 'disabled' : 'enabled', password);
+      } else if (pendingAction.action === 'delete') {
+        handleDeleteSite(pendingAction.filename!, password);
+      }
     }
   };
 
@@ -370,17 +388,38 @@ export default function NginxDashboard() {
     }
   };
 
-  const handleSaveSite = async () => {
+  const handleSaveSite = async (password?: string) => {
     if (!editingSite) return;
     setSaveStatus(t.common.saving);
     try {
+      const payload: any = { action: 'write', filename: editingSite, content: siteContent };
+      if (password) payload.sudoPassword = password;
+
       const res = await fetch('/api/nginx/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'write', filename: editingSite, content: siteContent }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      if (data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'config', action: 'write' });
+        setSudoModal({ isOpen: true, isError: false });
+        setSaveStatus('');
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        setSaveStatus(t.common.passwordIncorrect);
+        return;
+      }
+
       if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
+        setPendingAction(null);
         setSaveStatus(t.common.saveSuccess);
         fetchSites();
         setTimeout(() => setSaveStatus(''), 2000);
@@ -393,17 +432,36 @@ export default function NginxDashboard() {
     }
   };
 
-  const handleToggleStatus = async (filename: string, currentStatus: 'enabled' | 'disabled') => {
+  const handleToggleStatus = async (filename: string, currentStatus: 'enabled' | 'disabled', password?: string) => {
     const action = currentStatus === 'enabled' ? 'disable' : 'enable';
     setSiteLoading(true);
     try {
+      const payload: any = { action, filename };
+      if (password) payload.sudoPassword = password;
+
       const res = await fetch('/api/nginx/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, filename }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      if (data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'config', action, filename });
+        setSudoModal({ isOpen: true, isError: false });
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        return;
+      }
+
       if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
+        setPendingAction(null);
         fetchSites();
       } else {
         showToast(`${t.common.error}: ${data.details || data.error}`, 'error');
@@ -415,17 +473,36 @@ export default function NginxDashboard() {
     }
   };
 
-  const handleDeleteSite = async (filename: string) => {
-    if (!window.confirm(t.common.deleteConfirm)) return;
+  const handleDeleteSite = async (filename: string, password?: string) => {
+    if (!password && !window.confirm(t.common.deleteConfirm)) return;
     setSiteLoading(true);
     try {
+      const payload: any = { action: 'delete', filename };
+      if (password) payload.sudoPassword = password;
+
       const res = await fetch('/api/nginx/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', filename }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      if (data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'config', action: 'delete', filename });
+        setSudoModal({ isOpen: true, isError: false });
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        return;
+      }
+
       if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
+        setPendingAction(null);
         fetchSites();
         if (editingSite === filename) setEditingSite(null);
       } else {
@@ -550,7 +627,7 @@ export default function NginxDashboard() {
 
           {testResult && (
             <div style={{
-              marginTop: '1rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
+              marginTop: '-1rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)',
               fontFamily: 'monospace', color: testResult.includes('failed') || testResult.includes('失败') ? 'var(--color-danger)' : 'var(--color-success)',
               whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.75rem',
               border: '1px solid var(--color-surface-border)', maxHeight: '120px', overflowY: 'auto', flex: 1
@@ -824,7 +901,7 @@ export default function NginxDashboard() {
               <span className={saveStatus.includes('成功') || saveStatus.includes('Success') ? 'badge badge-success' : 'badge badge-warning'} style={{ opacity: saveStatus ? 1 : 0 }}>
                 {saveStatus || 'Ready'}
               </span>
-              <button className="btn btn-primary" onClick={handleSaveSite}>{t.common.save}</button>
+              <button className="btn btn-primary" onClick={() => handleSaveSite()}>{t.common.save}</button>
             </div>
             <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
               {t.nginx.saveNote}
@@ -833,43 +910,17 @@ export default function NginxDashboard() {
         )}
       </div>
 
-      {showSudoPrompt && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
-          display: 'flex', justifyContent: 'center', alignItems: 'center'
-        }}>
-          <div className="card glass-panel" style={{ width: '90%', maxWidth: '400px' }}>
-            <h2 className="card-title" style={{ marginTop: 0 }}>{t.nginx.sudoTitle}</h2>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              {t.nginx.sudoDesc}
-            </p>
-            <form onSubmit={submitSudoAction}>
-              <input
-                type="password"
-                className="input"
-                style={{ width: '100%', marginBottom: '1rem' }}
-                placeholder={t.nginx.sudoPlaceholder}
-                value={sudoPassword}
-                onChange={e => setSudoPassword(e.target.value)}
-                autoFocus
-              />
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => { setShowSudoPrompt(false); setSudoPassword(''); setPendingAction(null); }}
-                >
-                  {t.common.cancel}
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {t.common.confirm}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <SudoModal 
+        isOpen={sudoModal.isOpen}
+        isError={sudoModal.isError}
+        onClose={() => {
+          setSudoModal({ isOpen: false, isError: false });
+          if (!sudoModal.isError) {
+             setPendingAction(null);
+          }
+        }}
+        onSubmit={handleSudoSubmit}
+      />
     </div>
   );
 }

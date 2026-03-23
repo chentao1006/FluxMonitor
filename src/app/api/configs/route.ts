@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { getConfig, saveConfig } from '@/lib/config';
+import { writeFileWithSudo } from '@/lib/exec';
 
 const HOME = os.homedir();
 const CONFIG_DIR = path.join(HOME, '.config');
@@ -210,7 +211,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { action, id, content } = await request.json();
+    const { action, id, content, sudoPassword } = await request.json();
 
     // id can be a predefined ID or a full path
     let configPath = '';
@@ -241,7 +242,13 @@ export async function POST(request: Request) {
       PREDEFINED_CONFIGS.some(c => c.path === configPath);
 
     if (!isAllowedDir) {
-      return NextResponse.json({ error: 'PERMISSION_DENIED', details: 'Access outside allowed directories' }, { status: 403 });
+      if (action === 'write' && sudoPassword) {
+        // Bypass for sudo writes
+      } else if (action === 'write') {
+        return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
+      } else {
+        return NextResponse.json({ error: 'PERMISSION_DENIED', details: 'Access outside allowed directories' }, { status: 403 });
+      }
     }
 
     if (action === 'read') {
@@ -259,7 +266,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: true });
       } catch (error: any) {
         if (error.code === 'EACCES' || error.code === 'EPERM') {
-          return NextResponse.json({ error: 'PERMISSION_DENIED' }, { status: 403 });
+          if (sudoPassword) {
+            try {
+              await writeFileWithSudo(configPath, content || '', sudoPassword);
+              return NextResponse.json({ success: true });
+            } catch (sudoError: any) {
+              if (sudoError.stderr?.toLowerCase().includes('password')) {
+                return NextResponse.json({ error: 'SUDO_PASSWORD_INCORRECT' }, { status: 403 });
+              }
+              return NextResponse.json({ error: 'SUDO_FAILED', details: sudoError.message }, { status: 500 });
+            }
+          }
+          return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
         }
         return NextResponse.json({ error: 'WRITE_FAILED', details: error.message }, { status: 500 });
       }

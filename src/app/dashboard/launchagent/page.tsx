@@ -1,9 +1,10 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, RefreshCw, Eraser, Play, Square, Repeat } from 'lucide-react';
+import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, Play, Square, Repeat, Shield } from 'lucide-react';
+import SudoModal from '@/components/SudoModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -49,6 +50,12 @@ export default function LaunchAgentDashboard() {
   const [analysisResult, setAnalysisResult] = useState('');
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [modalError, setModalError] = useState<{ title: string, content: string } | null>(null);
+  const [sudoModal, setSudoModal] = useState({ isOpen: false, isError: false });
+  const [sudoPassword, setSudoPassword] = useState('');
+  const [pendingAction, setPendingAction] = useState<{ type: 'action' | 'save' | 'delete', filePath: string, action?: string } | null>(null);
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newContent, setNewContent] = useState('');
 
   const openEditor = useCallback(async (item: PlistItem) => {
     setEditingFile(item);
@@ -99,16 +106,35 @@ export default function LaunchAgentDashboard() {
     }
   }, [plists, loading, editingFile, openEditor]);
 
-  const handleAction = async (filePath: string, action: string) => {
+  const handleAction = async (filePath: string, action: string, password?: string) => {
     setActionLoading(`${filePath}-${action}`);
     try {
+      const payload: any = { filePath, action };
+      if (password) payload.sudoPassword = password;
+
       const res = await fetch('/api/launchagent/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath, action }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      if (data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'action', filePath, action });
+        setSudoModal({ isOpen: true, isError: false });
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        return;
+      }
+
       if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
+        setPendingAction(null);
         fetchPlists();
       } else {
         setModalError({
@@ -124,8 +150,36 @@ export default function LaunchAgentDashboard() {
   };
 
   const handleAddNew = () => {
-    let name = prompt(t.launchagent.newConfigPrompt, 'com.example.agent.plist');
-    if (!name) return;
+    let defaultName = 'com.example.agent.plist';
+    let basePath = '';
+    if (plists.length > 0) {
+      const firstPath = plists[0].path;
+      basePath = firstPath.substring(0, firstPath.lastIndexOf('/') + 1);
+    } else {
+      basePath = '/Users/chentao/Library/LaunchAgents/';
+    }
+    
+    setNewName(defaultName);
+    setNewContent(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/executable</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>`);
+    setIsAddingNew(true);
+  };
+
+  const submitNewAgent = async () => {
+    if (!newName) return;
+    let name = newName;
     if (!name.endsWith('.plist')) name += '.plist';
 
     let basePath = '';
@@ -136,39 +190,63 @@ export default function LaunchAgentDashboard() {
       basePath = '/Users/chentao/Library/LaunchAgents/';
     }
     const newPath = basePath + name;
-    setEditingFile({ name, path: newPath, isLoaded: false, size: 0, mtime: 0 });
-    setEditName(name.replace('.plist', ''));
-    const defaultContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${name.replace('.plist', '')}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/path/to/executable</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>`;
-    setFileContent(defaultContent);
-    setSaveStatus('');
-    setAnalysisResult('');
-  };
 
-  const handleDelete = async (filePath: string) => {
-    if (!window.confirm(t.common.deleteConfirm)) return;
-
-    setActionLoading(`${filePath}-delete`);
+    setSaveStatus(t.common.saving);
     try {
       const res = await fetch('/api/launchagent/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath, action: 'delete' }),
+        body: JSON.stringify({ filePath: newPath, action: 'write', content: newContent }),
       });
       const data = await res.json();
       if (data.success) {
+        setIsAddingNew(false);
+        fetchPlists();
+        setSaveStatus(t.common.saveSuccess);
+        setTimeout(() => setSaveStatus(''), 2000);
+        // Automatically select the new one
+        setEditingFile({ name, path: newPath, isLoaded: false, size: 0, mtime: Date.now() });
+        setEditName(name.replace('.plist', ''));
+        setFileContent(newContent);
+      } else {
+        setModalError({ title: t.common.saveFailed, content: data.error });
+      }
+    } catch (e) {
+      setModalError({ title: t.common.networkError, content: 'Network error' });
+    }
+  };
+
+  const handleDelete = async (filePath: string, password?: string) => {
+    if (!password && !window.confirm(t.common.deleteConfirm)) return;
+
+    setActionLoading(`${filePath}-delete`);
+    try {
+      const payload: any = { filePath, action: 'delete' };
+      if (password) payload.sudoPassword = password;
+
+      const res = await fetch('/api/launchagent/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'delete', filePath });
+        setSudoModal({ isOpen: true, isError: false });
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        return;
+      }
+
+      if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
+        setPendingAction(null);
         if (editingFile?.path === filePath) setEditingFile(null);
         fetchPlists();
       } else {
@@ -181,7 +259,7 @@ export default function LaunchAgentDashboard() {
     }
   };
 
-  const saveFile = async () => {
+  const saveFile = async (password?: string) => {
     if (!editingFile) return;
     setSaveStatus(t.common.saving);
     try {
@@ -210,13 +288,34 @@ export default function LaunchAgentDashboard() {
         }
       }
 
+      const payload: any = { filePath: currentPath, action: 'write', content: fileContent };
+      if (password) payload.sudoPassword = password;
+
       const res = await fetch('/api/launchagent/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: currentPath, action: 'write', content: fileContent }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+
+      if (data.error === 'SUDO_REQUIRED') {
+        setPendingAction({ type: 'save', filePath: currentPath });
+        setSudoModal({ isOpen: true, isError: false });
+        setSaveStatus('');
+        return;
+      }
+
+      if (data.error === 'SUDO_PASSWORD_INCORRECT') {
+        setSudoModal({ isOpen: true, isError: true });
+        setSudoPassword('');
+        setSaveStatus(t.common.passwordIncorrect);
+        return;
+      }
+
       if (data.success) {
+        setSudoModal({ isOpen: false, isError: false });
+        setSudoPassword('');
+        setPendingAction(null);
         setSaveStatus(t.common.saveSuccess);
         fetchPlists();
         setTimeout(() => setSaveStatus(''), 2000);
@@ -225,6 +324,19 @@ export default function LaunchAgentDashboard() {
       }
     } catch (e) {
       setSaveStatus(t.common.networkError);
+    }
+  };
+
+  const handleSudoSubmit = (password: string) => {
+    setSudoPassword(password);
+    if (!pendingAction) return;
+
+    if (pendingAction.type === 'action') {
+      handleAction(pendingAction.filePath, pendingAction.action!, password);
+    } else if (pendingAction.type === 'delete') {
+      handleDelete(pendingAction.filePath, password);
+    } else if (pendingAction.type === 'save') {
+      saveFile(password);
     }
   };
 
@@ -354,7 +466,7 @@ export default function LaunchAgentDashboard() {
                     <Sparkles size={15} className={isAiAnalyzing ? 'animate-pulse' : ''} />
                     <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{isAiAnalyzing ? t.common.analyzing : t.common.analyze}</span>
                   </button>
-                  <button className="btn btn-primary btn-sm" onClick={saveFile} style={{ height: '28px', padding: '0 0.75rem' }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => saveFile()} style={{ height: '28px', padding: '0 0.75rem' }}>
                     <Save size={14} style={{ marginRight: '4px' }} /> {t.common.save}
                   </button>
                 </div>
@@ -437,6 +549,54 @@ export default function LaunchAgentDashboard() {
         </div>
       )}
 
+      {isAddingNew && (
+        <div className="modal-overlay" onClick={() => setIsAddingNew(false)}>
+          <div className="card glass-panel modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', width: '95%', height: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="flex-between" style={{ marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>{t.launchagent.addConfig}</h3>
+              <button className="btn-icon" onClick={() => setIsAddingNew(false)}><X size={20} /></button>
+            </div>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--color-text-muted)' }}>{t.launchagent.newConfigPrompt}</label>
+              <input 
+                type="text" 
+                className="input" 
+                value={newName} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewName(val);
+                  // Auto-update Label in content if it matches
+                  const labelMatch = newContent.match(/<key>Label<\/key>\s*<string>(.*?)<\/string>/);
+                  if (labelMatch) {
+                    const oldLabel = labelMatch[1];
+                    const newLabel = val.replace('.plist', '');
+                    setNewContent(newContent.replace(`<string>${oldLabel}</string>`, `<string>${newLabel}</string>`));
+                  }
+                }}
+                placeholder="com.example.app.plist"
+              />
+            </div>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--color-text-muted)' }}>{t.launchagent.configContent}</label>
+              <textarea 
+                className="input" 
+                style={{ flex: 1, fontFamily: 'monospace', fontSize: '0.85rem', padding: '1rem', resize: 'none' }}
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                spellCheck={false}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button className="btn btn-ghost" onClick={() => setIsAddingNew(false)}>{t.common.cancel}</button>
+              <button className="btn btn-primary" onClick={submitNewAgent} disabled={!newName}>{t.common.confirm}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         .responsive-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) 3fr; gap: 1.5rem; align-items: start; width: 100%; max-width: 100%; box-sizing: border-box; }
         .plist-tab:hover { background: rgba(59, 130, 246, 0.05) !important; }
@@ -468,6 +628,16 @@ export default function LaunchAgentDashboard() {
         }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
       `}</style>
+      {/* Sudo Modal */}
+      <SudoModal 
+        isOpen={sudoModal.isOpen}
+        isError={sudoModal.isError}
+        onClose={() => {
+          setSudoModal({ isOpen: false, isError: false });
+          if (!sudoModal.isError) setPendingAction(null);
+        }}
+        onSubmit={handleSudoSubmit}
+      />
     </div>
   );
 }

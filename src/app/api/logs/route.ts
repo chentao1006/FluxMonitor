@@ -88,7 +88,7 @@ export async function GET(request: Request) {
     // Find all .log and nohup.out files in specified directories, up to 5 levels deep
     // Sorting by modification time (most recent first)
     // Redirect stderr to /dev/null to avoid permission errors
-    const { stdout } = await execAsync(`find ${pathsStr} -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" -o -name "system.log" \\) -type f -exec stat -f "%m %z %N" {} + 2>/dev/null | sort -rn | head -n 100`, { maxBuffer: 100 * 1024 * 1024 });
+    const { stdout } = await execAsync(`find ${pathsStr} -maxdepth 5 \\( -name "*.log" -o -name "nohup.out" -o -name "system.log" \\) -type f -exec stat -f "%m %z %N" {} + 2>/dev/null | sort -rn | head -n 500`, { maxBuffer: 100 * 1024 * 1024 });
 
     const files = stdout.trim().split('\n').filter(Boolean).map(line => {
       const parts = line.split(' ');

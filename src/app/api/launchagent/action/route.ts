@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
+import { runCommandWithSudo } from '@/lib/exec';
 
 const execAsync = promisify(exec);
 
 export async function POST(request: Request) {
   try {
-    const { action, filePath, content, newFilePath } = await request.json();
+    const { action, filePath, content, newFilePath, sudoPassword } = await request.json();
 
     if (!action || !filePath) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
@@ -24,12 +25,24 @@ export async function POST(request: Request) {
     }
 
     if (action === 'load') {
-      await execAsync(`launchctl load -w "${filePath}"`);
+      try {
+        await execAsync(`launchctl load -w "${filePath}"`);
+      } catch (error: any) {
+        if (error.stderr?.includes('Permission denied') || error.stderr?.includes('privileged')) {
+          await runCommandWithSudo(`launchctl load -w "${filePath}"`, sudoPassword);
+        } else throw error;
+      }
       return NextResponse.json({ success: true });
     }
 
     if (action === 'unload') {
-      await execAsync(`launchctl unload -w "${filePath}"`);
+      try {
+        await execAsync(`launchctl unload -w "${filePath}"`);
+      } catch (error: any) {
+        if (error.stderr?.includes('Permission denied') || error.stderr?.includes('privileged')) {
+          await runCommandWithSudo(`launchctl unload -w "${filePath}"`, sudoPassword);
+        } else throw error;
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -54,6 +67,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });
   } catch (error: any) {
+    if (error.code === 'SUDO_REQUIRED') {
+      return NextResponse.json({ error: 'SUDO_REQUIRED' }, { status: 403 });
+    }
+    if (error.stderr?.toLowerCase().includes('password')) {
+      return NextResponse.json({ error: 'SUDO_PASSWORD_INCORRECT' }, { status: 403 });
+    }
     console.error('LaunchAgent Action Error:', error);
     return NextResponse.json({
       success: false,
