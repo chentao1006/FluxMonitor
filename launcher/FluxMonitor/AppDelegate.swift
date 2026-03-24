@@ -49,6 +49,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if !isFirstRun && UserDefaults.standard.bool(forKey: "autoStartService") && hasCredentials {
             ProcessManager.shared.start()
+            
+            // Auto-start tunnel if enabled
+            if UserDefaults.standard.bool(forKey: "autoStartTunnel") {
+                let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
+                let subdomain = UserDefaults.standard.string(forKey: "tunnelSubdomain") ?? ""
+                
+                // Slight delay to allow service to bind if it's already installed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    TunnelManager.shared.start(port: port, subdomain: subdomain)
+                }
+            }
         }
         
         // Show window if Node.js is missing OR setup is needed OR silent start is disabled

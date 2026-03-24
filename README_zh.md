@@ -5,7 +5,8 @@
 ---
 
 一款专为**作为服务器运行的 Mac** 设计的监控与服务管理面板。
-下载最新版: [Releases](https://github.com/chentao1006/FluxMonitor/releases)
+
+下载最新版: [Releases](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
 
 ### 功能
 
@@ -17,6 +18,7 @@
 - **Docker**: 管理容器与镜像。
 - **Nginx**: 管理站点及全局配置。
 - **选配 AI 助手**: 绑定 OpenAI API 密钥后，可使用日志诊断、参数配置审查及故障排查辅助功能。
+- **公网访问 (InstaTunnel)**: 一键开启公网访问，无需账号或复杂配置，安全便捷。
 
 **待开发功能**
 

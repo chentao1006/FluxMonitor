@@ -5,7 +5,8 @@
 ---
 
 A system monitoring and management dashboard designed for **Macs running as servers**.
-Download the latest version: [Releases](https://github.com/chentao1006/FluxMonitor/releases)
+
+Download the latest version: [Releases](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
 
 ### Features
 
@@ -17,6 +18,7 @@ Download the latest version: [Releases](https://github.com/chentao1006/FluxMonit
 - **Docker**: Manage containers and images.
 - **Nginx**: Manage sites and global configurations.
 - **Optional AI Assistant**: Connect an OpenAI API key for log parsing, configuration auditing, and troubleshooting suggestions.
+- **Public Access (InstaTunnel)**: Expose your local monitor to the public internet securely with a single click, no account or complex config needed.
 
 ---
 

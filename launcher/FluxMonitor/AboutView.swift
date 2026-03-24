@@ -14,12 +14,12 @@ struct AboutView: View {
             VStack(spacing: 4) {
                 Text(i18n.t("app_title"))
                     .font(.title2.bold())
-                Text("Version \(version) (\(build))")
+                Text(String(format: i18n.t("version_format"), version, build))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
-            Text("Flux Monitor Monitor.")
+            Text(i18n.t("about_desc"))
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
@@ -49,7 +49,7 @@ struct AboutView: View {
             
             Spacer()
             
-            Text("© 2026 Tao Chen. MIT License.")
+            Text(i18n.t("mit_license"))
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }

@@ -12,12 +12,13 @@ class NodeInstaller: ObservableObject {
         case failed(error: String)
         
         var description: String {
+            let i18n = I18N.shared
             switch self {
-            case .idle: return "Idle"
-            case .downloading(let p): return "Downloading Node.js (\(Int(p * 100))%)"
-            case .extracting: return "Extracting..."
-            case .completed: return "Installation Completed"
-            case .failed(let e): return "Error: \(e)"
+            case .idle: return i18n.t("node_idle")
+            case .downloading(let p): return String(format: i18n.t("node_downloading"), Int(p * 100))
+            case .extracting: return i18n.t("node_extracting")
+            case .completed: return i18n.t("node_completed")
+            case .failed(let e): return String(format: i18n.t("node_failed"), e)
             }
         }
     }
@@ -78,9 +79,7 @@ class NodeInstaller: ObservableObject {
         let arch = getArchitecture()
         
         // Use mirror for Chinese users to avoid TLS/Network issues
-        let baseUrl = I18N.shared.isZh ? 
-            "https://npmmirror.com/mirrors/node" : 
-            "https://nodejs.org/dist"
+        let baseUrl = I18N.shared.t("node_mirror_url")
             
         let urlString = "\(baseUrl)/v\(nodeVersion)/node-v\(nodeVersion)-darwin-\(arch).tar.gz"
         
@@ -121,8 +120,7 @@ class NodeInstaller: ObservableObject {
         try? FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
         
         let arch = getArchitecture()
-        let folderName = "node-v\(nodeVersion)-darwin-\(arch)"
-        let nodeInternalPath = "\(folderName)/bin/node"
+        _ = "node-v\(nodeVersion)-darwin-\(arch)" // Removed unused folderName dependency but leaving comment if needed
         
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")

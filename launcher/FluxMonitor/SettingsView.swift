@@ -5,6 +5,7 @@ struct SettingsView: View {
     @StateObject var i18n = I18N.shared
     @AppStorage("autoStartApp") var autoStartApp = false
     @AppStorage("autoStartService") var autoStartService = true
+    @AppStorage("autoStartTunnel") var autoStartTunnel = false
     @AppStorage("port") var port = 4210
     
     @AppStorage("username") var username = ""
@@ -88,6 +89,20 @@ struct SettingsView: View {
                 Toggle("", isOn: $autoStartService)
                     .toggleStyle(.switch)
                     .labelsHidden()
+                    .onChange(of: autoStartService) { newValue in
+                        if !newValue { autoStartTunnel = false }
+                        saveSettings()
+                    }
+            }
+            
+            HStack {
+                Text(i18n.t("auto_start_tunnel"))
+                Spacer()
+                Toggle("", isOn: $autoStartTunnel)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .disabled(!autoStartService)
+                    .opacity(autoStartService ? 1.0 : 0.5)
             }
             
             HStack {

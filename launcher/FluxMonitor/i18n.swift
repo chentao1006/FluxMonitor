@@ -52,6 +52,7 @@ class I18N: ObservableObject {
         "behavior": "行为",
         "launch_at_login": "开机启动",
         "auto_start_service": "自动启动服务",
+        "auto_start_tunnel": "自动启动公网访问",
         "save": "保存设置",
         "silent_start": "静默启动 (打开时不显示窗口)",
         "language": "界面语言",
@@ -69,7 +70,39 @@ class I18N: ObservableObject {
         "download_node_title": "需要下载 Node.js",
         "download_node_message": "为了运行后台服务，我们需要下载并安装 Node.js (约 100MB)。",
         "download": "下载",
-        "cancel": "取消"
+        "cancel": "取消",
+        "tunnel": "公网",
+        "tunnel_title": "公网访问 (InstaTunnel)",
+        "tunnel_subdomain": "自定义子域名 (可选)",
+        "tunnel_subdomain_placeholder": "例如 my-service",
+        "tunnel_quick_desc": "集成第三方 InstaTunnel 服务。无需账号，自动生成公网访问地址。",
+        "view_details": "查看详情",
+        "public_url": "公网地址",
+        "download_instatunnel_title": "需要下载 InstaTunnel",
+        "download_instatunnel_message": "为了使用公网访问功能，我们需要下载 instatunnel 二进制文件 (约 5MB)。",
+        "starting": "正在启动",
+        "error": "错误",
+        "service_not_running_title": "本地服务未启动",
+        "service_not_running_message": "请先在“服务”标签页中启动本地服务，然后再开启公网访问。",
+        "reset_env": "重置环境",
+        "instatunnel_checking": "正在检查 InstaTunnel...",
+        "instatunnel_preparing": "正在准备 InstaTunnel...",
+        "instatunnel_ready": "InstaTunnel 已就绪",
+        "instatunnel_not_installed": "InstaTunnel 未安装",
+        "instatunnel_downloading": "正在下载 InstaTunnel (%d%%)...",
+        "instatunnel_error": "错误: %@",
+        "port_not_accessible": "本地端口 %d 无法访问，请确保服务已启动",
+        "node_idle": "空闲",
+        "node_downloading": "正在下载 Node.js (%d%%)...",
+        "node_extracting": "正在解压...",
+        "node_completed": "安装完成",
+        "node_failed": "错误: %@",
+        "edit": "编辑",
+        "version_format": "版本 %@ (%@)",
+        "about_desc": "浮光面板 桌面管理程序。",
+        "mit_license": "© 2026 Tao Chen. MIT 许可证。",
+        "follow_system": "跟随系统",
+        "node_mirror_url": "https://npmmirror.com/mirrors/node"
     ]
     
     private let enDict = [
@@ -91,7 +124,9 @@ class I18N: ObservableObject {
         "behavior": "Behavior",
         "launch_at_login": "Launch at Login",
         "auto_start_service": "Auto-start Service",
+        "auto_start_tunnel": "Auto-start Public Access",
         "save": "Save Settings",
+        "view_details": "View Details",
         "silent_start": "Silent Start (No window on launch)",
         "language": "Language",
         "check_updates": "Check for Updates",
@@ -108,7 +143,38 @@ class I18N: ObservableObject {
         "download_node_title": "Node.js Required",
         "download_node_message": "To run the background service, we need to download and install Node.js (approx. 100MB).",
         "download": "Download",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "tunnel": "Public",
+        "tunnel_title": "Public Access (InstaTunnel)",
+        "tunnel_subdomain": "Custom Subdomain (Optional)",
+        "tunnel_subdomain_placeholder": "e.g. my-service",
+        "tunnel_quick_desc": "Powered by third-party InstaTunnel. Automatically generated public URL, no account needed.",
+        "public_url": "Public URL",
+        "download_instatunnel_title": "InstaTunnel Required",
+        "download_instatunnel_message": "To use public tunnel, we need to download the 'instatunnel' binary (approx. 5MB).",
+        "starting": "Starting",
+        "error": "Error",
+        "service_not_running_title": "Service Not Running",
+        "service_not_running_message": "Please start the local service in the 'Service' tab before enabling public access.",
+        "reset_env": "Reset Env",
+        "instatunnel_checking": "Checking InstaTunnel...",
+        "instatunnel_preparing": "Preparing InstaTunnel...",
+        "instatunnel_ready": "InstaTunnel is ready",
+        "instatunnel_not_installed": "InstaTunnel not installed",
+        "instatunnel_downloading": "Downloading InstaTunnel (%d%%)...",
+        "instatunnel_error": "Error: %@",
+        "port_not_accessible": "Local port %d is not accessible. Please make sure the service is running.",
+        "node_idle": "Idle",
+        "node_downloading": "Downloading Node.js (%d%%)...",
+        "node_extracting": "Extracting...",
+        "node_completed": "Installation Completed",
+        "node_failed": "Error: %@",
+        "edit": "Edit",
+        "version_format": "Version %@ (%@)",
+        "about_desc": "Flux Monitor Desktop Manager.",
+        "mit_license": "© 2026 Tao Chen. MIT License.",
+        "follow_system": "Follow System",
+        "node_mirror_url": "https://nodejs.org/dist"
     ]
 }
 
@@ -121,7 +187,7 @@ enum Language: String, CaseIterable, Identifiable {
     
     var localized: String {
         switch self {
-        case .system: return I18N.shared.isZh ? "跟随系统" : "Follow System"
+        case .system: return I18N.shared.t("follow_system")
         case .en: return "English"
         case .zh: return "简体中文"
         }
