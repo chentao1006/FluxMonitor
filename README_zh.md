@@ -6,7 +6,7 @@
 
 一款专为**作为服务器运行的 Mac** 设计的监控与服务管理面板。
 
-下载最新版: [Releases](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+下载启动器: [最新版本](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
 
 ### 功能
 

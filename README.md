@@ -6,7 +6,7 @@
 
 A system monitoring and management dashboard designed for **Macs running as servers**.
 
-Download the latest version: [Releases](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+Download the launcher: [Latest Release](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
 
 ### Features
 
