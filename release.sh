@@ -45,8 +45,21 @@ echo "📦 Version: $NEW_VERSION (Build $NEW_BUILD)"
 # 2. Git Operations
 echo "📂 Committing and tagging..."
 git add .
-git commit -m "chore: release version $NEW_VERSION (build $NEW_BUILD)"
-git tag "v$NEW_VERSION" -a -m "Release v$NEW_VERSION"
+git commit -m "chore: release version $NEW_VERSION (build $NEW_BUILD)" || echo "No changes to commit"
+
+# Handle existing tag
+TAG_NAME="v$NEW_VERSION"
+if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+    echo "⚠️  Tag $TAG_NAME already exists locally. Deleting..."
+    git tag -d "$TAG_NAME"
+fi
+
+if git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME"; then
+    echo "⚠️  Tag $TAG_NAME already exists on remote. Deleting..."
+    git push origin --delete "$TAG_NAME" || true
+fi
+
+git tag "$TAG_NAME" -a -m "Release v$NEW_VERSION"
 
 echo "📦 Code committed and tagged locally."
 
@@ -54,7 +67,7 @@ echo "📦 Code committed and tagged locally."
 BRANCH=$(git symbolic-ref --short HEAD)
 echo "📡 Pushing to branch $BRANCH and tags..."
 git push origin "$BRANCH"
-git push origin "v$NEW_VERSION"
+git push origin "$TAG_NAME"
 
 # 4. GitHub Release
 RESULT_DIR="launcher/build"
@@ -73,7 +86,13 @@ if command -v gh >/dev/null 2>&1; then
     # Define assets to upload (only DMG)
     ASSETS=("$DMG_PATH")
 
-    gh release create "v$NEW_VERSION" \
+    # Delete existing release if it exists to allow re-creation
+    if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+        echo "⚠️  GitHub Release $TAG_NAME already exists. Deleting it..."
+        gh release delete "$TAG_NAME" --yes
+    fi
+
+    gh release create "$TAG_NAME" \
         "${ASSETS[@]}" \
         --title "Release v$NEW_VERSION" \
         --notes "Automatic local release of version $NEW_VERSION"
