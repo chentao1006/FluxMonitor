@@ -12,19 +12,30 @@ echo "================================================="
 echo "  🚀 Starting Flux Release Process"
 echo "================================================="
 
-# Force a clean standalone build to ensure all latest changes are included
-echo "1. Cleaning up old build artifacts..."
-rm -rf .next/standalone
+UPLOAD_ONLY=false
+for arg in "$@"; do
+    if [ "$arg" == "--upload-only" ] || [ "$arg" == "-u" ]; then
+        UPLOAD_ONLY=true
+    fi
+done
 
-echo "2. Building Next.js project..."
-npm install
-npm run build
+if [ "$UPLOAD_ONLY" = false ]; then
+    # Force a clean standalone build to ensure all latest changes are included
+    echo "1. Cleaning up old build artifacts..."
+    rm -rf .next/standalone
 
-echo "3. Bundling macOS application..."
-# Forward all arguments (like --release) to the bundle script
-./launcher/bundle.sh "$@"
+    echo "2. Building Next.js project..."
+    npm install
+    npm run build
 
-echo "✅ Bundle process finished successfully!"
+    echo "3. Bundling macOS application..."
+    # Forward all arguments (like --release) to the bundle script
+    ./launcher/bundle.sh "$@"
+
+    echo "✅ Bundle process finished successfully!"
+else
+    echo "⏭️  Skipping build and bundling, entering upload-only mode..."
+fi
 echo "================================================="
 echo "  🚀 Starting Git Operations & GitHub Release"
 echo "================================================="
