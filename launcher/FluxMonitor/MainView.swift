@@ -627,19 +627,17 @@ struct TunnelView: View {
                         .font(.system(size: 20, weight: .bold))
                 }
                 
-                if case .running(let url) = tunnelManager.status {
-                    if !url.isEmpty {
-                        Button(action: {
-                            if let url = URL(string: url) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }) {
+                if case .running(let url) = tunnelManager.status, let urlObj = URL(string: url) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(i18n.t("public_url"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Link(destination: urlObj) {
                             Text(url)
                                 .font(.subheadline)
                                 .foregroundColor(.blue)
                                 .underline()
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -681,9 +679,12 @@ struct TunnelView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Link("\(i18n.t("view_details")): https://instatunnel.my", destination: URL(string: "https://instatunnel.my")!)
-                    .font(.caption)
-                    .foregroundColor(.blue)
+                HStack(spacing: 4) {
+                    Text(i18n.t("view_details") + ":")
+                    Link("https://instatunnel.my", destination: URL(string: "https://instatunnel.my")!)
+                        .foregroundColor(.blue)
+                }
+                .font(.caption)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             

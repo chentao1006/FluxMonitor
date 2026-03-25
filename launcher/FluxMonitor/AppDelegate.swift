@@ -27,7 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             "autoStartService": true,
             "silentStart": false,
             "port": 4210,
-            "language": "auto"
+            "appLanguage": Language.system.rawValue
         ])
         
         // Initialize Sparkle
@@ -66,6 +66,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !isNodeAvailable || needsSetup || !silentStart {
             showSettings()
         }
+        
+        // Observe language changes
+        I18N.shared.$language
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.setupMainMenu()
+                self?.updateMenu()
+                self?.settingsWindow?.title = I18N.shared.t("app_title")
+            }
+            .store(in: &cancellables)
         
         // Ensure first run alert is shown if needed
         checkFirstRun()
@@ -107,9 +117,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func updateIcon() {
         if let button = statusItem?.button {
             let symbolName = ProcessManager.shared.isRunning ? "flame.fill" : "flame"
-            let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Flux Monitor")
+            let i18n = I18N.shared
+            let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: i18n.t("app_title"))
             image?.isTemplate = true
             button.image = image
+            button.toolTip = i18n.t("app_title")
         }
     }
 
@@ -210,6 +222,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let mainMenu = NSMenu()
         let i18n = I18N.shared
         
+        // Update process name (can affect Dock tooltip and menu bar name in some cases)
+        let appTitle = i18n.t("app_title")
+                
         // App Menu
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
@@ -220,7 +235,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(withTitle: i18n.t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         
         // Edit Menu (Required for Cmd+C, Cmd+A shortcuts)
-        let editMenuItem = NSMenuItem()
+        let editMenuItem = NSMenuItem(title: i18n.t("edit"), action: nil, keyEquivalent: "")
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: i18n.t("edit"))
         editMenuItem.submenu = editMenu

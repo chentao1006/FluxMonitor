@@ -20,18 +20,18 @@ struct ServiceView: View {
                             .font(.system(size: 20, weight: .bold))
                     }
                     
-                    if pm.isRunning {
-                        Button(action: {
-                            if let url = URL(string: "http://\(localIP):\(String(port))") {
-                                NSWorkspace.shared.open(url)
+                    if pm.isRunning, let urlObj = URL(string: "http://\(localIP):\(String(port))") {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(i18n.t("address"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Link(destination: urlObj) {
+                                Text("http://\(localIP):\(String(port))")
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                    .underline()
                             }
-                        }) {
-                            Text("http://\(localIP):\(String(port))")
-                                .font(.subheadline)
-                                .foregroundColor(.blue)
-                                .underline()
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 

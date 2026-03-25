@@ -7,6 +7,12 @@ class I18N: ObservableObject {
     @Published var language: Language = .system {
         didSet {
             UserDefaults.standard.set(language.rawValue, forKey: "appLanguage")
+            if language != .system {
+                let code = language == .zh ? "zh-Hans" : "en"
+                UserDefaults.standard.set([code], forKey: "AppleLanguages")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            }
         }
     }
     

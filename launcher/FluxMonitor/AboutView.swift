@@ -27,15 +27,14 @@ struct AboutView: View {
             Divider()
             
             VStack(spacing: 12) {
-                Button(action: {
-                    if let url = URL(string: "https://github.com/chentao1006/FluxMonitor") {
-                        NSWorkspace.shared.open(url)
+                if let urlObj = URL(string: "https://github.com/chentao1006/FluxMonitor") {
+                    Link(destination: urlObj) {
+                        Label("GitHub", systemImage: "link")
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
                     }
-                }) {
-                    Label("GitHub", systemImage: "link")
-                        .frame(maxWidth: .infinity)
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
                 
                 Button(action: {
                     AppDelegate.shared?.updaterController?.checkForUpdates(nil)
