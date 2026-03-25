@@ -31,7 +31,7 @@ interface DockerImage {
 const ExecModal = dynamic(() => import('@/components/ExecModal'), { ssr: false });
 
 export default function DockerDashboard() {
-  const { t, language, effectiveLang } = useLanguage();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'containers' | 'images'>('containers');
   const [containers, setContainers] = useState<Container[]>([]);
   const [images, setImages] = useState<DockerImage[]>([]);
@@ -123,14 +123,14 @@ export default function DockerDashboard() {
       } else {
         alert(`${t.common.error}: ${data.details || data.error}`);
       }
-    } catch (e) {
+    } catch {
       alert(t.common.networkError);
     } finally {
       setActionLoading(null);
     }
   };
 
-  const showLogs = async (id: string, name: string) => {
+  const showLogs = async (id: string) => {
     setIsLogsOpen(true);
     setDiagnosisId(id);
     setCurrentLogs('');
@@ -177,6 +177,7 @@ export default function DockerDashboard() {
           prompt: t.docker.aiLogPrompt
             .replace('{name}', name)
             .replace('{id}', id)
+            .replace('{lang}', t.common.aiResponseLang)
             .replace('{logs}', currentLogs.slice(-4000)),
           systemPrompt: 'You are an expert Docker engineer specializing in container troubleshooting and log analysis.'
         })
@@ -190,7 +191,7 @@ export default function DockerDashboard() {
       } else {
         setAnalysisResult(`${t.common.error}: ${data.error}`);
       }
-    } catch (e) {
+    } catch {
       setAnalysisResult(t.common.networkError);
     } finally {
       setIsAiAnalyzing(false);
@@ -224,7 +225,8 @@ export default function DockerDashboard() {
           prompt: t.docker.aiStatusPrompt
             .replace('{name}', container.Names)
             .replace('{status}', container.Status)
-            .replace('{image}', container.Image),
+            .replace('{image}', container.Image)
+            .replace('{lang}', t.common.aiResponseLang),
           systemPrompt: 'You are an expert DevOps engineer specializing in Docker container health and status monitoring.'
         })
       });
@@ -235,7 +237,7 @@ export default function DockerDashboard() {
       } else if (data.error === 'AI_CONFIG_MISSING') {
         setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       }
-    } catch (e) {
+    } catch {
       setAnalysisResult(`${t.common.error}`);
     } finally {
       setIsAiAnalyzing(false);
@@ -485,7 +487,7 @@ export default function DockerDashboard() {
                           )}
                           <button
                             className="btn btn-ghost btn-sm btn-icon" style={{ color: 'var(--color-primary)' }}
-                            onClick={() => showLogs(c.ID, c.Names)} title={t.docker.logs}
+                            onClick={() => showLogs(c.ID)} title={t.docker.logs}
                           ><FileText size={14} /></button>
                         </div>
                       </td>

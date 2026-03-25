@@ -1,175 +1,191 @@
 import { NextResponse } from 'next/server';
 import { execAsync } from '@/lib/exec';
 
+interface StaticStats {
+  hostname: string;
+  kernel: string;
+  arch: string;
+  cpuModel: string;
+  osVersion: string;
+  totalMB: number;
+}
+
+interface DiskStats {
+  total: string;
+  used: string;
+  free: string;
+  percent: string;
+}
+
+interface SemiStaticStats {
+  disk: DiskStats;
+  battery: string;
+  swap: string;
+}
+
+// Simple in-memory cache
+let staticCache: StaticStats | null = null;
+let semiStaticCache: { data: SemiStaticStats, timestamp: number } | null = null;
+const SEMI_STATIC_TTL = 30000; // 30 seconds
+
 export async function GET() {
   try {
-    // Basic macOS specific stats
+    const now = Date.now();
 
-    // CPU Load
-    const { stdout: cpuRaw } = await execAsync("top -l 1 -n 0 | grep 'CPU usage'");
-    const cpuMatch = cpuRaw.match(/(\d+\.\d+)% user, (\d+\.\d+)% sys, (\d+\.\d+)% idle/);
-    const cpu = cpuMatch ? {
-      user: parseFloat(cpuMatch[1]),
-      sys: parseFloat(cpuMatch[2]),
-      idle: parseFloat(cpuMatch[3]),
-    } : null;
-
-    // Memory Usage
-    // Memory Usage - Use vm_stat for more accurate macOS memory reporting
-    const { stdout: physMemRaw } = await execAsync("sysctl -n hw.memsize");
-    const totalBytes = parseInt(physMemRaw.trim());
-    const totalMB = Math.round(totalBytes / 1024 / 1024);
-    let memory = { freeMB: 0, usedMB: 0, totalMB };
-
-    try {
-      const [{ stdout: vmStatRaw }, { stdout: pageSizeRaw }] = await Promise.all([
-        execAsync("vm_stat"),
-        execAsync("sysctl -n vm.pagesize")
+    // 1. Static Stats (Cache forever/per process)
+    if (!staticCache) {
+      const [hostname, kernel, arch, cpuModel, swRaw] = await Promise.all([
+        execAsync("hostname").then(r => r.stdout.trim()),
+        execAsync("uname -sr").then(r => r.stdout.trim()),
+        execAsync("uname -m").then(r => r.stdout.trim()),
+        execAsync("sysctl -n machdep.cpu.brand_string").then(r => r.stdout.trim()),
+        execAsync("sw_vers").then(r => r.stdout),
       ]);
 
-      const pageSize = parseInt(pageSizeRaw.trim());
-      const vmStatLines = vmStatRaw.split('\n');
+      const productName = swRaw.match(/ProductName:\s+(.+)/)?.[1] || '';
+      const productVersion = swRaw.match(/ProductVersion:\s+(.+)/)?.[1] || '';
+      const osVersion = `${productName} ${productVersion}`.trim();
 
+      const { stdout: physMemRaw } = await execAsync("sysctl -n hw.memsize");
+      const totalBytes = parseInt(physMemRaw.trim());
+      const totalMB = Math.round(totalBytes / 1024 / 1024);
+
+      staticCache = {
+        hostname,
+        kernel,
+        arch,
+        cpuModel,
+        osVersion,
+        totalMB
+      };
+    }
+
+    // 2. Semi-Static Stats (Cache for 30s)
+    if (!semiStaticCache || (now - semiStaticCache.timestamp > SEMI_STATIC_TTL)) {
+      const [diskResult, battResult, swapResult] = await Promise.allSettled([
+        execAsync("df -H /"),
+        execAsync("pmset -g batt"),
+        execAsync("sysctl -n vm.swapusage")
+      ]);
+
+      let disk = { total: '0 GB', used: '0 GB', free: '0 GB', percent: '0%' };
+      if (diskResult.status === 'fulfilled') {
+        const lines = diskResult.value.stdout.trim().split('\n');
+        if (lines.length > 1) {
+          const parts = lines[1].trim().split(/\s+/);
+          const totalStr = parts[1];
+          const availStr = parts[3];
+          const formatUnit = (s: string) => s.replace('Gi', ' GB').replace('G', ' GB').replace('Mi', ' MB').replace('M', ' MB');
+          const totalVal = parseFloat(totalStr);
+          const availVal = parseFloat(availStr);
+          const usedVal = Math.max(0, totalVal - availVal);
+          const calcPercent = totalVal > 0 ? Math.round((usedVal / totalVal) * 100) : 0;
+          disk = {
+            total: formatUnit(totalStr),
+            used: usedVal.toFixed(1) + ' GB',
+            free: formatUnit(availStr),
+            percent: calcPercent + '%'
+          };
+        }
+      }
+
+      let battery = 'Unknown';
+      if (battResult.status === 'fulfilled') {
+        const match = battResult.value.stdout.match(/(\d+)%/);
+        if (match) {
+          battery = `${match[1]}%`;
+          if (battResult.value.stdout.includes('discharging')) battery += ' (discharging)';
+          else if (battResult.value.stdout.includes('charging')) battery += ' (charging)';
+          else battery += ' (ac)';
+        }
+      }
+
+      let swap = 'Unknown';
+      if (swapResult.status === 'fulfilled') {
+        const swapMatch = swapResult.value.stdout.match(/total = (\d+\.\d+M).*used = (\d+\.\d+M).*free = (\d+\.\d+M)/);
+        if (swapMatch) {
+          swap = `${swapMatch[2]} / ${swapMatch[1]}`;
+        }
+      }
+
+      semiStaticCache = {
+        timestamp: now,
+        data: { disk, battery, swap }
+      };
+    }
+
+    // 3. Dynamic Stats (Fresh every time)
+    // Consolidate 'top' calls into one if possible, or use faster alternatives
+    const [topResult, vmStatResult, pageSizeResult, netstatResult, uptimeResult, loadResult, pressureResult] = await Promise.allSettled([
+      execAsync("top -l 1 -n 0 -s 0 | grep -E 'CPU usage|Networks:'"),
+      execAsync("vm_stat"),
+      execAsync("sysctl -n vm.pagesize"),
+      execAsync("netstat -ib | awk 'NR>1 && $1 != \"lo0\" && $1 !~ /\\*/ {in_b+=$7; out_b+=$10} END {print in_b \" \" out_b}'"),
+      execAsync("uptime"),
+      execAsync("sysctl -n vm.loadavg"),
+      execAsync("sysctl -n kern.memorystatus_level")
+    ]);
+
+    let cpu = null;
+    let network = 'Unknown';
+    if (topResult.status === 'fulfilled') {
+      const topLines = topResult.value.stdout.split('\n');
+      const cpuLine = topLines.find(l => l.includes('CPU usage'));
+      const netLine = topLines.find(l => l.includes('Networks:'));
+
+      if (cpuLine) {
+        const cpuMatch = cpuLine.match(/(\d+\.\d+)% user, (\d+\.\d+)% sys, (\d+\.\d+)% idle/);
+        if (cpuMatch) {
+          cpu = {
+            user: parseFloat(cpuMatch[1]),
+            sys: parseFloat(cpuMatch[2]),
+            idle: parseFloat(cpuMatch[3]),
+          };
+        }
+      }
+      if (netLine) {
+        network = netLine.replace('Networks:', '').trim();
+      }
+    }
+
+    let memory = { freeMB: 0, usedMB: 0, totalMB: staticCache.totalMB };
+    if (vmStatResult.status === 'fulfilled' && pageSizeResult.status === 'fulfilled') {
+      const pageSize = parseInt(pageSizeResult.value.stdout.trim());
+      const vmStatLines = vmStatResult.value.stdout.split('\n');
       const getPages = (key: string) => {
         const line = vmStatLines.find(l => l.includes(key));
-        if (!line) return 0;
-        const match = line.match(/(\d+)/);
+        const match = line?.match(/(\d+)/);
         return match ? parseInt(match[1]) : 0;
       };
-
       const freePages = getPages('Pages free');
       const inactivePages = getPages('Pages inactive');
       const speculativePages = getPages('Pages speculative');
-      // On macOS, inactive and speculative memory can be reclaimed, so they are effectively "available"
-      const availableBytes = (freePages + inactivePages + speculativePages) * pageSize;
-      const availableMB = Math.round(availableBytes / 1024 / 1024);
-
+      const availableMB = Math.round((freePages + inactivePages + speculativePages) * pageSize / 1024 / 1024);
       memory.freeMB = availableMB;
-      memory.usedMB = Math.max(0, totalMB - availableMB);
-    } catch (e) {
-      console.error('Memory parse error:', e);
-      // Fallback to basic calculation if vm_stat fails
-      memory.usedMB = Math.round(totalMB * 0.8); // Generic fallback
-      memory.freeMB = totalMB - memory.usedMB;
+      memory.usedMB = Math.max(0, staticCache.totalMB - availableMB);
     }
 
-    // Disk Usage
-    let disk = { total: '0 GB', used: '0 GB', free: '0 GB', percent: '0%' };
-    try {
-      // df -H uses 1000-based units (GB) which matches macOS Finder/Disk Utility exactly.
-      // On macOS APFS, df -H for any volume in the container reflects the shared availability.
-      const { stdout } = await execAsync("df -H /");
-      const lines = stdout.trim().split('\n');
-      if (lines.length > 1) {
-        const parts = lines[1].trim().split(/\s+/);
-        // df -H columns: Filesystem, Size, Used, Avail, Capacity, iused, ifree, %iused, Mounted on
-        const totalStr = parts[1]; // e.g. "494G" or "494Gi"
-        const availStr = parts[3];
-        const capacityPercent = parts[4];
-
-        // Convert to consistent GB strings
-        const formatUnit = (s: string) => s.replace('Gi', ' GB').replace('G', ' GB').replace('Mi', ' MB').replace('M', ' MB');
-
-        const totalVal = parseFloat(totalStr);
-        const availVal = parseFloat(availStr);
-        const usedVal = Math.max(0, totalVal - availVal);
-        const calcPercent = totalVal > 0 ? Math.round((usedVal / totalVal) * 100) : 0;
-
-        disk = {
-          total: formatUnit(totalStr),
-          used: usedVal.toFixed(1) + ' GB',
-          free: formatUnit(availStr),
-          percent: calcPercent + '%'
-        };
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    // Uptime
-    const { stdout: uptimeRaw } = await execAsync("uptime");
-
-    // OS Version
-    let osVersion = 'Unknown';
-    try {
-      const { stdout: swRaw } = await execAsync("sw_vers");
-      const productName = swRaw.match(/ProductName:\s+(.+)/)?.[1] || '';
-      const productVersion = swRaw.match(/ProductVersion:\s+(.+)/)?.[1] || '';
-      osVersion = `${productName} ${productVersion}`.trim();
-    } catch (e) { }
-
-    // Network
-    let network = 'Unknown';
     let netBytes = { in: 0, out: 0 };
-    try {
-      const { stdout: netRaw } = await execAsync("top -l 1 -n 0 | grep 'Networks:'");
-      network = netRaw.replace('Networks:', '').trim();
+    if (netstatResult.status === 'fulfilled') {
+      const [inB, outB] = netstatResult.value.stdout.trim().split(' ').map(Number);
+      if (!isNaN(inB) && !isNaN(outB)) netBytes = { in: inB, out: outB };
+    }
 
-      const { stdout: netstatRaw } = await execAsync("netstat -ib | awk 'NR>1 && $1 != \"lo0\" && $1 !~ /\\*/ {in_b+=$7; out_b+=$10} END {print in_b \" \" out_b}'");
-      const [inB, outB] = netstatRaw.trim().split(' ').map(Number);
-      if (!isNaN(inB) && !isNaN(outB)) {
-        netBytes = { in: inB, out: outB };
-      }
-    } catch (e) { }
-
-    // Load Average
-    let loadAvg = 'Unknown';
-    try {
-      const { stdout: loadRaw } = await execAsync("sysctl -n vm.loadavg");
-      loadAvg = loadRaw.replace(/[{}]/g, '').trim();
-    } catch (e) { }
-
-    // More Info
-    const { stdout: hostname } = await execAsync("hostname");
-    const { stdout: kernel } = await execAsync("uname -sr");
-    const { stdout: arch } = await execAsync("uname -m");
-    const { stdout: cpuModel } = await execAsync("sysctl -n machdep.cpu.brand_string");
-
-    let swap = 'Unknown';
-    try {
-      const { stdout: swapRaw } = await execAsync("sysctl -n vm.swapusage");
-      const swapMatch = swapRaw.match(/total = (\d+\.\d+M).*used = (\d+\.\d+M).*free = (\d+\.\d+M)/);
-      if (swapMatch) {
-        swap = `${swapMatch[2]} / ${swapMatch[1]}`;
-      }
-    } catch (e) { }
-
-    let memPressure = 'Unknown';
-    try {
-      const { stdout: pressureRaw } = await execAsync("sysctl -n kern.memorystatus_level"); // Corrected from memo_status_level
-      memPressure = pressureRaw.trim(); // No '%' needed, it's a level (0-5)
-    } catch (e) { }
-
-    // Battery
-    let battery = 'Unknown';
-    try {
-      const { stdout: battRaw } = await execAsync("pmset -g batt");
-      const match = battRaw.match(/(\d+)%/);
-      if (match) {
-        battery = `${match[1]}%`;
-        if (battRaw.includes('discharging')) battery += ' (discharging)';
-        else if (battRaw.includes('charging')) battery += ' (charging)';
-        else battery += ' (ac)';
-      }
-    } catch (e) { }
+    const uptime = uptimeResult.status === 'fulfilled' ? uptimeResult.value.stdout.trim() : 'Unknown';
+    const loadAvg = loadResult.status === 'fulfilled' ? loadResult.value.stdout.replace(/[{}]/g, '').trim() : 'Unknown';
+    const memPressure = pressureResult.status === 'fulfilled' ? pressureResult.value.stdout.trim() : 'Unknown';
 
     return NextResponse.json({
       success: true,
       data: {
+        ...staticCache,
+        ...semiStaticCache.data,
         cpu,
         memory,
-        disk,
-        uptime: uptimeRaw.trim(),
-        osVersion,
         network,
         netBytes,
+        uptime,
         loadAvg,
-        battery,
-        hostname: hostname.trim(),
-        kernel: kernel.trim(),
-        arch: arch.trim(),
-        cpuModel: cpuModel.trim(),
-        swap,
         memPressure
       }
     });
@@ -179,3 +195,4 @@ export async function GET() {
     return NextResponse.json({ error: 'FETCH_STATS_FAILED' }, { status: 500 });
   }
 }
+

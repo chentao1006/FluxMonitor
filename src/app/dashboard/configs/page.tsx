@@ -82,8 +82,7 @@ export default function ConfigsDashboard() {
       if (data.success) {
         setContent(data.content || '');
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
       setContent(t.common.fetchFailed);
     } finally {
       setReadLoading(false);
@@ -170,7 +169,10 @@ export default function ConfigsDashboard() {
     setAnalysisResult('');
 
     try {
-      const prompt = t.configs.aiAnalyzePrompt.replace('{name}', config.name).replace('{content}', content);
+      const prompt = t.configs.aiAnalyzePrompt
+        .replace('{name}', config.name)
+        .replace('{lang}', t.common.aiResponseLang)
+        .replace('{content}', content);
 
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -185,7 +187,7 @@ export default function ConfigsDashboard() {
       }
     } catch (e) {
       console.error(e);
-      setAnalysisResult('Analysis failed. Please try again.');
+      setAnalysisResult(t.common.error);
     } finally {
       setIsAiAnalyzing(false);
     }
@@ -205,8 +207,8 @@ export default function ConfigsDashboard() {
         setAddModal({ isOpen: false, path: '', loading: false });
         fetchConfigs();
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // ignore
     } finally {
       setAddModal(prev => ({ ...prev, loading: false }));
     }
@@ -230,8 +232,8 @@ export default function ConfigsDashboard() {
           setContent('');
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // ignore
     }
   };
 

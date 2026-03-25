@@ -1,9 +1,9 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, Play, Square, Repeat, Shield } from 'lucide-react';
+import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, Play, Square, Repeat } from 'lucide-react';
 import SudoModal from '@/components/SudoModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,7 +17,7 @@ interface PlistItem {
 }
 
 export default function LaunchAgentDashboard() {
-  const { t, effectiveLang } = useLanguage();
+  const { t } = useLanguage();
 
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -51,7 +51,7 @@ export default function LaunchAgentDashboard() {
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [modalError, setModalError] = useState<{ title: string, content: string } | null>(null);
   const [sudoModal, setSudoModal] = useState({ isOpen: false, isError: false });
-  const [sudoPassword, setSudoPassword] = useState('');
+  const [, setSudoPassword] = useState('');
   const [pendingAction, setPendingAction] = useState<{ type: 'action' | 'save' | 'delete', filePath: string, action?: string } | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newName, setNewName] = useState('');
@@ -75,7 +75,7 @@ export default function LaunchAgentDashboard() {
       } else {
         setFileContent(`${t.common.error}: ${data.error}`);
       }
-    } catch (e) {
+    } catch {
       setFileContent(t.common.networkError);
     }
   }, [t.common.error, t.common.loading, t.common.networkError]);
@@ -89,8 +89,8 @@ export default function LaunchAgentDashboard() {
       } else {
         setError(data.error || t.common.fetchFailed);
       }
-    } catch (e) {
-      setError(t.common.networkError);
+    } catch {
+      // ignore
     } finally {
       setLoading(false);
     }
@@ -142,7 +142,7 @@ export default function LaunchAgentDashboard() {
           content: data.details || data.error || t.common.unknownError
         });
       }
-    } catch (e) {
+    } catch {
       setModalError({ title: t.common.networkError, content: 'Network connection failed.' });
     } finally {
       setActionLoading(null);
@@ -151,14 +151,6 @@ export default function LaunchAgentDashboard() {
 
   const handleAddNew = () => {
     const defaultName = 'com.example.agent.plist';
-    let basePath = '';
-    if (plists.length > 0) {
-      const firstPath = plists[0].path;
-      basePath = firstPath.substring(0, firstPath.lastIndexOf('/') + 1);
-    } else {
-      basePath = '/Users/chentao/Library/LaunchAgents/';
-    }
-    
     setNewName(defaultName);
     setNewContent(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -211,7 +203,7 @@ export default function LaunchAgentDashboard() {
       } else {
         setModalError({ title: t.common.saveFailed, content: data.error });
       }
-    } catch (e) {
+    } catch {
       setModalError({ title: t.common.networkError, content: 'Network error' });
     }
   };
@@ -252,7 +244,7 @@ export default function LaunchAgentDashboard() {
       } else {
         setModalError({ title: t.common.saveFailed, content: data.details || data.error || t.common.unknownError });
       }
-    } catch (e) {
+    } catch {
       setModalError({ title: t.common.networkError, content: 'Network connection failed.' });
     } finally {
       setActionLoading(null);
@@ -322,7 +314,7 @@ export default function LaunchAgentDashboard() {
       } else {
         setSaveStatus(`${t.common.saveFailed}: ${data.error}`);
       }
-    } catch (e) {
+    } catch {
       setSaveStatus(t.common.networkError);
     }
   };
@@ -347,7 +339,9 @@ export default function LaunchAgentDashboard() {
     setIsAiAnalyzing(true);
     setAnalysisResult(t.launchagent.aiExplaining);
     try {
-      const prompt = t.launchagent.aiExplainPrompt.replace('{content}', fileContent);
+      const prompt = t.launchagent.aiExplainPrompt
+        .replace('{lang}', t.common.aiResponseLang)
+        .replace('{content}', fileContent);
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -364,7 +358,7 @@ export default function LaunchAgentDashboard() {
       } else {
         setAnalysisResult(`${t.common.error}: ${data.error}`);
       }
-    } catch (e) {
+    } catch {
       setAnalysisResult(t.common.networkError);
     } finally {
       setIsAiAnalyzing(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Activity, FileText, ChevronLeft, RefreshCw, Search, X, Sparkles, Brain, Trash2, Eraser, Lock, Plus, MinusCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -57,8 +57,57 @@ export default function LogsPage() {
     other: t.logs.other
   };
 
-  const formatSize = (bytes: any) => {
-    const b = parseInt(bytes);
+  const openLog = useCallback(async (path: string) => {
+    setActiveFile(path);
+    setReadLoading(true);
+    setAnalysisResult(''); // Clear previous analysis result
+    try {
+      const res = await fetch(`/api/logs?file=${encodeURIComponent(path)}`);
+      const data = await res.json();
+      if (data.success) {
+        setContent(data.data);
+      } else {
+        setContent(t.common.fetchFailed);
+      }
+    } catch {
+      setContent(t.common.networkError);
+    } finally {
+      setReadLoading(false);
+    }
+  }, [t.common.fetchFailed, t.common.networkError]);
+
+  const fetchFiles = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/logs');
+      const data = await res.json();
+      if (data.success) {
+        setFiles(data.data);
+        // Auto-select first one on big screens if none selected
+        if (data.data && data.data.length > 0 && !activeFile && typeof window !== 'undefined' && window.innerWidth > 768) {
+          openLog(data.data[0].path);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeFile, openLog]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  // 每次日志内容更新后，自动滚动 textarea 到最底部
+  useEffect(() => {
+    if (!readLoading && content && textareaRef.current) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [content, readLoading]);
+
+  const formatSize = (bytes: number | string) => {
+    const b = typeof bytes === 'number' ? bytes : parseInt(bytes || '0');
     if (isNaN(b) || b === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -76,55 +125,6 @@ export default function LogsPage() {
     return `${m}-${d} ${h}:${i}`;
   };
 
-  const fetchFiles = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/logs');
-      const data = await res.json();
-      if (data.success) {
-        setFiles(data.data);
-        // Auto-select first one on big screens if none selected
-        if (data.data && data.data.length > 0 && !activeFile && typeof window !== 'undefined' && window.innerWidth > 768) {
-          openLog(data.data[0].path);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchFiles();
-  }, []);
-
-  // 每次日志内容更新后，自动滚动 textarea 到最底部
-  useEffect(() => {
-    if (!readLoading && content && textareaRef.current) {
-      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
-    }
-  }, [content, readLoading]);
-
-  const openLog = async (path: string) => {
-    setActiveFile(path);
-    setReadLoading(true);
-    setAnalysisResult('');
-    try {
-      const res = await fetch(`/api/logs?file=${encodeURIComponent(path)}`);
-      const data = await res.json();
-      if (data.success) {
-        setContent(data.data);
-      } else {
-        setContent(t.common.fetchFailed);
-      }
-    } catch (e) {
-      setContent(t.common.networkError);
-    } finally {
-      setReadLoading(false);
-    }
-  };
-
   const handleExplain = async () => {
     if (!content || isExplaining) return;
     setIsExplaining(true);
@@ -133,7 +133,9 @@ export default function LogsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: t.logs.explainPrompt.replace('{content}', content)
+          prompt: t.logs.explainPrompt
+            .replace('{lang}', t.common.aiResponseLang)
+            .replace('{content}', content)
         })
       });
       const data = await res.json();
@@ -145,8 +147,8 @@ export default function LogsPage() {
         const errorMsg = (t.common.errors as Record<string, string>)[data.error] || data.details || data.error;
         setAnalysisResult(errorMsg);
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setAnalysisResult(t.common.error);
     } finally {
       setIsExplaining(false);
     }
@@ -156,7 +158,7 @@ export default function LogsPage() {
   const executeAction = async (filePath: string, action: ActionType, password?: string) => {
     setActionLoadingPath(filePath);
     try {
-      const body: any = { file: filePath, action };
+      const body: { file: string; action: ActionType; password?: string } = { file: filePath, action };
       if (password) body.password = password;
 
       const res = await fetch('/api/logs', {
@@ -286,7 +288,7 @@ export default function LogsPage() {
       <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
-            <Activity size={24} color="var(--color-primary)" />
+            <FileText size={24} color="var(--color-primary)" />
           </div>
           <h1 className="card-title" style={{ fontSize: '1.5rem', margin: 0 }}>{t.sidebar.logs}</h1>
         </div>

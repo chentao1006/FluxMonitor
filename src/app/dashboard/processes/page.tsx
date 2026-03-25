@@ -88,7 +88,7 @@ export default function ProcessManager() {
     setAnalyzing(true);
     setAiAnalysis(null);
     try {
-      const prompt = t.processes.aiPrompt
+      const promptText = t.processes.aiPrompt
         .replace('{pid}', processDetail.pid)
         .replace('{ppid}', processDetail.ppid)
         .replace('{ppidName}', processDetail.ppidName || 'Unknown')
@@ -99,13 +99,14 @@ export default function ProcessManager() {
         .replace('{user}', processDetail.user)
         .replace('{start}', processDetail.start)
         .replace('{state}', processDetail.state)
-        .replace('{openFiles}', processDetail.openFiles?.slice(0, 10).join('\n') || '');
+        .replace('{openFiles}', processDetail.openFiles?.slice(0, 10).join('\n') || '')
+        .replace('{lang}', t.common.aiResponseLang);
 
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: `Analyze this macOS process: ${prompt}. Answer in English.`,
+          prompt: promptText,
           systemPrompt: "You are a macOS system expert. Analyze the provided process information and provide a helpful diagnosis."
         }),
       });
@@ -115,10 +116,10 @@ export default function ProcessManager() {
       } else if (data.error === 'AI_CONFIG_MISSING') {
         setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       } else {
-        setAiAnalysis("Analysis failed: " + data.error);
+        setAiAnalysis(`${t.common.error}: ${data.error}`);
       }
     } catch (e) {
-      setAiAnalysis("Network error.");
+      setAiAnalysis(t.common.networkError);
     } finally {
       setAnalyzing(false);
     }

@@ -75,7 +75,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const limit = parseInt(searchParams.get('limit') || '500');
+    const limit = parseInt(searchParams.get('limit') || '1000');
     const sort = searchParams.get('sort') || 'cpu'; // cpu, mem
 
     let sortFlag = '-r'; // default cpu

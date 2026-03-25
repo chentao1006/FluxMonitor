@@ -96,10 +96,10 @@ export default function NginxDashboard() {
         setTimeout(scrollLogsToBottom, 100);
       } else {
         const errorMsg = (t.common.errors as Record<string, string>)[data.error] || data.details || data.error;
-        setNginxLogs(`Error: ${errorMsg}`);
+        setNginxLogs(`${t.common.error}: ${errorMsg}`);
       }
     } catch {
-      setNginxLogs('Failed to fetch logs');
+      setNginxLogs(t.common.networkError);
     } finally {
       setLogLoading(false);
     }
@@ -222,6 +222,7 @@ export default function NginxDashboard() {
         body: JSON.stringify({
           prompt: t.nginx.aiLogPrompt
             .replace('{type}', logType === 'error' ? t.nginx.errorLog : t.nginx.accessLog)
+            .replace('{lang}', t.common.aiResponseLang)
             .replace('{logs}', nginxLogs.slice(-4000)),
           systemPrompt: 'You are an expert Nginx administrator specializing in system observation and troubleshooting.'
         })
@@ -257,7 +258,9 @@ export default function NginxDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: t.nginx.aiErrorPrompt.replace('{errorLog}', errorLog),
+          prompt: t.nginx.aiErrorPrompt
+            .replace('{errorLog}', errorLog)
+            .replace('{lang}', t.common.aiResponseLang),
           systemPrompt: 'You are an expert Nginx administrator and software engineer specializing in Nginx configuration and troubleshooting.'
         })
       });
@@ -268,7 +271,7 @@ export default function NginxDashboard() {
       } else if (data.error === 'AI_CONFIG_MISSING') {
         setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
       }
-    } catch (e) {
+    } catch {
       setAnalysisResult(t.common.error);
     }
   };
@@ -296,6 +299,7 @@ export default function NginxDashboard() {
         body: JSON.stringify({
           prompt: t.nginx.aiAuditPrompt
             .replace('{site}', editingSite || '')
+            .replace('{lang}', t.common.aiResponseLang)
             .replace('{content}', siteContent),
           systemPrompt: 'You are an expert Nginx administrator specializing in security auditing and performance tuning.'
         })
@@ -327,6 +331,7 @@ export default function NginxDashboard() {
         body: JSON.stringify({
           prompt: t.nginx.aiEditPrompt
             .replace('{content}', siteContent)
+            .replace('{lang}', t.common.aiResponseLang)
             .replace('{demand}', aiDemand),
           systemPrompt: 'You are an expert Nginx configuration generator. You follow instructions precisely and output only the configuration text.'
         })
@@ -343,7 +348,7 @@ export default function NginxDashboard() {
       } else {
         showToast(`${t.common.error}: ${data.error}`, 'error');
       }
-    } catch (e) {
+    } catch {
       showToast(t.common.networkError, 'error');
     } finally {
       setIsAiEditing(false);

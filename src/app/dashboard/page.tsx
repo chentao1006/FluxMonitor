@@ -45,8 +45,8 @@ export default function DashboardOverview() {
 
     const handleAiAnalyze = async () => {
       if (aiAnalyzing) return;
-      const prompt = buildSystemHealthPrompt();
-      const cacheKey = `overview:${prompt}`;
+      const statsText = buildSystemHealthPrompt();
+      const cacheKey = `overview:${statsText}`;
       if (aiCacheRef.current[cacheKey]) {
         setAiAnalysis(aiCacheRef.current[cacheKey]);
         return;
@@ -58,8 +58,10 @@ export default function DashboardOverview() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: `${prompt}\n\n请用简明扼要的方式分析当前系统健康状况，指出潜在风险、性能瓶颈或异常，并给出优化建议。必要时可用表格。`,
-            systemPrompt: '你是资深 macOS/Linux 系统运维专家，擅长健康诊断、性能分析和风险提示。回答务必专业、简明、实用。',
+            prompt: t.monitor.aiHealthPrompt
+              .replace('{lang}', t.common.aiResponseLang)
+              .replace('{stats}', statsText),
+            systemPrompt: 'You are a senior macOS/Linux system expert specializing in health diagnostics, performance analysis, and risk assessment. Provide professional, concise, and practical advice.'
           }),
         });
         const data = await res.json();
@@ -67,12 +69,12 @@ export default function DashboardOverview() {
           setAiAnalysis(data.data);
           aiCacheRef.current[cacheKey] = data.data;
         } else if (data.error === 'AI_CONFIG_MISSING') {
-          setAiAnalysis('AI 配置缺失，请前往设置页面配置 API KEY。');
+          setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
         } else {
-          setAiAnalysis(`AI 分析失败: ${data.error}`);
+          setAiAnalysis(`${t.common.error}: ${data.error}`);
         }
-      } catch (e) {
-        setAiAnalysis('网络错误，AI 分析失败');
+      } catch {
+        setAiAnalysis(t.common.networkError);
       } finally {
         setAiAnalyzing(false);
       }
@@ -96,7 +98,7 @@ export default function DashboardOverview() {
       };
     });
   });
-  const [prevNetBytes, setPrevNetBytes] = useState<{ in: number, out: number } | null>(null);
+  const [, setPrevNetBytes] = useState<{ in: number, out: number } | null>(null);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState(false);
@@ -122,7 +124,7 @@ export default function DashboardOverview() {
       } else {
         alert(`${t.monitor.screenshotFail}: ${data.error || data.details}`);
       }
-    } catch (e) {
+    } catch {
       alert(t.common.networkError);
     } finally {
       setScreenshotLoading(false);
@@ -137,28 +139,29 @@ export default function DashboardOverview() {
         setStats(dataStats.data);
 
         setPrevNetBytes(currentPrevNet => {
+          const now = new Date();
+          const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+          let cpuUsage = 0;
+          if (dataStats.data.cpu) {
+            cpuUsage = dataStats.data.cpu.user + dataStats.data.cpu.sys;
+          }
+
+          const memUsed = dataStats.data.memory?.usedMB || 0;
+          const memTotal = dataStats.data.memory?.totalMB || 0;
+          const memPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
+
+          let netInSpeed = 0;
+          let netOutSpeed = 0;
+
+          const currentNetBytes = dataStats.data.netBytes;
+          if (currentPrevNet && currentNetBytes && currentNetBytes.in > 0 && currentNetBytes.out > 0) {
+            // We use 5s interval now, so divide by 5
+            netInSpeed = Math.max(0, (currentNetBytes.in - currentPrevNet.in) / 1024 / 5);
+            netOutSpeed = Math.max(0, (currentNetBytes.out - currentPrevNet.out) / 1024 / 5);
+          }
+
           setHistory(prev => {
-            const now = new Date();
-            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-            let cpuUsage = 0;
-            if (dataStats.data.cpu) {
-              cpuUsage = dataStats.data.cpu.user + dataStats.data.cpu.sys;
-            }
-
-            const memUsed = dataStats.data.memory?.usedMB || 0;
-            const memTotal = dataStats.data.memory?.totalMB || 0;
-            const memPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
-
-            let netInSpeed = 0;
-            let netOutSpeed = 0;
-
-            const currentNetBytes = dataStats.data.netBytes;
-            if (currentPrevNet && currentNetBytes && currentNetBytes.in > 0 && currentNetBytes.out > 0) {
-              netInSpeed = Math.max(0, (currentNetBytes.in - currentPrevNet.in) / 1024 / 5);
-              netOutSpeed = Math.max(0, (currentNetBytes.out - currentPrevNet.out) / 1024 / 5);
-            }
-
             const newPoint = {
               time: timeStr,
               cpu: Number(cpuUsage.toFixed(1)),
@@ -173,84 +176,99 @@ export default function DashboardOverview() {
           return dataStats.data.netBytes || currentPrevNet;
         });
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // ignore
     } finally {
       setLoading(false);
     }
   };
 
   const fetchAllSummaries = async () => {
+    const activeFeatures = settingsConfig?.features || {};
     try {
+      const tasks: Promise<void>[] = [];
+
       // Docker
-      const resDocker = await fetch('/api/docker/containers');
-      const dataDocker = await resDocker.json();
-      if (dataDocker.success) {
-        setDockerSummary({
-          running: (dataDocker.data as { State: string }[]).filter((c) => c.State === 'running').length,
-          total: dataDocker.data.length
-        });
+      if (activeFeatures.docker !== false) {
+        tasks.push(fetch('/api/docker/containers').then(res => res.json()).then(data => {
+          if (data.success) {
+            setDockerSummary({
+              running: (data.data as { State: string }[]).filter((c) => c.State === 'running').length,
+              total: data.data.length
+            });
+          }
+        }));
       }
 
       // Nginx
-      const resNginx = await fetch('/api/nginx/sites');
-      const dataNginx = await resNginx.json();
-      if (dataNginx.success) {
-        setNginxSummary({
-          active: (dataNginx.data as { status: string }[]).filter((s) => s.status === 'enabled').length,
-          total: dataNginx.data.length
-        });
+      if (activeFeatures.nginx !== false) {
+        tasks.push(fetch('/api/nginx/sites').then(res => res.json()).then(data => {
+          if (data.success) {
+            setNginxSummary({
+              active: (data.data as { status: string }[]).filter((s) => s.status === 'enabled').length,
+              total: data.data.length
+            });
+          }
+        }));
       }
 
       // Processes
-      const resProc = await fetch('/api/system/processes?sort=cpu');
-      const dataProc = await resProc.json();
-      if (dataProc.success && dataProc.data.length > 0) {
-        const top = dataProc.data[0];
-        setProcSummary({ 
-          total: dataProc.data.length,
-          topName: top.command,
-          topCpu: `${top.cpu}%`
-        });
+      if (activeFeatures.processes !== false) {
+        tasks.push(fetch('/api/system/processes?sort=cpu').then(res => res.json()).then(data => {
+          if (data.success && data.data.length > 0) {
+            const top = data.data[0];
+            setProcSummary({ 
+              total: data.data.length,
+              topName: top.command,
+              topCpu: `${top.cpu}%`
+            });
+          }
+        }));
       }
 
       // LaunchAgents
-      const resAgent = await fetch('/api/launchagent/list');
-      const dataAgent = await resAgent.json();
-      if (dataAgent.success) {
-        setAgentSummary({
-          loaded: (dataAgent.data as { isLoaded: boolean }[]).filter((a) => a.isLoaded).length,
-          total: dataAgent.data.length
-        });
+      if (activeFeatures.launchagent !== false) {
+        tasks.push(fetch('/api/launchagent/list').then(res => res.json()).then(data => {
+          if (data.success) {
+            setAgentSummary({
+              loaded: (data.data as { isLoaded: boolean }[]).filter((a) => a.isLoaded).length,
+              total: data.data.length
+            });
+          }
+        }));
       }
 
       // Logs
-      const resLog = await fetch('/api/logs');
-      const dataLog = await resLog.json();
-      if (dataLog.success && dataLog.data.length > 0) {
-        const sorted = [...dataLog.data].sort((a: { mtime: number }, b: { mtime: number }) => b.mtime - a.mtime);
-        const last = sorted[0];
-        setLogSummary({ 
-          total: dataLog.data.length,
-          lastFile: last.name,
-          lastTime: last.mtime
-        });
+      if (activeFeatures.logs !== false) {
+        tasks.push(fetch('/api/logs').then(res => res.json()).then(data => {
+          if (data.success && data.data.length > 0) {
+            const sorted = [...data.data].sort((a: { mtime: number }, b: { mtime: number }) => b.mtime - a.mtime);
+            const last = sorted[0];
+            setLogSummary({ 
+              total: data.data.length,
+              lastFile: last.name,
+              lastTime: last.mtime
+            });
+          }
+        }));
       }
 
       // Configs
-      const resConfig = await fetch('/api/configs');
-      const dataConfig = await resConfig.json();
-      if (dataConfig.success && dataConfig.data.length > 0) {
-        const sysCount = (dataConfig.data as { type: string }[]).filter(c => c.type === 'system').length;
-        const userCount = dataConfig.data.length - sysCount;
-        setConfigSummary({ 
-          total: dataConfig.data.length,
-          sysCount,
-          userCount
-        });
+      if (activeFeatures.configs !== false) {
+        tasks.push(fetch('/api/configs').then(res => res.json()).then(data => {
+          if (data.success && data.data.length > 0) {
+            const sysCount = (data.data as { type: string }[]).filter(c => c.type === 'system').length;
+            const userCount = data.data.length - sysCount;
+            setConfigSummary({ 
+              total: data.data.length,
+              sysCount,
+              userCount
+            });
+          }
+        }));
       }
 
-      // Features are now handled by SettingsContext
+      await Promise.allSettled(tasks);
     } catch (e) {
       console.error('Fetch summaries failed', e);
     }
@@ -259,12 +277,18 @@ export default function DashboardOverview() {
   useEffect(() => {
     fetchStats();
     fetchAllSummaries();
-    const interval = setInterval(() => {
-      fetchStats();
-      fetchAllSummaries();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    
+    // Stats (CPU/Mem/Net) are more dynamic - refresh every 5s
+    const statsInterval = setInterval(fetchStats, 5000);
+    
+    // Summaries change less often - refresh every 30s
+    const summaryInterval = setInterval(fetchAllSummaries, 30000);
+    
+    return () => {
+      clearInterval(statsInterval);
+      clearInterval(summaryInterval);
+    };
+  }, [settingsConfig?.features]);
 
   if (loading && !stats) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
@@ -277,9 +301,9 @@ export default function DashboardOverview() {
           </div>
           <h1 className="card-title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>{t.monitor.title}</h1>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap' }}>
           <button
-            className="btn mobile-full-width"
+            className="btn"
             onClick={handleAiAnalyze}
             disabled={aiAnalyzing || loading}
             style={{
@@ -297,7 +321,7 @@ export default function DashboardOverview() {
             <span style={{ fontWeight: 600 }}>{aiAnalyzing ? t.common.analyzing : t.common.analyze || ''}</span>
           </button>
           <button
-            className="btn btn-primary mobile-full-width"
+            className="btn btn-primary"
             onClick={takeScreenshot}
             disabled={screenshotLoading}
             style={{ gap: '0.75rem', padding: '0.6rem 1.25rem' }}
