@@ -536,7 +536,7 @@ export default function DashboardOverview() {
               <StatRow label={t.monitor.arch} value={stats?.arch} />
               <StatRow label={t.monitor.memPressure} value={stats?.memPressure} />
               <StatRow label={t.monitor.osVersion} value={stats?.osVersion} />
-              <StatRow label={t.monitor.network + ' ' + t.monitor.accumulated} value={stats?.network?.split(',')[0]?.replace('in', '↓')} />
+              <StatRow label={t.monitor.network} value={stats?.network?.split(',')[0]?.replace('in', '↓')} />
               <StatRow label={t.monitor.battery} value={stats?.battery} color="#10b981" />
             </div>
           </div>
