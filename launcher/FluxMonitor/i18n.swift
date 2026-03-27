@@ -108,7 +108,10 @@ class I18N: ObservableObject {
         "about_desc": "浮光面板 桌面管理程序。",
         "mit_license": "© 2026 Tao Chen. MIT 许可证。",
         "follow_system": "跟随系统",
-        "node_mirror_url": "https://npmmirror.com/mirrors/node"
+        "node_mirror_url": "https://npmmirror.com/mirrors/node",
+        "icloud_sync": "iCloud 同步",
+        "icloud_sync_desc": "同步后便于让移动设备远程访问此服务器。",
+        "icloud_sync_manage": "管理同步到 iCloud 的公网访问地址"
     ]
     
     private let enDict = [
@@ -180,7 +183,10 @@ class I18N: ObservableObject {
         "about_desc": "Flux Monitor Desktop Manager.",
         "mit_license": "© 2026 Tao Chen. MIT License.",
         "follow_system": "Follow System",
-        "node_mirror_url": "https://nodejs.org/dist"
+        "node_mirror_url": "https://nodejs.org/dist",
+        "icloud_sync": "iCloud Sync",
+        "icloud_sync_desc": "Sync this server to iCloud for easy remote access on mobile devices.",
+        "icloud_sync_manage": "Manage sync of public URL to iCloud"
     ]
 }
 

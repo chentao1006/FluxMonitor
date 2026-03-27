@@ -224,7 +224,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let i18n = I18N.shared
         
         // Update process name (can affect Dock tooltip and menu bar name in some cases)
-        let appTitle = i18n.t("app_title")
                 
         // App Menu
         let appMenuItem = NSMenuItem()

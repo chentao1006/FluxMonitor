@@ -126,9 +126,8 @@ xcodebuild archive \
     -scheme "$SCHEME_NAME" \
     -configuration Release \
     -archivePath "$BUILD_DIR/$APP_NAME.xcarchive" \
-    CODE_SIGN_STYLE=Manual \
-    CODE_SIGN_IDENTITY="${IDENTITY}" \
-    PROVISIONING_PROFILE_SPECIFIER="" \
+    CODE_SIGN_STYLE=Automatic \
+    -allowProvisioningUpdates \
     AD_HOC_CODE_SIGNING_ALLOWED=YES \
     ENABLE_HARDENED_RUNTIME=YES
 

@@ -3,6 +3,14 @@
     <channel>
         <title>Flux Monitor</title>
         <item>
+            <title>1.2.0</title>
+            <pubDate>Sat, 28 Mar 2026 00:49:10 +0800</pubDate>
+            <sparkle:version>120</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>12.4</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/chentao1006/FluxMonitor/releases/download/v1.2.0/FluxMonitor.dmg" length="29908212" type="application/octet-stream" sparkle:edSignature="TVPZO666pVkxslh9LgltgwmkJurA3KEZiZMt6k+9G38u2ac2NIYq0qBW/lj2bGh2bA4caV5RpdoL3AiAjYAGDw=="/>
+        </item>
+        <item>
             <title>1.1.8</title>
             <pubDate>Fri, 27 Mar 2026 17:54:53 +0800</pubDate>
             <sparkle:version>118</sparkle:version>
@@ -17,14 +25,6 @@
             <sparkle:shortVersionString>1.1.7</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>12.4</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/chentao1006/FluxMonitor/releases/download/v1.1.7/FluxMonitor.dmg" length="26956905" type="application/octet-stream" sparkle:edSignature="kdnH9ow+0WZ/T0PPlpa/XSJer6ui3t4+blCXzb3eiIB8ZW7r5HgmF5QaAGAhniY1HKSenze0MsGLoK5AALa+AQ=="/>
-        </item>
-        <item>
-            <title>1.1.6</title>
-            <pubDate>Wed, 25 Mar 2026 19:05:14 +0800</pubDate>
-            <sparkle:version>116</sparkle:version>
-            <sparkle:shortVersionString>1.1.6</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>12.4</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/chentao1006/FluxMonitor/releases/download/v1.1.6/FluxMonitor.dmg" length="35012302" type="application/octet-stream" sparkle:edSignature="wZcJU1RDCU1Kjd54qBHCzT2IK32/u5GPrwCtbHsB4v9YMYhGd98QIFcc3e8HVnQ+wXZo5a6vYjtDmgfBrTjWCg=="/>
         </item>
     </channel>
 </rss>

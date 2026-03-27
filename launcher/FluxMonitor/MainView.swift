@@ -502,6 +502,9 @@ class TunnelManager: ObservableObject {
         process?.terminate()
         process = nil
         status = .stopped
+        
+        // Sync to iCloud as offline
+        ICloudManager.shared.syncServer(url: nil, isOffline: true)
     }
     
     private func setupPipeReader(_ pipe: Pipe) {
@@ -541,6 +544,9 @@ class TunnelManager: ObservableObject {
                     self.status = .running(url: url)
                     self.retryCount = 0
                     self.isRetrying = false
+                    
+                    // Sync to iCloud
+                    ICloudManager.shared.syncServer(url: url, isOffline: false)
                 }
             }
         }
@@ -696,6 +702,41 @@ struct TunnelView: View {
                 TextField(i18n.t("tunnel_subdomain_placeholder"), text: $tunnelSubdomain)
                     .textFieldStyle(.roundedBorder)
             }
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(i18n.t("icloud_sync"))
+                            .font(.headline)
+                        Text(i18n.t("icloud_sync_desc"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "icloudSyncEnabled") },
+                        set: { newValue in
+                            UserDefaults.standard.set(newValue, forKey: "icloudSyncEnabled")
+                            if newValue {
+                                // Trigger immediate sync
+                                if case .running(let url) = tunnelManager.status {
+                                    ICloudManager.shared.syncServer(url: url, isOffline: false)
+                                } else {
+                                    ICloudManager.shared.syncServer(url: nil, isOffline: true)
+                                }
+                            } else {
+                                // Remove from cloud immediately
+                                ICloudManager.shared.removeFromCloud()
+                            }
+                        }
+                    ))
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                }
+            }
         }
         .padding()
         .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
@@ -850,6 +891,120 @@ struct TunnelLogViewer: View {
             }
             .onAppear {
                 proxy.scrollTo("bottom", anchor: .bottom)
+            }
+        }
+    }
+}
+
+// MARK: - iCloud Synchronization Manager
+
+struct CloudServer: Codable, Identifiable {
+    var id: String
+    var name: String
+    var url: String
+    var username: String?
+    var isOffline: Bool?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, url, username, isOffline
+    }
+}
+
+class ICloudManager: ObservableObject {
+    static let shared = ICloudManager()
+    
+    private let fileName = "servers_v2.json"
+    private var ubiquityURL: URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents")
+    }
+    
+    private var localServerID: String {
+        if let id = UserDefaults.standard.string(forKey: "icloud_local_server_id") {
+            return id
+        }
+        let newID = UUID().uuidString
+        UserDefaults.standard.set(newID, forKey: "icloud_local_server_id")
+        return newID
+    }
+    
+    private init() {
+        createDirectoryIfNeeded()
+    }
+    
+    private func createDirectoryIfNeeded() {
+        guard let url = ubiquityURL else { return }
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+    }
+    
+    func syncServer(url: String?, isOffline: Bool = false) {
+        guard UserDefaults.standard.bool(forKey: "icloudSyncEnabled") else { return }
+        
+        guard let containerURL = ubiquityURL else {
+            print("iCloud not available")
+            return
+        }
+        
+        let fileURL = containerURL.appendingPathComponent(fileName)
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var error: NSError?
+        
+        coordinator.coordinate(writingItemAt: fileURL, options: [], error: &error) { writeURL in
+            var servers: [CloudServer] = []
+            
+            if FileManager.default.fileExists(atPath: writeURL.path) {
+                if let data = try? Data(contentsOf: writeURL),
+                   let decoded = try? JSONDecoder().decode([CloudServer].self, from: data) {
+                    servers = decoded
+                }
+            }
+            
+            let (username, _, _) = ConfigManager.shared.loadConfig()
+            let computerName = Host.current().localizedName ?? "My Mac"
+            
+            let currentURL = url ?? ""
+            
+            if let index = servers.firstIndex(where: { $0.id == localServerID }) {
+                // Update existing
+                servers[index].url = currentURL
+                servers[index].username = username
+                servers[index].isOffline = isOffline
+                servers[index].name = computerName
+            } else {
+                // Create new
+                let newServer = CloudServer(
+                    id: localServerID,
+                    name: computerName,
+                    url: currentURL,
+                    username: username,
+                    isOffline: isOffline
+                )
+                servers.append(newServer)
+            }
+            
+            if let data = try? JSONEncoder().encode(servers) {
+                try? data.write(to: writeURL)
+                print("iCloud sync successful: \(writeURL.path)")
+            }
+        }
+    }
+    
+    func removeFromCloud() {
+        guard let containerURL = ubiquityURL else { return }
+        let fileURL = containerURL.appendingPathComponent(fileName)
+        
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(writingItemAt: fileURL, options: [], error: nil) { writeURL in
+            if FileManager.default.fileExists(atPath: writeURL.path),
+               let data = try? Data(contentsOf: writeURL),
+               var servers = try? JSONDecoder().decode([CloudServer].self, from: data) {
+                
+                servers.removeAll(where: { $0.id == localServerID })
+                
+                if let data = try? JSONEncoder().encode(servers) {
+                    try? data.write(to: writeURL)
+                }
             }
         }
     }
