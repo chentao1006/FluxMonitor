@@ -12,6 +12,17 @@ echo "================================================="
 echo "  🚀 Starting Flux Release Process"
 echo "================================================="
 
+# 0. Version Management
+CURRENT_VERSION=$(grep '"version":' package.json | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g' | tr -d ' ')
+echo "📦 Current version in package.json: $CURRENT_VERSION"
+read -p "📝 Enter new version (press Enter to keep $CURRENT_VERSION): " NEW_VERSION_PROMPT
+
+if [ -n "$NEW_VERSION_PROMPT" ]; then
+    echo "🔄 Updating package.json to version $NEW_VERSION_PROMPT..."
+    sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION_PROMPT\"/" package.json
+    echo "✅ package.json updated."
+fi
+
 UPLOAD_ONLY=false
 for arg in "$@"; do
     if [ "$arg" == "--upload-only" ] || [ "$arg" == "-u" ]; then

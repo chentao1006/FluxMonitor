@@ -55,8 +55,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
                 let subdomain = UserDefaults.standard.string(forKey: "tunnelSubdomain") ?? ""
                 
-                // Slight delay to allow service to bind if it's already installed
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                // Delay to allow service to bind if it's already installed
+                // Waiting 5 seconds as requested to ensure local service is up
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     TunnelManager.shared.start(port: port, subdomain: subdomain)
                 }
             }

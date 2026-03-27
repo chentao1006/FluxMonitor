@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES } from '@/lib/translations';
 import { useSettings } from '@/lib/SettingsContext';
 import { Languages, Sun, Moon, SunMoon } from 'lucide-react';
 import GlobalTerminal from '@/components/GlobalTerminal';
@@ -78,7 +79,12 @@ export default function DashboardLayout({
       {/* Sidebar Navigation (Desktop) / Drawer (Mobile) */}
       <aside className={`app-sidebar glass-panel ${isMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-header flex-between desktop-only">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <a 
+            href="https://github.com/chentao1006/FluxMonitor" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="sidebar-logo-link"
+          >
             <div className="logo-icon">
               <img src="/logo.png" alt="Flux" style={{ width: '28px', height: '28px', borderRadius: '6.3px' }} />
             </div>
@@ -89,7 +95,7 @@ export default function DashboardLayout({
                 {version && <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', opacity: 0.5 }}>v{version}</span>}
               </div>
             </div>
-          </div>
+          </a>
         </div>
 
         <div className="app-sidebar-content">
@@ -128,20 +134,16 @@ export default function DashboardLayout({
                       >
                         {t.common.systemDefault}
                       </button>
-                      <button
-                        className={`btn btn-sm ${language === 'zh' ? 'btn-primary' : 'btn-ghost'}`}
-                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                        onClick={() => { setLanguage('zh'); setIsLangMenuOpen(false); }}
-                      >
-                        简体中文
-                      </button>
-                      <button
-                        className={`btn btn-sm ${language === 'en' ? 'btn-primary' : 'btn-ghost'}`}
-                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
-                        onClick={() => { setLanguage('en'); setIsLangMenuOpen(false); }}
-                      >
-                        English
-                      </button>
+                      {SUPPORTED_LANGUAGES.map(lang => (
+                        <button
+                          key={lang}
+                          className={`btn btn-sm ${language === lang ? 'btn-primary' : 'btn-ghost'}`}
+                          style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
+                          onClick={() => { setLanguage(lang); setIsLangMenuOpen(false); }}
+                        >
+                          {LANGUAGE_NAMES[lang]}
+                        </button>
+                      ))}
                     </div>
                   </>
                 )}

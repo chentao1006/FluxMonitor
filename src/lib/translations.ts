@@ -928,5 +928,12 @@ export const translations = {
   }
 };
 
-export type Language = 'zh' | 'en';
+export type Language = keyof typeof translations;
+export const SUPPORTED_LANGUAGES = Object.keys(translations) as Language[];
+
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  zh: '简体中文',
+  en: 'English'
+};
+
 export type TranslationKeys = typeof translations.zh;

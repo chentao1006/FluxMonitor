@@ -465,6 +465,28 @@ p {
   transform: scale(1.05);
 }
 
+.sidebar-logo-link {
+  display: flex !important;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit !important;
+  transition: var(--transition);
+  padding: 0.5rem;
+  margin: -0.5rem;
+  border-radius: var(--radius-md);
+  flex: 1;
+}
+
+.sidebar-logo-link:hover {
+  background: var(--color-primary-light);
+  transform: translateY(-1px);
+}
+
+.sidebar-logo-link:active {
+  transform: scale(0.98);
+}
+
 /* Sidebar Navigation */
 .app-sidebar {
   width: 280px;
