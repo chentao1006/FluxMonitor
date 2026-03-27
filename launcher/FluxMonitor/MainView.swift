@@ -702,6 +702,7 @@ struct TunnelView: View {
                 TextField(i18n.t("tunnel_subdomain_placeholder"), text: $tunnelSubdomain)
                     .textFieldStyle(.roundedBorder)
             }
+            .disabled(tunnelManager.status.isRunning || tunnelManager.status == .starting)
             
             Divider()
                 .padding(.vertical, 4)
@@ -741,7 +742,6 @@ struct TunnelView: View {
         .padding()
         .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
         .cornerRadius(12)
-        .disabled(tunnelManager.status.isRunning || tunnelManager.status == .starting)
     }
     
     @ViewBuilder
