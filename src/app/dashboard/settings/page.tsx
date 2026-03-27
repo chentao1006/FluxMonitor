@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
-import { useTheme, Theme } from '@/lib/ThemeContext';
 import { useSettings } from '@/lib/SettingsContext';
-import { Sliders, Save, User, Cpu, Power, Info, AlertTriangle, Sun, Moon, Monitor } from 'lucide-react';
+import { Sliders, Save, User, Cpu, Power, Info, AlertTriangle } from 'lucide-react';
 
 export default function SettingsPage() {
   const { t } = useLanguage();
-  const { theme, setTheme } = useTheme();
   const { config: globalConfig, updateConfig } = useSettings();
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -137,37 +135,8 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Appearance Settings */}
-        <section className="card glass-panel span-2" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-            <Sun size={20} color="var(--color-primary)" />
-            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{t.settings.appearance}</h2>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            {[
-              { id: 'auto', icon: Monitor, label: t.settings.systemDefault },
-              { id: 'light', icon: Sun, label: t.settings.light },
-              { id: 'dark', icon: Moon, label: t.settings.dark },
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setTheme(item.id as Theme)}
-                className={`btn ${theme === item.id ? 'btn-primary' : 'btn-ghost glass-panel'}`}
-                style={{ 
-                  gap: '0.5rem', 
-                  flex: 1, 
-                  minWidth: '120px',
-                  border: theme === item.id ? 'none' : '1px solid var(--color-surface-border)'
-                }}
-              >
-                <item.icon size={18} />
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
         {/* Account Management */}
+
         <section className="card glass-panel" style={{ padding: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <User size={20} color="var(--color-primary)" />

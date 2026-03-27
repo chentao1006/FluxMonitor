@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useSettings } from '@/lib/SettingsContext';
-import { Languages } from 'lucide-react';
+import { Languages, Sun, Moon, SunMoon } from 'lucide-react';
 import GlobalTerminal from '@/components/GlobalTerminal';
+import { useTheme } from '@/lib/ThemeContext';
 
 export default function DashboardLayout({
   children,
@@ -14,9 +15,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { t, language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const { config, loading: settingsLoading } = useSettings();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const mounted = !settingsLoading;
 
   const features = config?.features || {};
@@ -117,19 +120,7 @@ export default function DashboardLayout({
                       style={{ position: 'fixed', inset: 0, zIndex: 100 }}
                       onClick={() => setIsLangMenuOpen(false)}
                     />
-                    <div className="card glass-panel" style={{
-                      position: 'absolute',
-                      bottom: '100%',
-                      left: '0',
-                      marginBottom: '0.5rem',
-                      zIndex: 101,
-                      minWidth: '120px',
-                      padding: '0.5rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.25rem',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                    }}>
+                    <div className="card glass-panel dropdown-menu">
                       <button
                         className={`btn btn-sm ${language === 'auto' ? 'btn-primary' : 'btn-ghost'}`}
                         style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
@@ -155,6 +146,50 @@ export default function DashboardLayout({
                   </>
                 )}
               </div>
+
+              {/* Theme Toggle */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="btn btn-ghost icon-only-btn"
+                  onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                  title={t.settings.appearance}
+                >
+                  {theme === 'dark' ? <Moon size={20} /> : theme === 'light' ? <Sun size={20} /> : <SunMoon size={20} />}
+                </button>
+                {isThemeMenuOpen && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 100 }}
+                      onClick={() => setIsThemeMenuOpen(false)}
+                    />
+                    <div className="card glass-panel dropdown-menu">
+                      <button
+                        className={`btn btn-sm ${theme === 'auto' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem', gap: '0.5rem' }}
+                        onClick={() => { setTheme('auto'); setIsThemeMenuOpen(false); }}
+                      >
+                        <SunMoon size={14} /> {t.settings.systemDefault}
+                      </button>
+                      <button
+                        className={`btn btn-sm ${theme === 'light' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem', gap: '0.5rem' }}
+                        onClick={() => { setTheme('light'); setIsThemeMenuOpen(false); }}
+                      >
+                        <Sun size={14} /> {t.settings.light}
+                      </button>
+                      <button
+                        className={`btn btn-sm ${theme === 'dark' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ justifyContent: 'flex-start', fontSize: '0.75rem', gap: '0.5rem' }}
+                        onClick={() => { setTheme('dark'); setIsThemeMenuOpen(false); }}
+                      >
+                        <Moon size={14} /> {t.settings.dark}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+
               <button
                 className="btn btn-ghost icon-only-btn"
                 title={t.sidebar.logout}

@@ -842,9 +842,22 @@ input:checked+.slider:before {
   font-weight: 500;
 }
 
-.stat-card-value-total {
-  font-size: 1rem;
-  font-weight: 400;
-  color: var(--color-text-muted);
-  margin-left: 0.15rem;
+.dropdown-menu {
+  position: absolute !important;
+  bottom: 100% !important;
+  left: 0 !important;
+  margin-bottom: 0.5rem !important;
+  z-index: 101 !important;
+  min-width: 140px !important;
+  padding: 0.5rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.25rem !important;
+  box-shadow: 0 10px 30px var(--color-shadow) !important;
+  animation: slideInUp 0.2s ease-out !important;
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }

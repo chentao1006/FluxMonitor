@@ -20,7 +20,6 @@
 		C620CCAD47C1630EC2DDCC4D /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5662DE609534DFCC1E144FA9 /* InfoPlist.strings */; };
 		D09F5FADDBD668BAE4497C25 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 465F879BFF9EBC7C9C88BD52 /* Sparkle */; };
 		DDFCB55E4E3A38AA88D80A79 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03BFEE759758B114455EF06B /* main.swift */; };
-		E4CDD74FD89425946A2812A0 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 200577B0F0BB078ECEA93BFB /* AppIcon.icns */; };
 		FA3B2DE51A2AD83AB616C38C /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA649293D6EEBD8A0CDFD409 /* AboutView.swift */; };
 		FDD93ABC7B4C4B8846FFE688 /* ServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD95961A54AE7D60D4DB779D /* ServiceView.swift */; };
 /* End PBXBuildFile section */
@@ -30,7 +29,6 @@
 		0BFBCA42DF81FB121BCD14F6 /* i18n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = i18n.swift; sourceTree = "<group>"; };
 		0D47F3C7A9B0BCF0D348999F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1F5D880187626A330EB04585 /* Flux Monitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Flux Monitor.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		200577B0F0BB078ECEA93BFB /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		4A9F682A360C374FC256EAE5 /* NetworkUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkUtils.swift; sourceTree = "<group>"; };
 		4C5C4A4E749C03739375DEE5 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4F183FAFC92F0F1C0BFD13E7 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -65,7 +63,6 @@
 				AA649293D6EEBD8A0CDFD409 /* AboutView.swift */,
 				BDDEA3ED4DB9636E1F415A71 /* App.entitlements */,
 				4C5C4A4E749C03739375DEE5 /* AppDelegate.swift */,
-				200577B0F0BB078ECEA93BFB /* AppIcon.icns */,
 				0D47F3C7A9B0BCF0D348999F /* Assets.xcassets */,
 				0BFBCA42DF81FB121BCD14F6 /* i18n.swift */,
 				612DB725B6F66EE5B4167C8E /* Info.plist */,
@@ -166,7 +163,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E4CDD74FD89425946A2812A0 /* AppIcon.icns in Resources */,
 				8B1498759B1E992502CF17AB /* Assets.xcassets in Resources */,
 				C620CCAD47C1630EC2DDCC4D /* InfoPlist.strings in Resources */,
 			);
