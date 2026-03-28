@@ -111,7 +111,13 @@ class I18N: ObservableObject {
         "node_mirror_url": "https://npmmirror.com/mirrors/node",
         "icloud_sync": "iCloud 同步",
         "icloud_sync_desc": "同步后便于让移动设备远程访问此服务器。",
-        "icloud_sync_manage": "管理同步到 iCloud 的公网访问地址"
+        "icloud_sync_manage": "管理同步到 iCloud 的公网访问地址",
+        "icloud_sync_starting": "正在同步到 iCloud...",
+        "icloud_sync_success": "iCloud 同步成功",
+        "icloud_sync_error": "iCloud 同步失败: %@",
+        "icloud_sync_removed": "已从 iCloud 移除同步",
+        "icloud_unavailable": "iCloud 服务不可用，请检查登录状态",
+        "open_icloud_folder": "打开 iCloud 文件夹"
     ]
     
     private let enDict = [
@@ -186,7 +192,13 @@ class I18N: ObservableObject {
         "node_mirror_url": "https://nodejs.org/dist",
         "icloud_sync": "iCloud Sync",
         "icloud_sync_desc": "Sync this server to iCloud for easy remote access on mobile devices.",
-        "icloud_sync_manage": "Manage sync of public URL to iCloud"
+        "icloud_sync_manage": "Manage sync of public URL to iCloud",
+        "icloud_sync_starting": "Syncing to iCloud...",
+        "icloud_sync_success": "iCloud sync successful",
+        "icloud_sync_error": "iCloud sync failed: %@",
+        "icloud_sync_removed": "Sync removed from iCloud",
+        "icloud_unavailable": "iCloud service unavailable, please check login status",
+        "open_icloud_folder": "Open iCloud Folder"
     ]
 }
 

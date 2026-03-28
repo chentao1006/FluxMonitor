@@ -717,6 +717,18 @@ struct TunnelView: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer()
+                    
+                    if let _ = ICloudManager.shared.getUbiquityURL() {
+                        Button(action: {
+                            ICloudManager.shared.openICloudFolder()
+                        }) {
+                            Image(systemName: "folder.fill")
+                                .help(i18n.t("open_icloud_folder"))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 8)
+                    }
+                    
                     Toggle("", isOn: Binding(
                         get: { UserDefaults.standard.bool(forKey: "icloudSyncEnabled") },
                         set: { newValue in
@@ -904,18 +916,30 @@ struct CloudServer: Codable, Identifiable {
     var url: String
     var username: String?
     var isOffline: Bool?
+    var isLauncher: Bool?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, url, username, isOffline
+        case id, name, url, username, isOffline, isLauncher
     }
 }
 
 class ICloudManager: ObservableObject {
     static let shared = ICloudManager()
     
-    private let fileName = "servers_v2.json"
+    private let legacyFileName = "servers_v2.json"
+    
+    func getUbiquityURL() -> URL? {
+        return FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents")
+    }
+    
+    func openICloudFolder() {
+        if let url = getUbiquityURL() {
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+        }
+    }
+    
     private var ubiquityURL: URL? {
-        FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents")
+        getUbiquityURL()
     }
     
     private var localServerID: String {
@@ -925,6 +949,11 @@ class ICloudManager: ObservableObject {
         let newID = UUID().uuidString
         UserDefaults.standard.set(newID, forKey: "icloud_local_server_id")
         return newID
+    }
+    
+    // server_<localID>.json
+    private var localFileName: String {
+        return "server_\(localServerID).json"
     }
     
     private init() {
@@ -941,69 +970,77 @@ class ICloudManager: ObservableObject {
     func syncServer(url: String?, isOffline: Bool = false) {
         guard UserDefaults.standard.bool(forKey: "icloudSyncEnabled") else { return }
         
+        let i18n = I18N.shared
         guard let containerURL = ubiquityURL else {
-            print("iCloud not available")
+            TunnelManager.shared.appendLog("[iCloud] \(i18n.t("icloud_unavailable"))\n")
             return
         }
         
-        let fileURL = containerURL.appendingPathComponent(fileName)
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        var error: NSError?
+        TunnelManager.shared.appendLog("[iCloud] \(i18n.t("icloud_sync_starting"))\n")
         
-        coordinator.coordinate(writingItemAt: fileURL, options: [], error: &error) { writeURL in
-            var servers: [CloudServer] = []
-            
-            if FileManager.default.fileExists(atPath: writeURL.path) {
-                if let data = try? Data(contentsOf: writeURL),
-                   let decoded = try? JSONDecoder().decode([CloudServer].self, from: data) {
-                    servers = decoded
-                }
-            }
-            
-            let (username, _, _) = ConfigManager.shared.loadConfig()
-            let computerName = Host.current().localizedName ?? "My Mac"
-            
-            let currentURL = url ?? ""
-            
-            if let index = servers.firstIndex(where: { $0.id == localServerID }) {
-                // Update existing
-                servers[index].url = currentURL
-                servers[index].username = username
-                servers[index].isOffline = isOffline
-                servers[index].name = computerName
-            } else {
-                // Create new
-                let newServer = CloudServer(
-                    id: localServerID,
-                    name: computerName,
-                    url: currentURL,
-                    username: username,
-                    isOffline: isOffline
-                )
-                servers.append(newServer)
-            }
-            
-            if let data = try? JSONEncoder().encode(servers) {
+        // 1. Sync to NEW individual file
+        let fileURL = containerURL.appendingPathComponent(localFileName)
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        
+        let (username, _, _) = ConfigManager.shared.loadConfig()
+        let computerName = Host.current().localizedName ?? "My Mac"
+        
+        let server = CloudServer(
+            id: localServerID,
+            name: computerName,
+            url: url ?? "",
+            username: username,
+            isOffline: isOffline,
+            isLauncher: true
+        )
+        
+        coordinator.coordinate(writingItemAt: fileURL, options: [], error: nil) { writeURL in
+            if let data = try? JSONEncoder().encode(server) {
                 try? data.write(to: writeURL)
-                print("iCloud sync successful: \(writeURL.path)")
+                TunnelManager.shared.appendLog("[iCloud] \(i18n.t("icloud_sync_success"))\n")
             }
         }
+        
+        // 2. Clean up from legacy file (do this only once or until removed)
+        removeFromLegacyCloud()
     }
     
     func removeFromCloud() {
+        let i18n = I18N.shared
         guard let containerURL = ubiquityURL else { return }
-        let fileURL = containerURL.appendingPathComponent(fileName)
+        
+        // 1. Remove NEW individual file
+        let fileURL = containerURL.appendingPathComponent(localFileName)
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        coordinator.coordinate(writingItemAt: fileURL, options: [.forDeleting], error: nil) { writeURL in
+            try? FileManager.default.removeItem(at: writeURL)
+            TunnelManager.shared.appendLog("[iCloud] \(i18n.t("icloud_sync_removed"))\n")
+        }
+        
+        // 2. Also ensure legacy entry is gone
+        removeFromLegacyCloud()
+    }
+    
+    private func removeFromLegacyCloud() {
+        guard let containerURL = ubiquityURL else { return }
+        let fileURL = containerURL.appendingPathComponent(legacyFileName)
         
         let coordinator = NSFileCoordinator(filePresenter: nil)
-        coordinator.coordinate(writingItemAt: fileURL, options: [], error: nil) { writeURL in
-            if FileManager.default.fileExists(atPath: writeURL.path),
-               let data = try? Data(contentsOf: writeURL),
+        var error: NSError?
+        coordinator.coordinate(writingItemAt: fileURL, options: [], error: &error) { writeURL in
+            guard FileManager.default.fileExists(atPath: writeURL.path) else { return }
+            
+            if let data = try? Data(contentsOf: writeURL),
                var servers = try? JSONDecoder().decode([CloudServer].self, from: data) {
                 
+                let originalCount = servers.count
                 servers.removeAll(where: { $0.id == localServerID })
                 
-                if let data = try? JSONEncoder().encode(servers) {
-                    try? data.write(to: writeURL)
+                if servers.count != originalCount {
+                    if let newData = try? JSONEncoder().encode(servers) {
+                        try? newData.write(to: writeURL)
+                        print("Removed legacy iCloud entry from servers_v2.json")
+                    }
                 }
             }
         }
