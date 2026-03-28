@@ -122,9 +122,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     func updateIcon() {
         if let button = statusItem?.button {
-            let symbolName = ProcessManager.shared.isRunning ? "flame.fill" : "flame"
             let i18n = I18N.shared
-            let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: i18n.t("app_title"))
+            let image = NSImage(named: "StatusBarIcon")
             image?.isTemplate = true
             button.image = image
             button.toolTip = i18n.t("app_title")
