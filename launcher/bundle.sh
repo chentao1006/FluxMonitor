@@ -175,8 +175,13 @@ cp package.json "$APP_DIR/Contents/Resources/package.json"
 
 # Sign the app bundle
 # IDENTITY is either sourced from build.config or auto-detected above
-ENTITLEMENTS="$(pwd)/launcher/FluxMonitor/App.entitlements"
 echo "Performing deep signature..."
+
+# --- CRITICAL FOR iCLOUD: Extract full entitlements from the exported app ---
+# This ensures we keep application-identifier and other keys added by Xcode/Provisioning Profile
+TEMP_ENTITLEMENTS="/tmp/app_entitlements_$(date +%s).plist"
+codesign -d --entitlements :- "$APP_DIR" > "$TEMP_ENTITLEMENTS"
+echo "Extracted full entitlements for re-signing."
 
 # First, sign any injected frameworks or binaries in node_modules
 find "$APP_DIR/Contents/Resources/node_modules" -name "*.node" -o -name "*.dylib" -o -name "*.sh" | while read -r lib; do
@@ -194,8 +199,12 @@ if [ -d "$APP_DIR/Contents/Frameworks/Sparkle.framework" ]; then
     codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP_DIR/Contents/Frameworks/Sparkle.framework"
 fi
 
-# Finally sign the main app bundle
-codesign --force --options runtime --entitlements "$ENTITLEMENTS" --timestamp --sign "$IDENTITY" "$APP_DIR"
+# Finally sign the main app bundle using the EXTRACTED entitlements
+echo "Finalizing app signature with preserved entitlements..."
+codesign --force --options runtime --entitlements "$TEMP_ENTITLEMENTS" --timestamp --sign "$IDENTITY" "$APP_DIR"
+
+# Cleanup temp entitlements
+rm -f "$TEMP_ENTITLEMENTS"
 
 
 # Package into DMG

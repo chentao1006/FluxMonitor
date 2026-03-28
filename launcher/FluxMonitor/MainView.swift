@@ -929,7 +929,7 @@ class ICloudManager: ObservableObject {
     private let legacyFileName = "servers_v2.json"
     
     func getUbiquityURL() -> URL? {
-        return FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent("Documents")
+        return FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.ct106.flux.shared")?.appendingPathComponent("Documents")
     }
     
     func openICloudFolder() {
