@@ -50,6 +50,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !isFirstRun && UserDefaults.standard.bool(forKey: "autoStartService") && hasCredentials {
             ProcessManager.shared.start()
             
+            // Warm up iCloud and show initial status as offline if enabled
+            if UserDefaults.standard.bool(forKey: "icloudSyncEnabled") {
+                ICloudManager.shared.syncServer(url: nil, isOffline: true)
+            }
+            
             // Auto-start tunnel if enabled
             if UserDefaults.standard.bool(forKey: "autoStartTunnel") {
                 let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
