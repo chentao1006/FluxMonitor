@@ -43,8 +43,8 @@ if [ ! -z "$VERSION" ]; then
     echo "🔄 Syncing version $VERSION from package.json to Xcode project..."
     # Update Marketing Version
     sed -i '' "s/MARKETING_VERSION = [0-9.]*;/MARKETING_VERSION = $VERSION;/g" "$PROJECT/project.pbxproj"
-    # Update Build Version (convert 1.1.7 to 117)
-    BUILD_NUMBER=$(echo "$VERSION" | tr -d '.')
+    # Update Build Version (e.g., 1.2.9 -> 10209), ensuring higher versions always have higher build numbers
+    BUILD_NUMBER=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
     sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PROJECT/project.pbxproj"
 fi
 
