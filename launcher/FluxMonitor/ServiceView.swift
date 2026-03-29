@@ -66,7 +66,6 @@ struct ServiceView: View {
                 .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
                 .cornerRadius(12)
                 
-                // Config Section
                 VStack(alignment: .leading, spacing: 12) {
                     Text(i18n.t("service_config"))
                         .font(.caption.bold())
@@ -98,6 +97,8 @@ struct ServiceView: View {
                 .padding()
                 .background(Color(NSColor.controlBackgroundColor).opacity(0.8))
                 .cornerRadius(12)
+                .disabled(pm.isRunning)
+                .opacity(pm.isRunning ? 0.6 : 1.0)
                 .onChange(of: username) { _ in saveSettings() }
                 .onChange(of: password) { _ in saveSettings() }
                 .onChange(of: port) { _ in saveSettings() }
