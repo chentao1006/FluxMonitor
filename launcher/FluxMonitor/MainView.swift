@@ -688,27 +688,19 @@ struct TunnelView: View {
             
             Spacer()
             
-            let isBusy = tunnelManager.status.isRunning || tunnelManager.status == .starting
-            
-            Button(action: {
-                if isBusy {
-                    tunnelManager.stop()
-                } else {
-                    startTunnel()
-                }
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: isBusy ? "stop.fill" : "play.fill")
-                        .font(.system(size: 11))
-                    Text(isBusy ? i18n.t("stop") : i18n.t("start"))
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .frame(width: 70, height: 26)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(isBusy ? .red : .blue)
-            .controlSize(.small)
-            .disabled(InstaTunnelDownloader.shared.status.isBusy)
+                Toggle("", isOn: Binding(
+                    get: { tunnelManager.status.isRunning || tunnelManager.status == .starting },
+                    set: { newValue in
+                        if newValue {
+                            startTunnel()
+                        } else {
+                            tunnelManager.stop()
+                        }
+                    }
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .disabled(downloader.status.isBusy)
         }
         .padding()
         .background(Color(NSColor.controlBackgroundColor).opacity(0.8))

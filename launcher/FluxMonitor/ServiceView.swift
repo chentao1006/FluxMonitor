@@ -37,25 +37,19 @@ struct ServiceView: View {
                 
                 Spacer()
                 
-                Button(action: {
-                    if pm.isRunning {
-                        pm.stop()
-                    } else {
-                        pm.start()
+                Toggle("", isOn: Binding(
+                    get: { pm.isRunning },
+                    set: { newValue in
+                        if newValue {
+                            pm.start()
+                        } else {
+                            pm.stop()
+                        }
+                        AppDelegate.shared?.updateMenu()
                     }
-                    AppDelegate.shared?.updateMenu()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: pm.isRunning ? "stop.fill" : "play.fill")
-                            .font(.system(size: 11))
-                        Text(pm.isRunning ? i18n.t("stop") : i18n.t("start"))
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .frame(width: 70, height: 26)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(pm.isRunning ? .red : .blue)
-                .controlSize(.small)
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor).opacity(0.8))

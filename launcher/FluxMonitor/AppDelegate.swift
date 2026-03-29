@@ -171,10 +171,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     func updateIcon() {
         if let button = statusItem?.button {
+            let isRunning = ProcessManager.shared.isRunning
             let i18n = I18N.shared
-            let image = NSImage(named: "StatusBarIcon")
-            image?.isTemplate = true
-            button.image = image
+            
+            if let baseImage = NSImage(named: "StatusBarIcon") {
+                baseImage.isTemplate = true
+                
+                if isRunning {
+                    button.image = baseImage
+                } else {
+                    // Apply transparency (dimmed effect) when stopped
+                    let size = baseImage.size
+                    let transparentImage = NSImage(size: size, flipped: false) { rect in
+                        baseImage.draw(in: rect, from: NSRect(origin: .zero, size: size), operation: .sourceOver, fraction: 0.5)
+                        return true
+                    }
+                    transparentImage.isTemplate = true
+                    button.image = transparentImage
+                }
+            }
             button.toolTip = i18n.t("app_title")
         }
     }
