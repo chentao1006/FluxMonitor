@@ -375,12 +375,19 @@ class TunnelManager: ObservableObject {
     private var outputPipe: Pipe?
     private var errorPipe: Pipe?
     private var retryCount = 0
-    private let maxRetries = 3
+    private let maxRetries = 10
     private var isRetrying = false
+    
+    private var lastStartPort: Int = 4210
+    private var lastStartSubdomain: String = ""
+    private var restartTimer: Timer?
     
     private let urlRegex = try! NSRegularExpression(pattern: #"(https:\/\/[a-zA-Z0-9\-\.]+\.instatunnel\.my)"#, options: [])
     
     func start(port: Int, subdomain: String = "") {
+        self.lastStartPort = port
+        self.lastStartSubdomain = subdomain
+        
         if logs.isEmpty { appendLog("Starting InstaTunnel...\n") }
         
         // Allow starting if stopped or in an error state
@@ -459,13 +466,20 @@ class TunnelManager: ObservableObject {
         
         process.terminationHandler = { [weak self] p in
             DispatchQueue.main.async {
-                let status = p.terminationStatus
-                self?.process = nil
-                self?.appendLog("Process terminated with exit code: \(status)\n")
-                if status != 0 {
-                    self?.status = .error("Exit code \(status)")
+                guard let self = self else { return }
+                let exitStatus = p.terminationStatus
+                self.process = nil
+                self.appendLog("Process terminated with exit code: \(exitStatus)\n")
+                
+                // If already stopped manually, don't trigger retry or update status to error
+                if self.status == .stopped { return }
+                
+                if exitStatus != 0 {
+                    self.status = .error("Exit code \(exitStatus)")
+                    // Auto-restart on error
+                    self.handleRetry(port: self.lastStartPort, subdomain: self.lastStartSubdomain)
                 } else {
-                    self?.status = .stopped
+                    self.status = .stopped
                 }
             }
         }
@@ -503,8 +517,29 @@ class TunnelManager: ObservableObject {
         process = nil
         status = .stopped
         
+        restartTimer?.invalidate()
+        restartTimer = nil
+        
         // Sync to iCloud as offline
         ICloudManager.shared.syncServer(url: nil, isOffline: true)
+    }
+    
+    func restart() {
+        appendLog("Restarting tunnel...\n")
+        stop()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.start(port: self.lastStartPort, subdomain: self.lastStartSubdomain)
+        }
+    }
+    
+    private func scheduleRestart() {
+        restartTimer?.invalidate()
+        // 23 hours and 50 minutes = 85800 seconds
+        // Anonymous sessions expire in 24 hours
+        restartTimer = Timer.scheduledTimer(withTimeInterval: 85800, repeats: false) { [weak self] _ in
+            self?.appendLog("Anonymous session will expire soon. Triggering auto-restart...\n")
+            self?.restart()
+        }
     }
     
     private func setupPipeReader(_ pipe: Pipe) {
@@ -547,6 +582,9 @@ class TunnelManager: ObservableObject {
                     
                     // Sync to iCloud
                     ICloudManager.shared.syncServer(url: url, isOffline: false)
+                    
+                    // Schedule 24h restart
+                    self.scheduleRestart()
                 }
             }
         }
@@ -871,12 +909,6 @@ struct TunnelView: View {
         } else {
             tunnelManager.start(port: localPort, subdomain: tunnelSubdomain)
         }
-    }
-    
-    private func copyToClipboard(_ text: String) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
     }
 }
 
