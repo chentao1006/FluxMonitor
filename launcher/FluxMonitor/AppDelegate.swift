@@ -20,6 +20,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
+        
+        // Single instance check: if another instance is running, tell it to show UI and exit.
+        let bundleID = Bundle.main.bundleIdentifier!
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        if runningApps.count > 1 {
+            // Find another instance
+            for app in runningApps {
+                if app != NSRunningApplication.current {
+                    // Tell the other instance to show its UI
+                    DistributedNotificationCenter.default().postNotificationName(
+                        NSNotification.Name("\(bundleID).ShowUI"),
+                        object: nil,
+                        userInfo: nil,
+                        deliverImmediately: true
+                    )
+                    // Activate it
+                    app.activate(options: [.activateIgnoringOtherApps])
+                    // Exit this instance immediately to avoid port conflict
+                    exit(0)
+                }
+            }
+        }
+        
+        // Register for the ShowUI notification from future instances
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("\(bundleID).ShowUI"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            ProcessManager.shared.appendLog("Received activation request from another instance.\n")
+            // Crucial: Switch to regular policy to ensure the window and dock icon appear
+            NSApp.setActivationPolicy(.regular)
+            self?.showSettings()
+            NSApp.activate(ignoringOtherApps: true)
+            // Re-ensure menu bar icon exists if it was somehow lost
+            if self?.statusItem == nil {
+                self?.setupMenuBar()
+            }
+        }
+
         setupMainMenu()
         
         // Register defaults
@@ -33,9 +73,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Initialize Sparkle
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         
-        setupMenuBar()
+        // Setup menu bar with a slight delay to ensure the system menu bar is ready, 
+        // especially during auto-start at login.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.setupMenuBar()
+        }
         
-        let bundleID = Bundle.main.bundleIdentifier!
+        
         let appSupportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent(bundleID, isDirectory: true)
         let configFileUrl = appSupportDir.appendingPathComponent("config.json")
@@ -88,9 +132,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        NSApp.setActivationPolicy(.regular)
         if !flag {
             showSettings()
         }
+        NSApp.activate(ignoringOtherApps: true)
         return true
     }
     
@@ -109,6 +155,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func setupMenuBar() {
+        if statusItem != nil {
+            NSStatusBar.system.removeStatusItem(statusItem!)
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         ProcessManager.shared.$isRunning
