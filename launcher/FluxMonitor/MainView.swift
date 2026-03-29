@@ -49,7 +49,7 @@ struct MainView: View {
             
             SettingsView()
                 .tabItem {
-                    Text(i18n.t("settings"))
+                    Text(i18n.t("general"))
                 }
                 .tag(2)
             

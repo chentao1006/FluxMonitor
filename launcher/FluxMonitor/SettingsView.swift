@@ -6,19 +6,9 @@ struct SettingsView: View {
     @AppStorage("autoStartApp") var autoStartApp = false
     @AppStorage("autoStartService") var autoStartService = true
     @AppStorage("autoStartTunnel") var autoStartTunnel = false
-    @AppStorage("port") var port = 4210
     
-    @AppStorage("username") var username = ""
-    @AppStorage("password") var password = ""
-
     @AppStorage("silentStart") var silentStart = false
     
-    private var portFormatter: NumberFormatter {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        return formatter
-    }
     
     var body: some View {
         Group {
@@ -38,41 +28,11 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 400)
-        .onAppear(perform: loadConfig)
-        .onChange(of: username) { _ in saveSettings() }
-        .onChange(of: password) { _ in saveSettings() }
-        .onChange(of: port) { _ in saveSettings() }
         .onChange(of: autoStartService) { _ in saveSettings() }
     }
     
     @ViewBuilder
     private var settingsSections: some View {
-        Section(header: Text(i18n.t("service_config"))) {
-            HStack {
-                Text(i18n.t("username"))
-                Spacer()
-                TextField("", text: $username)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 200)
-            }
-            
-            HStack {
-                Text(i18n.t("password"))
-                Spacer()
-                SecureField("", text: $password)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 200)
-            }
-            
-            HStack {
-                Text(i18n.t("port"))
-                Spacer()
-                TextField("", value: $port, formatter: portFormatter)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 80)
-            }
-        }
-        
         Section(header: Text(i18n.t("behavior"))) {
             HStack {
                 Text(i18n.t("launch_at_login"))
@@ -145,16 +105,7 @@ struct SettingsView: View {
         #endif
     }
     
-    private func loadConfig() {
-        let (u, p, pt) = ConfigManager.shared.loadConfig()
-        if let u = u { username = u }
-        if let p = p { password = p }
-        if let pt = pt { port = pt }
-    }
-    
     private func saveSettings() {
-        ConfigManager.shared.saveConfig(username: username, password: password, port: port)
-        
         // Restart if running
         if ProcessManager.shared.isRunning {
             ProcessManager.shared.stop()
