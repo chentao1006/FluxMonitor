@@ -2,31 +2,35 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { translations } from './translations';
+import { AppConfig } from './types';
 
 interface SettingsContextType {
-  config: any;
+  config: AppConfig | null;
   loading: boolean;
   refreshSettings: () => Promise<void>;
-  updateConfig: (newConfig: any) => void;
+  updateConfig: (newConfig: AppConfig) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/settings');
       const data = await res.json();
-      if (data.success) {
-        setConfig(data.data);
+      if (data.success && data.data) {
+        setConfig(data.data as AppConfig);
+      } else {
+        setConfig({ users: [], ai: {}, features: {} });
       }
     } catch (e) {
       const lang = typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
       const t = translations[lang] || translations.zh;
       console.error(t.common.settingsFetchFailed, e);
+      setConfig({ users: [], ai: {}, features: {} });
     } finally {
       setLoading(false);
     }
@@ -36,7 +40,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     fetchSettings();
   }, [fetchSettings]);
 
-  const updateConfig = (newConfig: any) => {
+  const updateConfig = (newConfig: AppConfig) => {
     setConfig(newConfig);
   };
 

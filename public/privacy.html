@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | Flux Monitor 隐私政策</title>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --bg-light: #F2F2F7;
+            --bg-dark: #1C1C1E;
+            --text-light: #1C1C1E;
+            --text-dark: #F2F2F7;
+            --card-light: rgba(255, 255, 255, 0.8);
+            --card-dark: rgba(28, 28, 30, 0.8);
+            --accent: #5856D6;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: var(--bg-dark);
+                color: var(--text-dark);
+            }
+            .card {
+                background: var(--card-dark);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            body {
+                background-color: var(--bg-light);
+                color: var(--text-light);
+            }
+            .card {
+                background: var(--card-light);
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 90%;
+            padding: 40px 0;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .lang-switch {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .lang-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: none;
+            background: rgba(120, 120, 128, 0.16);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            color: inherit;
+        }
+
+        .lang-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+        }
+
+        .card {
+            border-radius: 24px;
+            padding: 40px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            animation: fadeInUp 0.8s ease-out;
+            margin-bottom: 40px;
+        }
+
+        section {
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        p, li {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .lang-section {
+            display: none;
+        }
+
+        .lang-section.active {
+            display: block;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            opacity: 0.6;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .updated-date {
+            font-style: italic;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Flux Monitor</h1>
+            <p>Privacy Policy | 隐私政策</p>
+        </header>
+
+        <div class="lang-switch">
+            <button class="lang-btn active" onclick="switchLang('zh')">简体中文</button>
+            <button class="lang-btn" onclick="switchLang('en')">English</button>
+        </div>
+
+        <div class="card">
+            <!-- Chinese Version -->
+            <div id="zh-content" class="lang-section active">
+                <span class="updated-date">最后更新日期：2026年3月29日</span>
+                
+                <section>
+                    <h2>1. 概述</h2>
+                    <p>Flux Monitor（以下简称“本软件”）非常重视您的隐私。本政策旨在说明我们如何处理您的数据。我们秉承“最小化收集”原则，除非功能必须，否则我们不会收集或共享您的个人信息。</p>
+                </section>
+
+                <section>
+                    <h2>2. 数据收集与使用</h2>
+                    <ul>
+                        <li><strong>连接信息：</strong>为了实现远程管理功能，您需要输入服务器地址、用户名及密码。这些信息<b>仅存储在您的本地设备</b>中，并在您启用时通过您的 <b>Apple iCloud</b> 进行多端同步。我们（开发者）无法访问这些数据。</li>
+                        <li><strong>终端数据：</strong>本软件显示的终端输出仅用于展示，除非您主动触发 AI 分析功能，否则数据不会离开您的本地环境。</li>
+                        <li><strong>屏幕截图：</strong>当您使用 AI 分析辅助功能时，软件可能需要在您的授权下获取屏幕部分截图。这些截图仅在触发 AI 分析时发送至您配置的 AI 提供商，本软件不会持久化存储或在后台静默收集。</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>3. 第三方服务</h2>
+                    <p>本软件集成了以下第三方服务，它们的数据处理受其各自隐私政策约束：</p>
+                    <ul>
+                        <li><strong>Apple iCloud：</strong>用于在您的个人 Apple 设备之间同步配置信息。</li>
+                        <li><strong>AI 服务提供商：</strong>当您启用 AI 分析功能时，相关的上下文数据将被发送至您选择的 AI 服务（如 OpenAI, Anthropic 等）。请确保您已阅读并同意相关服务商的隐私协议。</li>
+                        <li><strong>Sparkle：</strong>（仅 macOS 版）用于自动检查软件更新。</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>4. 安全性</h2>
+                    <p>我们采用行业标准的安全措施来保护您的数据。由于敏感配置存储在本地或 iCloud 中，其安全性受 macOS/iOS 系统及您的 Apple 账户安全性保障。建议您开启两步验证（2FA）以增强安全性。</p>
+                </section>
+
+                <section>
+                    <h2>5. 您的权利</h2>
+                    <p>您拥有对数据的完全控制权。您可以随时在软件设置中删除所有连接配置，或者通过系统设置关闭 iCloud 同步及屏幕录制权限。</p>
+                </section>
+
+                <section>
+                    <h2>6. 联系我们</h2>
+                    <p>如果您对本隐私政策有任何疑问，请通过以下方式联系开发者：</p>
+                    <p>GitHub: <a href="https://github.com/chentao1006" style="color: var(--primary); text-decoration: none;">chentao1006</a></p>
+                </section>
+            </div>
+
+            <!-- English Version -->
+            <div id="en-content" class="lang-section">
+                <span class="updated-date">Last Updated: March 29, 2026</span>
+                
+                <section>
+                    <h2>1. Overview</h2>
+                    <p>Flux Monitor (the "Software") values your privacy. This policy explains how we handle your data. We adhere to the principle of "minimal data collection." We do not collect or share your personal information unless it is necessary for features to function.</p>
+                </section>
+
+                <section>
+                    <h2>2. Data Collection and Usage</h2>
+                    <ul>
+                        <li><strong>Connection Information:</strong> To provide remote management features, you enter server addresses, usernames, and passwords. This information is <b>stored only on your local device</b> and synchronized across your devices via <b>Apple iCloud</b> if enabled. We (the developer) cannot access this data.</li>
+                        <li><strong>Terminal Data:</strong> Terminal output displayed in the Software is for presentation only. Data does not leave your local environment unless you explicitly trigger AI analysis features.</li>
+                        <li><strong>Screenshots:</strong> When using AI analysis assistance, the Software may require your authorization to capture parts of your screen. These screenshots are only sent to your configured AI provider when triggered by you; they are not stored persistently or collected silently in the background.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>3. Third-party Services</h2>
+                    <p>The Software integrates the following third-party services, whose data processing is governed by their respective privacy policies:</p>
+                    <ul>
+                        <li><strong>Apple iCloud:</strong> Used to sync configuration information across your personal Apple devices.</li>
+                        <li><strong>AI Providers:</strong> When you enable AI analysis features, relevant context data is sent to the AI service of your choice (e.g., OpenAI, Anthropic, etc.). Please ensure you have read and agreed to their respective privacy policies.</li>
+                        <li><strong>Sparkle:</strong> (macOS version only) Used for automatic software update checks.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>4. Security</h2>
+                    <p>We use industry-standard security measures to protect your data. Since sensitive configurations are stored locally or in iCloud, their security is backed by the macOS/iOS system and your Apple account security. We recommend enabling Two-Factor Authentication (2FA) for your Apple ID.</p>
+                </section>
+
+                <section>
+                    <h2>5. Your Rights</h2>
+                    <p>You have full control over your data. You can delete all connection configurations within the Software settings at any time, or disable iCloud sync and screen recording permissions via System Settings.</p>
+                </section>
+
+                <section>
+                    <h2>6. Contact Us</h2>
+                    <p>If you have any questions about this Privacy Policy, please contact the developer at:</p>
+                    <p>GitHub: <a href="https://github.com/chentao1006" style="color: var(--primary); text-decoration: none;">chentao1006</a></p>
+                </section>
+            </div>
+        </div>
+
+        <footer>
+            &copy; 2026 Tao Chen. All rights reserved.
+        </footer>
+    </div>
+
+    <script>
+        function switchLang(lang) {
+            document.querySelectorAll('.lang-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(lang + '-content').classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

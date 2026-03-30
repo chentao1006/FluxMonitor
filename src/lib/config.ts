@@ -1,16 +1,17 @@
 import fs from 'fs';
 import path from 'path';
+import { AppConfig } from './types';
 
 function getConfigPath() {
   return process.env.CONFIG_PATH || path.join(process.cwd(), 'config.json');
 }
 
-export function getConfig() {
+export function getConfig(): AppConfig {
   const configPath = getConfigPath();
   try {
     if (!fs.existsSync(configPath)) {
       console.warn(`Config file not found at ${configPath}, returning empty object`);
-      return {};
+      return { users: [], ai: {}, features: {} } as AppConfig;
     }
     const content = fs.readFileSync(configPath, 'utf8');
     const config = JSON.parse(content);
@@ -30,14 +31,14 @@ export function getConfig() {
         }
       }
     }
-    return config;
+    return config as AppConfig;
   } catch (error) {
     console.error(`Error reading config at ${configPath}:`, error);
-    return {};
+    return { users: [], ai: {}, features: {} } as AppConfig;
   }
 }
 
-export function saveConfig(config: any) {
+export function saveConfig(config: AppConfig) {
   const configPath = getConfigPath();
   try {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');

@@ -1,27 +1,28 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { useSettings } from '@/lib/SettingsContext';
 import { Sliders, Save, User, Cpu, Power, Info, AlertTriangle } from 'lucide-react';
+import { AppConfig, UserConfig } from '@/lib/types';
 
 export default function SettingsPage() {
   const { t } = useLanguage();
-  const { config: globalConfig, updateConfig } = useSettings();
-  const [config, setConfig] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { config: globalConfig, loading: settingsLoading, updateConfig } = useSettings();
+  const [config, setConfig] = useState<AppConfig | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
 
-  useEffect(() => {
-    if (globalConfig) {
-      setConfig({
-        ...globalConfig,
-        features: globalConfig.features || {},
-        users: globalConfig.users || [{ username: '', password: '' }]
-      });
-      setLoading(false);
-    }
-  }, [globalConfig]);
+  // Initialize local config once external settings are loaded
+  if (!config && !settingsLoading && globalConfig) {
+    setConfig({
+      users: (globalConfig.users?.length) ? globalConfig.users : [{ username: '', password: '' }],
+      ai: globalConfig.ai || {},
+      features: globalConfig.features || {},
+      jwtSecret: globalConfig.jwtSecret,
+      deploy: globalConfig.deploy,
+      version: globalConfig.version
+    });
+  }
 
   const handleSave = async () => {
     setSaveStatus(t.settings.saving);
@@ -34,19 +35,20 @@ export default function SettingsPage() {
       const data = await res.json();
       if (data.success) {
         setSaveStatus(t.settings.saveSuccess);
-        updateConfig(config);
+        if (config) updateConfig(config);
         setTimeout(() => {
           setSaveStatus('');
         }, 3000);
       } else {
         setSaveStatus(`${t.common.saveFailed}: ${data.error}`);
       }
-    } catch (e) {
+    } catch {
       setSaveStatus(t.common.networkError);
     }
   };
 
   const updateAI = (field: string, value: string) => {
+    if (!config) return;
     setConfig({
       ...config,
       ai: { ...config.ai, [field]: value }
@@ -54,6 +56,7 @@ export default function SettingsPage() {
   };
 
   const updateFeature = (feature: string, enabled: boolean) => {
+    if (!config) return;
     setConfig({
       ...config,
       features: { ...config.features, [feature]: enabled }
@@ -61,12 +64,13 @@ export default function SettingsPage() {
   };
 
   const updateUser = (index: number, field: string, value: string) => {
+    if (!config) return;
     const newUsers = [...config.users];
     newUsers[index] = { ...newUsers[index], [field]: value };
     setConfig({ ...config, users: newUsers });
   };
 
-  if (loading || !config) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
+  if (settingsLoading || !config) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
     <div className="grid no-scrollbar animate-fade-in" style={{ gap: '1.25rem', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
@@ -98,7 +102,7 @@ export default function SettingsPage() {
             <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{t.settings.features}</h2>
           </div>
           <div className="responsive-grid responsive-grid-auto" style={{ gap: '1rem' }}>
-            {Object.entries(config.features || {}).map(([key, enabled]: [string, any]) => (
+            {Object.entries(config.features || {}).map(([key, enabled]) => (
               <label
                 key={key}
                 className="flex-between glass-panel"
@@ -116,7 +120,7 @@ export default function SettingsPage() {
                   color: enabled ? 'var(--color-primary)' : 'var(--color-text-muted)',
                   opacity: enabled ? 1 : 0.7
                 }}>
-                  {(t.sidebar as any)[key] || key}
+                  {(t.sidebar as Record<string, string>)[key] || key}
                 </span>
                 <label className="switch" onClick={e => e.stopPropagation()}>
                   <input
@@ -142,7 +146,7 @@ export default function SettingsPage() {
             <User size={20} color="var(--color-primary)" />
             <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{t.settings.account}</h2>
           </div>
-          {config.users.map((user: any, i: number) => (
+          {config.users.map((user: UserConfig, i: number) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>{t.settings.username}</label>
