@@ -40,34 +40,130 @@ class ProcessManager: ObservableObject {
             return localPath
         }
         
-        // 3. Check common system paths (Works perfectly without Sandbox!)
-        let systemPaths = [
-            "/usr/local/bin/node",
-            "/usr/bin/node",
-            "/opt/homebrew/bin/node"
+        // 3. Resolve user's real PATH from login shell and search for node
+        if let resolvedPath = findNodeFromShellPATH() {
+            return resolvedPath
+        }
+        
+        // 4. Scan well-known version manager directories as fallback
+        if let vmPath = findNodeFromVersionManagers() {
+            return vmPath
+        }
+        
+        return nil
+    }
+    
+    /// Launch the user's login shell to resolve the full PATH, then search each directory for node.
+    /// This covers Homebrew, system installs, and version managers that modify shell profiles.
+    private func findNodeFromShellPATH() -> String? {
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: shell)
+        // Use login + interactive-like mode so .zprofile/.bash_profile etc. are sourced
+        p.arguments = ["-l", "-c", "echo $PATH"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = Pipe()
+        
+        do {
+            try p.run()
+            p.waitUntilExit()
+        } catch {
+            appendLog("Failed to resolve PATH from shell: \(error.localizedDescription)\n")
+            return nil
+        }
+        
+        guard p.terminationStatus == 0,
+              let data = try? pipe.fileHandleForReading.readToEnd(),
+              let pathString = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !pathString.isEmpty else {
+            return nil
+        }
+        
+        var seen = Set<String>()
+        for dir in pathString.split(separator: ":").map(String.init) {
+            guard seen.insert(dir).inserted else { continue }
+            let candidate = (dir as NSString).appendingPathComponent("node")
+            if FileManager.default.isExecutableFile(atPath: candidate) && isNodeVersionCompatible(at: candidate) {
+                return candidate
+            }
+        }
+        return nil
+    }
+    
+    /// Scan well-known version manager install directories for a compatible node binary.
+    /// Covers nvm, fnm, volta, mise, asdf, n, and nodenv without hardcoding full paths.
+    private func findNodeFromVersionManagers() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        
+        let candidates: [(dir: String, glob: String)] = [
+            ("\(home)/.nvm/versions/node", "*/bin/node"),
+            ("\(home)/.volta/bin", "node"),
+            ("\(home)/.fnm/node-versions", "*/installation/bin/node"),
+            ("\(home)/.local/share/mise/installs/node", "*/bin/node"),
+            ("\(home)/.asdf/installs/nodejs", "*/bin/node"),
+            ("\(home)/.nodenv/versions", "*/bin/node"),
+            ("/usr/local/n/versions/node", "*/bin/node"),
         ]
         
-        for path in systemPaths {
-            if FileManager.default.isExecutableFile(atPath: path) && isNodeVersionCompatible(at: path) {
-                return path
+        let fm = FileManager.default
+        var bestPath: String?
+        var bestMajor = 0
+        
+        for (dir, globPattern) in candidates {
+            guard fm.fileExists(atPath: dir) else { continue }
+            
+            let parts = globPattern.split(separator: "/", maxSplits: 1)
+            if parts.first == "*" {
+                // Enumerate subdirectories, pick the highest compatible version
+                guard let subdirs = try? fm.contentsOfDirectory(atPath: dir) else { continue }
+                let suffix = parts.count > 1 ? "/\(parts[1])" : ""
+                for sub in subdirs.sorted().reversed() {
+                    let candidate = "\(dir)/\(sub)\(suffix)"
+                    if fm.isExecutableFile(atPath: candidate),
+                       let major = nodeMainVersion(at: candidate), major >= 18, major > bestMajor {
+                        bestPath = candidate
+                        bestMajor = major
+                    }
+                }
+            } else {
+                let candidate = "\(dir)/\(globPattern)"
+                if fm.isExecutableFile(atPath: candidate),
+                   let major = nodeMainVersion(at: candidate), major >= 18, major > bestMajor {
+                    bestPath = candidate
+                    bestMajor = major
+                }
             }
         }
         
-        // 4. Try 'which node'
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        p.arguments = ["node"]
-        let pipe = Pipe()
-        p.standardOutput = pipe
-        try? p.run()
-        p.waitUntilExit()
-        if let data = try? pipe.fileHandleForReading.readToEnd(),
-           let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !path.isEmpty, FileManager.default.isExecutableFile(atPath: path),
-           isNodeVersionCompatible(at: path) {
+        if let path = bestPath, isNodeVersionCompatible(at: path) {
             return path
         }
-        
+        return nil
+    }
+    
+    /// Quickly extract the major version number from a node binary (returns nil on failure).
+    private func nodeMainVersion(at path: String) -> Int? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: path)
+        p.arguments = ["-v"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = Pipe()
+        do {
+            try p.run()
+            p.waitUntilExit()
+            guard p.terminationStatus == 0,
+                  let data = try? pipe.fileHandleForReading.readToEnd(),
+                  let ver = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                return nil
+            }
+            let clean = ver.trimmingCharacters(in: CharacterSet.decimalDigits.inverted)
+            if let majorStr = clean.split(separator: ".").first, let major = Int(majorStr) {
+                return major
+            }
+        } catch {}
         return nil
     }
 
