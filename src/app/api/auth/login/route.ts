@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import { getConfig } from '@/lib/config';
 import { cookies } from 'next/headers';
+import { UserConfig } from '@/lib/types';
 
 export async function POST(request: Request) {
   try {
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
     const config = getConfig();
 
     const user = (config.users || []).find(
-      (u: { username: string; password: string }) => u.username === username && u.password === password
+      (u: UserConfig) => u.username === username && u.password === password
     );
 
     if (user) {

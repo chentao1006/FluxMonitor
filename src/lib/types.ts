@@ -32,4 +32,6 @@ export interface AppConfig {
   features: FeaturesConfig;
   deploy?: DeployConfig;
   version?: string;
+  customConfigs?: string[];
+  customLogs?: string[];
 }

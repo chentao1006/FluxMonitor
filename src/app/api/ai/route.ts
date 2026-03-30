@@ -17,8 +17,8 @@ export async function POST(request: Request) {
     }
 
     // Support both base URL (without /chat/completions) and full URL
-    let apiUrl = aiConfig.url;
-    if (apiUrl && !apiUrl.endsWith('/chat/completions')) {
+    let apiUrl = aiConfig.url || 'https://api.openai.com/v1';
+    if (!apiUrl.endsWith('/chat/completions')) {
       apiUrl = apiUrl.replace(/\/$/, '') + '/chat/completions';
     }
 
