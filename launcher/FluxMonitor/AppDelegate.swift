@@ -21,6 +21,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
         
+        // Handle SIGTERM/SIGINT for clean cleanup when killed from terminal/scripts
+        let signals = [SIGTERM, SIGINT]
+        for sig in signals {
+            let signalSource = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+            signalSource.setEventHandler {
+                print("Received signal \(sig), terminating...")
+                NSApp.terminate(nil)
+            }
+            signalSource.resume()
+            signal(sig, SIG_IGN) // Ignore default to allow our handler to run
+        }
+        
         // Single instance check: if another instance is running, tell it to show UI and exit.
         let bundleID = Bundle.main.bundleIdentifier!
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)

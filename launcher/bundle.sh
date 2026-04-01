@@ -285,9 +285,7 @@ if [ -x "${SPARKLE_BIN_PATH}/generate_appcast" ]; then
     # This will be available at https://flux.ct106.com/appcast.xml via GitHub Pages
     "${SPARKLE_BIN_PATH}/generate_appcast" --download-url-prefix "$DOWNLOAD_PREFIX" -o appcast.xml "${BUILD_DIR}"
     
-    # Also copy to Monitor folder for consistency
-    cp appcast.xml launcher/appcast.xml
-    echo "✅ appcast.xml generated and synced."
+    echo "✅ appcast.xml generated."
 else
     echo "❌ Sparkle generate_appcast tool still missing at ${SPARKLE_BIN_PATH}."
     exit 1

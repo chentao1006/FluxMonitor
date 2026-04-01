@@ -42,8 +42,83 @@ class NodeInstaller: ObservableObject {
     }
     
     func isNodeInstalled() -> Bool {
-        return FileManager.default.fileExists(atPath: localNodePath) && 
-               FileManager.default.isExecutableFile(atPath: localNodePath)
+        return findSuitableNodePath() != nil
+    }
+    
+    func findSuitableNodePath() -> String? {
+        // 1. Check bundled Resources (Legacy fallback)
+        if let bundledNode = Bundle.main.url(forResource: "node", withExtension: nil)?.path {
+            if FileManager.default.isExecutableFile(atPath: bundledNode) && isNodeVersionCompatible(at: bundledNode) {
+                return bundledNode
+            }
+        }
+        
+        // 2. Check Local App Support "bin" folder (Auto-installed by NodeInstaller)
+        if FileManager.default.isExecutableFile(atPath: localNodePath) &&
+           isNodeVersionCompatible(at: localNodePath) {
+            return localNodePath
+        }
+        
+        // 2. Check common system paths
+        let systemPaths = [
+            "/usr/local/bin/node",
+            "/usr/bin/node",
+            "/opt/homebrew/bin/node"
+        ]
+        
+        for path in systemPaths {
+            if FileManager.default.isExecutableFile(atPath: path) && isNodeVersionCompatible(at: path) {
+                return path
+            }
+        }
+        
+        // 3. Try 'which node'
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+        p.arguments = ["node"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        try? p.run()
+        p.waitUntilExit()
+        if let data = try? pipe.fileHandleForReading.readToEnd(),
+           let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !path.isEmpty, FileManager.default.isExecutableFile(atPath: path),
+           isNodeVersionCompatible(at: path) {
+            return path
+        }
+        
+        return nil
+    }
+
+    func isNodeVersionCompatible(at path: String) -> Bool {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: path)
+        p.arguments = ["-v"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = pipe
+        do {
+            try p.run()
+            p.waitUntilExit()
+            if p.terminationStatus != 0 { return false }
+            
+            if let data = try? pipe.fileHandleForReading.readToEnd(),
+               let versionStr = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                // versionStr is like "v20.19.5" or "v14.17.0"
+                let cleanVersion = versionStr.trimmingCharacters(in: CharacterSet.decimalDigits.inverted)
+                let components = cleanVersion.split(separator: ".")
+                if let majorStr = components.first, let major = Int(majorStr) {
+                    if major >= 18 {
+                        return true
+                    } else {
+                        ProcessManager.shared.appendLog("Found Node.js \(versionStr) at \(path), but Next.js 15+ requires Node >= 18.\n")
+                    }
+                }
+            }
+            return false
+        } catch {
+            return false
+        }
     }
     
     func fixPermissions(at path: String) -> Bool {
