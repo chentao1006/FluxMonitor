@@ -8,6 +8,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Camera, X, Download, Activity, Layers, Sparkles, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { streamAiContent } from '@/lib/aiStream';
 
 
 export default function DashboardOverview() {
@@ -53,31 +54,32 @@ export default function DashboardOverview() {
       }
       setAiAnalyzing(true);
       setAiAnalysis(null);
-      try {
-        const res = await fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: t.monitor.aiHealthPrompt
-              .replace('{lang}', t.common.aiResponseLang)
-              .replace('{stats}', statsText),
-            systemPrompt: 'You are a senior macOS/Linux system expert specializing in health diagnostics, performance analysis, and risk assessment. Provide professional, concise, and practical advice.'
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setAiAnalysis(data.data);
-          aiCacheRef.current[cacheKey] = data.data;
-        } else if (data.error === 'AI_CONFIG_MISSING') {
-          setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-        } else {
-          setAiAnalysis(`${t.common.error}: ${data.error}`);
+      setAiAnalysis(`${t.common.analyzing}...`);
+      
+      streamAiContent(
+        {
+          prompt: t.monitor.aiHealthPrompt
+            .replace('{lang}', t.common.aiResponseLang)
+            .replace('{stats}', statsText),
+          systemPrompt: 'You are a senior macOS/Linux system expert specializing in health diagnostics, performance analysis, and risk assessment. Provide professional, concise, and practical advice.',
+          config: settingsConfig?.ai
+        },
+        (chunk) => {
+          setAiAnalysis(chunk);
+          aiCacheRef.current[cacheKey] = chunk;
+        },
+        () => {
+          setAiAnalyzing(false);
+        },
+        (err) => {
+          if (err === 'AI_CONFIG_MISSING') {
+            setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+          } else {
+            setAiAnalysis(`${t.common.error}: ${err}`);
+          }
+          setAiAnalyzing(false);
         }
-      } catch {
-        setAiAnalysis(t.common.networkError);
-      } finally {
-        setAiAnalyzing(false);
-      }
+      );
     };
   const { t } = useLanguage();
   const { config: settingsConfig } = useSettings();
@@ -338,25 +340,20 @@ export default function DashboardOverview() {
             <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-primary)' }}>
               <Sparkles size={18} />
               <span style={{ fontWeight: 600 }}>{t.monitor.aiAnalysisTitle || ''}</span>
+              {aiAnalyzing && <span className="text-xs text-[var(--color-text-muted)] animate-pulse ml-2" style={{ fontStyle: 'italic' }}>{t.common.analyzing || ''}...</span>}
             </div>
             {aiAnalyzing && <RefreshCw size={16} className="animate-spin" color="var(--color-primary)" />}
             <button style={{ marginLeft: '1rem', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setAiAnalysis(null)}><X size={16} /></button>
           </div>
-          {aiAnalyzing ? (
-            <div className="flex-center" style={{ padding: '1.5rem', flexDirection: 'column', gap: '0.5rem' }}>
-              <RefreshCw size={24} className="animate-spin" color="var(--color-primary)" style={{ opacity: 0.5 }} />
-              <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0, color: 'var(--color-text-muted)' }}>{t.common.analyzing || ''}</p>
-            </div>
-          ) : (
-            <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.95rem', color: 'var(--color-text)', lineHeight: 1.7, maxHeight: '400px', overflowY: 'auto' }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis || ''}</ReactMarkdown>
-              {aiAnalysis?.includes(t.common.errors?.aiConfigMissing) && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
-                </div>
-              )}
-            </div>
-          )}
+          
+          <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.95rem', color: 'var(--color-text)', lineHeight: 1.7, maxHeight: '400px', overflowY: 'auto' }}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis || (aiAnalyzing ? t.common.analyzing : '')}</ReactMarkdown>
+            {aiAnalysis?.includes(t.common.errors?.aiConfigMissing) && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

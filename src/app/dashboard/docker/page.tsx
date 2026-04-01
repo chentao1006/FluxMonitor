@@ -7,6 +7,8 @@ import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
 import { Play, Square, RotateCw, Trash2, FileText, Server, HardDrive, Box, Sparkles, Brain, Wand2, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { streamAiContent } from '@/lib/aiStream';
+import { useSettings } from '@/lib/SettingsContext';
 
 interface Container {
   ID: string;
@@ -32,6 +34,7 @@ const ExecModal = dynamic(() => import('@/components/ExecModal'), { ssr: false }
 
 export default function DockerDashboard() {
   const { t } = useLanguage();
+  const { config } = useSettings();
   const [activeTab, setActiveTab] = useState<'containers' | 'images'>('containers');
   const [containers, setContainers] = useState<Container[]>([]);
   const [images, setImages] = useState<DockerImage[]>([]);
@@ -169,33 +172,36 @@ export default function DockerDashboard() {
     setIsAiAnalyzing(true);
     setAnalysisResult(t.docker.aiAnalyzingStatus);
     setDiagnosisId(id);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.docker.aiLogPrompt
-            .replace('{name}', name)
-            .replace('{id}', id)
-            .replace('{lang}', t.common.aiResponseLang)
-            .replace('{logs}', currentLogs.slice(-4000)),
-          systemPrompt: 'You are an expert Docker engineer specializing in container troubleshooting and log analysis.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setAnalysisResult(`${t.common.error}: ${data.error}`);
+    setIsAiAnalyzing(true);
+    setAnalysisResult(t.docker.aiAnalyzingStatus);
+    setDiagnosisId(id);
+    
+    streamAiContent(
+      {
+        prompt: t.docker.aiLogPrompt
+          .replace('{name}', name)
+          .replace('{id}', id)
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{logs}', currentLogs.slice(-4000)),
+        systemPrompt: 'You are an expert Docker engineer specializing in container troubleshooting and log analysis.',
+        config: config?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+        aiCacheRef.current[cacheKey] = chunk;
+      },
+      () => {
+        setIsAiAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.common.error}: ${err}`);
+        }
+        setIsAiAnalyzing(false);
       }
-    } catch {
-      setAnalysisResult(t.common.networkError);
-    } finally {
-      setIsAiAnalyzing(false);
-    }
+    );
   };
 
   const analyzeStatus = async (container: Container) => {
@@ -217,31 +223,36 @@ export default function DockerDashboard() {
     setIsAiAnalyzing(true);
     setAnalysisResult(`${t.docker.aiAnalyzingStatus} "${container.Names}" ... 🪄`);
     setDiagnosisId(container.ID);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.docker.aiStatusPrompt
-            .replace('{name}', container.Names)
-            .replace('{status}', container.Status)
-            .replace('{image}', container.Image)
-            .replace('{lang}', t.common.aiResponseLang),
-          systemPrompt: 'You are an expert DevOps engineer specializing in Docker container health and status monitoring.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+    setIsAiAnalyzing(true);
+    setAnalysisResult(`${t.docker.aiAnalyzingStatus} "${container.Names}" ... 🪄`);
+    setDiagnosisId(container.ID);
+
+    streamAiContent(
+      {
+        prompt: t.docker.aiStatusPrompt
+          .replace('{name}', container.Names)
+          .replace('{status}', container.Status)
+          .replace('{image}', container.Image)
+          .replace('{lang}', t.common.aiResponseLang),
+        systemPrompt: 'You are an expert DevOps engineer specializing in Docker container health and status monitoring.',
+        config: config?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+        aiCacheRef.current[cacheKey] = chunk;
+      },
+      () => {
+        setIsAiAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.common.error}: ${err}`);
+        }
+        setIsAiAnalyzing(false);
       }
-    } catch {
-      setAnalysisResult(`${t.common.error}`);
-    } finally {
-      setIsAiAnalyzing(false);
-    }
+    );
   };
 
   const handleGenerateCmd = async () => {
@@ -249,28 +260,28 @@ export default function DockerDashboard() {
 
     setIsAiGenerating(true);
     setGeneratedCmd('');
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.docker.aiGenPrompt.replace('{demand}', aiDemand),
-          systemPrompt: 'You are an expert Docker command generator. You provide only the shell command text.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setGeneratedCmd(data.data);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        alert(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        alert(t.common.error);
+
+    streamAiContent(
+      {
+        prompt: t.docker.aiGenPrompt.replace('{demand}', aiDemand),
+        systemPrompt: 'You are an expert Docker command generator. You provide only the shell command text. Answer ONLY with the generated docker command text, without any introductory or conversational remarks.',
+        config: config?.ai
+      },
+      (chunk) => {
+        setGeneratedCmd(chunk);
+      },
+      () => {
+        setIsAiGenerating(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          alert(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          alert(`${t.common.error}: ${err}`);
+        }
+        setIsAiGenerating(false);
       }
-    } catch (e) {
-      alert(t.common.networkError);
-    } finally {
-      setIsAiGenerating(false);
-    }
+    );
   };
 
   const handleExecAiCmd = () => {
@@ -340,13 +351,14 @@ export default function DockerDashboard() {
               {isAiGenerating ? t.docker.generating : t.docker.generateCmd}
             </button>
           </div>
-          {generatedCmd && (
+          {(generatedCmd || isAiGenerating) && (
             <div style={{ marginTop: '0.5rem', background: 'var(--color-surface-bg)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-surface-border)', position: 'relative', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <code style={{ color: 'var(--color-primary)', fontSize: '0.8rem', fontFamily: 'monospace', flex: 1 }}>{generatedCmd}</code>
+              <code style={{ color: 'var(--color-primary)', fontSize: '0.8rem', fontFamily: 'monospace', flex: 1 }}>{generatedCmd || (isAiGenerating ? t.docker.generating : '')}</code>
               <button
                 className="btn btn-sm btn-ghost"
                 style={{ border: '1px solid rgba(0,0,0,0.1)', height: '24px', padding: '0 0.5rem', fontSize: '0.7rem' }}
-                onClick={() => { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); }}
+                onClick={() => { if (generatedCmd) { navigator.clipboard.writeText(generatedCmd); alert(t.common.saveSuccess); } }}
+                disabled={!generatedCmd}
               >{t.docker.copy}</button>
               <button
                 className="btn btn-sm btn-primary"
@@ -575,7 +587,7 @@ export default function DockerDashboard() {
               <button className="btn btn-ghost btn-sm" onClick={() => setIsLogsOpen(false)}>{t.common.close}</button>
             </div>
 
-            {analysisResult && (
+            {(analysisResult || isAiAnalyzing) && (
               <div className="ai-output-block" style={{
                 margin: 0,
                 background: 'rgba(59, 130, 246, 0.03)',
@@ -602,10 +614,11 @@ export default function DockerDashboard() {
                 }}>
                   <Brain size={16} />
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.docker.aiContainerDiagnosis}</span>
+                  {isAiAnalyzing && <span className="text-xs animate-pulse opacity-60 ml-2" style={{ fontStyle: 'italic' }}>{t.docker.aiAnalyzingStatus}...</span>}
                   <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.6, padding: '1rem 1.25rem', overflowY: 'auto' }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult || (isAiAnalyzing ? t.docker.aiAnalyzingStatus : '')}</ReactMarkdown>
                   {analysisResult.includes(t.common.errors.aiConfigMissing) && (
                     <div style={{ marginTop: '0.75rem' }}>
                       <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>

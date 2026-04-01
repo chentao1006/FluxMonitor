@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import { Activity, FileText, ChevronLeft, RefreshCw, Search, X, Sparkles, Brain, Trash2, Eraser, Lock, Plus, MinusCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { streamAiContent } from '@/lib/aiStream';
 
 interface LogFile {
   name: string;
@@ -29,6 +31,7 @@ interface SudoModalState {
 
 export default function LogsPage() {
   const { t } = useLanguage();
+  const { config } = useSettings();
   const [files, setFiles] = useState<LogFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFile, setActiveFile] = useState<string | null>(null);
@@ -128,30 +131,35 @@ export default function LogsPage() {
   const handleExplain = async () => {
     if (!content || isExplaining) return;
     setIsExplaining(true);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.logs.explainPrompt
-            .replace('{lang}', t.common.aiResponseLang)
-            .replace('{content}', content)
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        const errorMsg = (t.common.errors as Record<string, string>)[data.error] || data.details || data.error;
-        setAnalysisResult(errorMsg);
+    setAnalysisResult(`${t.common.analyzing}...`);
+    
+    streamAiContent(
+      {
+        prompt: t.logs.explainPrompt
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{content}', content.length > 30000 ? `... [TRUNCATED] ...\n${content.slice(-30000)}` : content),
+        config: config?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+      },
+      () => {
+        setIsExplaining(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          try {
+            const errorMsg = (t.common.errors as any)[err] || err;
+            setAnalysisResult(errorMsg);
+          } catch {
+            setAnalysisResult(err);
+          }
+        }
+        setIsExplaining(false);
       }
-    } catch {
-      setAnalysisResult(t.common.error);
-    } finally {
-      setIsExplaining(false);
-    }
+    );
   };
 
   // Execute clear/delete action
@@ -502,16 +510,17 @@ export default function LogsPage() {
                 </div>
               </div>
 
-              {analysisResult && (
+              {(analysisResult || isExplaining) && (
                 <div className="ai-panel" style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)', maxHeight: '350px', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'var(--color-surface-bg)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'var(--color-surface-bg)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1, borderBottom: '1px solid var(--color-surface-border)' }}>
                     <Brain size={16} color="var(--color-primary)" />
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>AI {t.logs.analyzeTitle}</span>
-                    <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setAnalysisResult('')}><X size={14} /></button>
+                    {isExplaining && <span className="text-xs animate-pulse opacity-60 ml-2" style={{ fontStyle: 'italic' }}>{t.logs.aiProcess || ''}...</span>}
+                    <button style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => { setAnalysisResult(''); setIsExplaining(false); }}><X size={14} /></button>
                   </div>
                   <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', fontSize: '0.85rem', lineHeight: 1.6 }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
-                    {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult || (isExplaining ? t.logs.aiProcess : '...')}</ReactMarkdown>
+                    {analysisResult && analysisResult.includes(t.common.errors.aiConfigMissing) && (
                       <div style={{ marginTop: '0.75rem' }}>
                         <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
                       </div>

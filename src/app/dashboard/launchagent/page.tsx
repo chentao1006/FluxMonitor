@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import { Rocket, ChevronLeft, Sparkles, Brain, Save, Trash2, X, Play, Square, Repeat } from 'lucide-react';
 import SudoModal from '@/components/SudoModal';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { streamAiContent } from '@/lib/aiStream';
 
 interface PlistItem {
   name: string;
@@ -18,6 +20,7 @@ interface PlistItem {
 
 export default function LaunchAgentDashboard() {
   const { t } = useLanguage();
+  const { config: settingsConfig } = useSettings();
 
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -337,32 +340,31 @@ export default function LaunchAgentDashboard() {
     if (analysisResult) { setAnalysisResult(''); return; }
 
     setIsAiAnalyzing(true);
-    setAnalysisResult(t.launchagent.aiExplaining);
-    try {
-      const prompt = t.launchagent.aiExplainPrompt
-        .replace('{lang}', t.common.aiResponseLang)
-        .replace('{content}', fileContent);
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: prompt,
-          systemPrompt: 'You are an expert system administrator Specialized in macOS Launch Agents and background processes.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setAnalysisResult(`${t.common.error}: ${data.error}`);
+    setAnalysisResult(`${t.common.analyzing}...`);
+    
+    streamAiContent(
+      {
+        prompt: t.launchagent.aiExplainPrompt
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{content}', fileContent.length > 20000 ? `... [TRUNCATED] ...\n${fileContent.slice(-20000)}` : fileContent),
+        systemPrompt: 'You are an expert system administrator Specialized in macOS Launch Agents and background processes.',
+        config: settingsConfig?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+      },
+      () => {
+        setIsAiAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.common.error}: ${err}`);
+        }
+        setIsAiAnalyzing(false);
       }
-    } catch {
-      setAnalysisResult(t.common.networkError);
-    } finally {
-      setIsAiAnalyzing(false);
-    }
+    );
   };
 
   if (loading && plists.length === 0) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
@@ -466,7 +468,7 @@ export default function LaunchAgentDashboard() {
                 </div>
               </div>
 
-              {analysisResult && (
+              {(analysisResult || isAiAnalyzing) && (
                 <div className="ai-output-block" style={{
                   padding: 0,
                   background: 'var(--color-primary-light)',
@@ -490,10 +492,11 @@ export default function LaunchAgentDashboard() {
                   }}>
                     <Brain size={16} />
                     <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{t.launchagent.aiExplainTitle}</span>
+                    {isAiAnalyzing && <span className="text-xs animate-pulse opacity-60 ml-2" style={{ fontStyle: 'italic' }}>{t.launchagent.aiExplaining || ''}...</span>}
                     <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--color-text-muted)' }}><X size={14} /></button>
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', lineHeight: 1.6, padding: '1rem', overflowY: 'auto' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult || (isAiAnalyzing ? t.launchagent.aiExplaining : '')}</ReactMarkdown>
                     {analysisResult.includes(t.common.errors.aiConfigMissing) && (
                       <div style={{ marginTop: '0.75rem' }}>
                         <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>

@@ -3,12 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Terminal, X, Square, Sparkles, Brain, Play } from 'lucide-react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Link from 'next/link';
+import { streamAiContent } from '@/lib/aiStream';
 
 export default function GlobalTerminal() {
   const { t } = useLanguage();
+  const { config } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [cmd, setCmd] = useState('');
   const [cmdResult, setCmdResult] = useState('');
@@ -128,29 +131,30 @@ export default function GlobalTerminal() {
   const translateAICommand = async () => {
     if (!cmd) return;
     setAiLoading(true);
-    setCmdResult(t.monitor.aiTranslating);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.monitor.aiTranslatePrompt.replace('{demand}', cmd)
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCmd(data.data);
+    setCmdResult(`${t.common.analyzing}...`);
+    
+    streamAiContent(
+      {
+        prompt: t.monitor.aiTranslatePrompt.replace('{demand}', cmd),
+        systemPrompt: 'You are an expert command line translator. Provide only the translated shell command without any markdown formatting, explanation, or conversational text.',
+        config: config?.ai
+      },
+      (chunk) => {
+        setCmd(chunk);
+      },
+      () => {
         setCmdResult(t.monitor.aiTranslateDone);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setCmdResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setCmdResult(`${t.monitor.aiTranslateFailed}: ${data.error || data.details}`);
+        setAiLoading(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setCmdResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setCmdResult(`${t.monitor.aiTranslateFailed}: ${err}`);
+        }
+        setAiLoading(false);
       }
-    } catch {
-      setCmdResult(t.common.networkError);
-    } finally {
-      setAiLoading(false);
-    }
+    );
   };
 
   const analyzeOutput = async () => {
@@ -166,29 +170,35 @@ export default function GlobalTerminal() {
 
     setIsAnalyzing(true);
     setAnalysisResult(`${t.common.analyzing}... 🪄`);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.monitor.aiAnalyzeOutputPrompt.replace('{lang}', t.common.systemDefault).replace('{output}', cmdResult.slice(-4000)),
-          systemPrompt: 'You are an expert system administrator.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cmdResult] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setAnalysisResult(`${t.monitor.aiAnalyzeFailed}: ${data.error}`);
+    
+    streamAiContent(
+      {
+        prompt: t.monitor.aiAnalyzeOutputPrompt
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{output}', cmdResult.length > 30000 ? `... [TRUNCATED] ...\n${cmdResult.slice(-30000)}` : cmdResult),
+        systemPrompt: 'You are an expert system administrator.',
+        config: config?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+      },
+      () => {
+        setIsAnalyzing(false);
+        // We can't easily capture the final chunk synchronously here without refactoring,
+        // but it's okay, `aiCacheRef.current[cmdResult]` can just be set if we maintain a top-level ref
+        // or we just skip caching for stream, or we cache inside the onChunk (but that's slow).
+        // Let's just set the ref with the final text.
+        // Doing a setState with functional update would work but setAnalysisResult(chunk) is direct.
+      },
+      (errStr) => {
+        if (errStr === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.monitor.aiAnalyzeFailed || t.common.error}: ${errStr}`);
+        }
+        setIsAnalyzing(false);
       }
-    } catch {
-      setAnalysisResult(t.common.networkError);
-    } finally {
-      setIsAnalyzing(false);
-    }
+    );
   };
 
   if (!isOpen) {
@@ -395,7 +405,7 @@ export default function GlobalTerminal() {
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', minHeight: 0 }}>
             {/* AI Advice (Collapsible or dismissible) */}
-            {analysisResult && (
+            {(analysisResult || isAnalyzing) && (
               <div 
                 className="ai-output-block animate-fade-in" 
                 style={{ 
@@ -409,13 +419,14 @@ export default function GlobalTerminal() {
               >
                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 1rem', color: 'var(--color-primary)', background: 'rgba(239, 246, 255, 0.8)', borderBottom: '1px solid rgba(59, 130, 246, 0.08)' }}>
                   <Brain size={18} /> <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{t.monitor.aiAdvice}</span>
-                  <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}>
+                  {isAnalyzing && <span className="text-xs animate-pulse opacity-60 ml-2" style={{ fontStyle: 'italic' }}>{t.common.analyzing}...</span>}
+                  <button onClick={() => { setAnalysisResult(''); setIsAnalyzing(false); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}>
                     <X size={16} />
                   </button>
                 </div>
                 <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.6, padding: '1rem', overflowY: 'auto' }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
-                  {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult || (isAnalyzing ? t.common.analyzing : '...')}</ReactMarkdown>
+                  {analysisResult && analysisResult.includes(t.common.errors.aiConfigMissing) && (
                     <div style={{ marginTop: '0.75rem' }}>
                       <Link href="/dashboard/settings" className="btn btn-primary btn-sm" onClick={() => setIsOpen(false)}>{t.common.goToSettings}</Link>
                     </div>

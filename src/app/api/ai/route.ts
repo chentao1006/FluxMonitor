@@ -3,7 +3,7 @@ import { getConfig } from '@/lib/config';
 
 export async function POST(request: Request) {
   try {
-    const { prompt, systemPrompt } = await request.json();
+    const { prompt, systemPrompt, stream } = await request.json();
 
     if (!prompt) {
       return NextResponse.json({ error: 'MISSING_PROMPT' }, { status: 400 });
@@ -34,13 +34,72 @@ export async function POST(request: Request) {
           { role: 'system', content: systemPrompt || 'You are an expert system administrator.' },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.2
+        temperature: 0.2,
+        stream: !!stream
       })
     });
 
     if (!res.ok) {
       const text = await res.text();
       return NextResponse.json({ error: 'AI_REQUEST_FAILED', details: `${res.status} ${text}` }, { status: 500 });
+    }
+
+    if (stream) {
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+
+      const responseStream = new ReadableStream({
+        async start(controller) {
+          if (!res.body) {
+            controller.close();
+            return;
+          }
+          const reader = res.body.getReader();
+          let buffer = '';
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.trim() === '') continue;
+                if (line.startsWith('data: ')) {
+                  const dataStr = line.slice(6).trim();
+                  if (dataStr === '[DONE]') continue;
+
+                  try {
+                    const data = JSON.parse(dataStr);
+                    const content = data.choices?.[0]?.delta?.content || '';
+                    if (content) {
+                      controller.enqueue(encoder.encode(content));
+                    }
+                  } catch (e) {
+                    // Ignore parse errors on incomplete chunks
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            controller.error(err);
+          } finally {
+            reader.releaseLock();
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(responseStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
     }
 
     const data = await res.json();

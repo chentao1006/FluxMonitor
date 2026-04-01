@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { streamAiContent } from '@/lib/aiStream';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import {
   Search,
   RefreshCw,
@@ -33,6 +35,7 @@ interface Process {
 
 export default function ProcessManager() {
   const { t } = useLanguage();
+  const { config } = useSettings();
   const [processes, setProcesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,8 +90,8 @@ export default function ProcessManager() {
     if (!processDetail) return;
     setAnalyzing(true);
     setAiAnalysis(null);
-    try {
-      const promptText = t.processes.aiPrompt
+
+    const promptText = t.processes.aiPrompt
         .replace('{pid}', processDetail.pid)
         .replace('{ppid}', processDetail.ppid)
         .replace('{ppidName}', processDetail.ppidName || 'Unknown')
@@ -102,27 +105,27 @@ export default function ProcessManager() {
         .replace('{openFiles}', processDetail.openFiles?.slice(0, 10).join('\n') || '')
         .replace('{lang}', t.common.aiResponseLang);
 
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptText,
-          systemPrompt: "You are a macOS system expert. Analyze the provided process information and provide a helpful diagnosis."
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAiAnalysis(data.data);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setAiAnalysis(`${t.common.error}: ${data.error}`);
+    streamAiContent(
+      {
+        prompt: promptText,
+        systemPrompt: "You are a macOS system expert. Analyze the provided process information and provide a helpful diagnosis.",
+        config: config?.ai
+      },
+      (chunk) => {
+        setAiAnalysis(chunk);
+      },
+      () => {
+        setAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAiAnalysis(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAiAnalysis(`${t.common.error}: ${err}`);
+        }
+        setAnalyzing(false);
       }
-    } catch (e) {
-      setAiAnalysis(t.common.networkError);
-    } finally {
-      setAnalyzing(false);
-    }
+    );
   };
 
   useEffect(() => {
@@ -447,24 +450,19 @@ export default function ProcessManager() {
                           <div className="flex-center" style={{ gap: '0.5rem', color: 'var(--color-primary)' }}>
                             <Sparkles size={18} />
                             <span style={{ fontWeight: 600 }}>{t.processes.aiAnalysisTitle}</span>
+                            {analyzing && <span className="text-xs text-[var(--color-text-muted)] animate-pulse ml-2" style={{ fontStyle: 'italic' }}>{t.processes.aiAnalyzing || ''}...</span>}
                           </div>
                           {analyzing && <RefreshCw size={16} className="animate-spin" color="var(--color-primary)" />}
                         </div>
-                        {analyzing ? (
-                          <div className="flex-center" style={{ padding: '1.5rem', flexDirection: 'column', gap: '0.5rem' }}>
-                            <RefreshCw size={24} className="animate-spin" color="var(--color-primary)" style={{ opacity: 0.5 }} />
-                            <p style={{ fontSize: '0.9rem', fontStyle: 'italic', margin: 0, color: 'var(--color-text-muted)' }}>{t.processes.aiAnalyzing}</p>
-                          </div>
-                        ) : (
-                          <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.9rem', color: 'var(--color-text)', lineHeight: 1.6, maxHeight: '300px', overflowY: 'auto' }}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
-                            {aiAnalysis?.includes(t.common.errors.aiConfigMissing) && (
-                              <div style={{ marginTop: '0.75rem' }}>
-                                <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        
+                        <div className="ai-output-block no-scrollbar markdown-body" style={{ fontSize: '0.9rem', color: 'var(--color-text)', lineHeight: 1.6, maxHeight: '300px', overflowY: 'auto' }}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis || (analyzing ? t.processes.aiAnalyzing : '')}</ReactMarkdown>
+                          {aiAnalysis?.includes(t.common.errors.aiConfigMissing) && (
+                            <div style={{ marginTop: '0.75rem' }}>
+                              <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

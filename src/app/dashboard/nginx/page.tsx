@@ -5,8 +5,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import { Server, Sparkles, Brain, Wand2, RotateCw, Shield } from 'lucide-react';
 import SudoModal from '@/components/SudoModal';
+import { streamAiContent } from '@/lib/aiStream';
 
 interface NginxSite {
   name: string;
@@ -17,6 +19,7 @@ interface NginxSite {
 
 export default function NginxDashboard() {
   const { t } = useLanguage();
+  const { config: settingsConfig } = useSettings();
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -214,33 +217,33 @@ export default function NginxDashboard() {
     }
 
     setIsLogAnalyzing(true);
-    setLogAnalysisResult(t.nginx.aiAnalyzingLogs);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.nginx.aiLogPrompt
-            .replace('{type}', logType === 'error' ? t.nginx.errorLog : t.nginx.accessLog)
-            .replace('{lang}', t.common.aiResponseLang)
-            .replace('{logs}', nginxLogs.slice(-4000)),
-          systemPrompt: 'You are an expert Nginx administrator specializing in system observation and troubleshooting.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setLogAnalysisResult(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setLogAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setLogAnalysisResult(`${t.common.error}: ${data.error}`);
+    setLogAnalysisResult(`${t.common.analyzing}...`);
+    
+    streamAiContent(
+      {
+        prompt: t.nginx.aiLogPrompt
+          .replace('{type}', logType === 'error' ? t.nginx.errorLog : t.nginx.accessLog)
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{logs}', nginxLogs.length > 30000 ? `... [TRUNCATED] ...\n${nginxLogs.slice(-30000)}` : nginxLogs),
+        systemPrompt: 'You are an expert Nginx administrator specializing in system observation and troubleshooting.',
+        config: settingsConfig?.ai
+      },
+      (chunk) => {
+        setLogAnalysisResult(chunk);
+        aiCacheRef.current[cacheKey] = chunk;
+      },
+      () => {
+        setIsLogAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setLogAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setLogAnalysisResult(`${t.common.error}: ${err}`);
+        }
+        setIsLogAnalyzing(false);
       }
-    } catch (e) {
-      setLogAnalysisResult(t.common.networkError);
-    } finally {
-      setIsLogAnalyzing(false);
-    }
+    );
   };
 
   const diagnoseError = async (errorLog: string) => {
@@ -252,28 +255,29 @@ export default function NginxDashboard() {
       return;
     }
 
-    setAnalysisResult(t.nginx.aiDiagnosing);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.nginx.aiErrorPrompt
-            .replace('{errorLog}', errorLog)
-            .replace('{lang}', t.common.aiResponseLang),
-          systemPrompt: 'You are an expert Nginx administrator and software engineer specializing in Nginx configuration and troubleshooting.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+    setAnalysisResult(`${t.common.analyzing}...`);
+    
+    streamAiContent(
+      {
+        prompt: t.nginx.aiErrorPrompt
+          .replace('{errorLog}', errorLog.length > 20000 ? `... [TRUNCATED] ...\n${errorLog.slice(-20000)}` : errorLog)
+          .replace('{lang}', t.common.aiResponseLang),
+        systemPrompt: 'You are an expert Nginx administrator and software engineer specializing in Nginx configuration and troubleshooting.',
+        config: settingsConfig?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+        aiCacheRef.current[cacheKey] = chunk;
+      },
+      () => {},
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.common.error}: ${err}`);
+        }
       }
-    } catch {
-      setAnalysisResult(t.common.error);
-    }
+    );
   };
 
   const handleAiAnalyze = async () => {
@@ -291,68 +295,73 @@ export default function NginxDashboard() {
     }
 
     setIsAiAnalyzing(true);
-    setAnalysisResult(t.nginx.aiAuditing);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.nginx.aiAuditPrompt
-            .replace('{site}', editingSite || '')
-            .replace('{lang}', t.common.aiResponseLang)
-            .replace('{content}', siteContent),
-          systemPrompt: 'You are an expert Nginx administrator specializing in security auditing and performance tuning.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-        aiCacheRef.current[cacheKey] = data.data;
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        setAnalysisResult(`${t.common.error}: ${data.error}`);
+    setAnalysisResult(`${t.common.analyzing}...`);
+    
+    streamAiContent(
+      {
+        prompt: t.nginx.aiAuditPrompt
+          .replace('{site}', editingSite || '')
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{content}', siteContent.length > 30000 ? `... [TRUNCATED] ...\n${siteContent.slice(-30000)}` : siteContent),
+        systemPrompt: 'You are an expert Nginx administrator specializing in security auditing and performance tuning.',
+        config: settingsConfig?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+        aiCacheRef.current[cacheKey] = chunk;
+      },
+      () => {
+        setIsAiAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.common.error}: ${err}`);
+        }
+        setIsAiAnalyzing(false);
       }
-    } catch (e) {
-      setAnalysisResult(t.common.networkError);
-    } finally {
-      setIsAiAnalyzing(false);
-    }
+    );
   };
 
   const handleAiEdit = async () => {
     if (!aiDemand.trim() || isAiEditing || siteLoading) return;
 
     setIsAiEditing(true);
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: t.nginx.aiEditPrompt
-            .replace('{content}', siteContent)
-            .replace('{lang}', t.common.aiResponseLang)
-            .replace('{demand}', aiDemand),
-          systemPrompt: 'You are an expert Nginx configuration generator. You follow instructions precisely and output only the configuration text.'
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSiteContent(data.data);
+
+    streamAiContent(
+      {
+        prompt: t.nginx.aiEditPrompt
+          .replace('{content}', siteContent)
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{demand}', aiDemand),
+        systemPrompt: 'You are an expert Nginx configuration generator. You follow instructions precisely and output only the configuration text. Answer ONLY with the generated configuration text, without any introductory or conversational remarks.',
+        config: settingsConfig?.ai
+      },
+      (chunk) => {
+        // We replace entirely on first chunk to clear old
+        // But for editor we replace it entirely or append?
+        // Note: streaming raw code means we just update siteContent.
+        // But the current implementation just replaces everything with data.data.
+        // So we append chunks to the content.
+        setSiteContent(chunk);
+      },
+      () => {
         setAiDemand('');
         setShowAiPanel(false);
         setSaveStatus(t.nginx.aiEditDone);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        showToast(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`, 'error');
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
-      } else {
-        showToast(`${t.common.error}: ${data.error}`, 'error');
+        setIsAiEditing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          showToast(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`, 'error');
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          showToast(`${t.common.error}: ${err}`, 'error');
+        }
+        setIsAiEditing(false);
       }
-    } catch {
-      showToast(t.common.networkError, 'error');
-    } finally {
-      setIsAiEditing(false);
-    }
+    );
   };
 
   const handleSudoSubmit = (password: string) => {
@@ -685,18 +694,19 @@ export default function NginxDashboard() {
             </div>
           </div>
           <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {logAnalysisResult && (
+            {(logAnalysisResult || isLogAnalyzing) && (
               <div className="ai-output-block" style={{
                 padding: '0.75rem', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-surface-border)', maxHeight: '100px', overflowY: 'auto', marginBottom: '0.5rem'
+                border: '1px solid var(--color-surface-border)', maxHeight: '120px', overflowY: 'auto', marginBottom: '0.5rem'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', color: 'var(--color-success)', fontWeight: 600, fontSize: '0.75rem' }}>
                   <Brain size={14} /> {t.nginx.logAnalysisResult}
-                  <button onClick={() => setLogAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>&times;</button>
+                  {isLogAnalyzing && <span className="text-xs animate-pulse opacity-60 ml-2" style={{ fontStyle: 'italic' }}>{t.nginx.aiAnalyzingLogs || ''}...</span>}
+                  <button onClick={() => { setLogAnalysisResult(''); setIsLogAnalyzing(false); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>&times;</button>
                 </div>
                 <div style={{ fontSize: '0.75rem', lineHeight: 1.5 }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{logAnalysisResult}</ReactMarkdown>
-                  {logAnalysisResult.includes(t.common.errors.aiConfigMissing) && (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{logAnalysisResult || (isLogAnalyzing ? t.common.analyzing : '...')}</ReactMarkdown>
+                  {logAnalysisResult && logAnalysisResult.includes(t.common.errors.aiConfigMissing) && (
                     <div style={{ marginTop: '0.5rem' }}>
                       <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
                     </div>
@@ -854,7 +864,7 @@ export default function NginxDashboard() {
               </div>
             )}
 
-            {analysisResult && (
+            {(analysisResult || isAiAnalyzing) && (
               <div className="ai-output-block" style={{
                 marginBottom: '1rem', padding: 0,
                 background: 'rgba(59, 130, 246, 0.03)',
@@ -882,11 +892,12 @@ export default function NginxDashboard() {
                 }}>
                   <Brain size={16} />
                   <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Nginx Config Audit</span>
+                  {isAiAnalyzing && <span className="text-xs animate-pulse opacity-60 ml-2" style={{ fontStyle: 'italic' }}>{t.common.analyzing}...</span>}
                   <button onClick={() => setAnalysisResult('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-muted)', lineHeight: 1 }}>&times;</button>
                 </div>
-                <div style={{ fontSize: '0.9rem', color: '#1e293b', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
-                  {analysisResult.includes(t.common.errors.aiConfigMissing) && (
+                <div style={{ fontSize: '0.9rem', color: 'var(--color-text)', lineHeight: 1.7, padding: '1.25rem', overflowY: 'auto' }}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult || (isAiAnalyzing ? t.common.analyzing : '...')}</ReactMarkdown>
+                  {analysisResult && analysisResult.includes(t.common.errors.aiConfigMissing) && (
                     <div style={{ marginTop: '0.75rem' }}>
                       <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
                     </div>

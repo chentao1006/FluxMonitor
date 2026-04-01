@@ -6,8 +6,10 @@ import remarkGfm from 'remark-gfm';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
+import { useSettings } from '@/lib/SettingsContext';
 import { Settings, FileText, ChevronLeft, RefreshCw, Sparkles, Search, X, Save, Brain, Plus, MinusCircle, Shield } from 'lucide-react';
 import SudoModal from '@/components/SudoModal';
+import { streamAiContent } from '@/lib/aiStream';
 
 interface ConfigItem {
   id: string;
@@ -22,6 +24,7 @@ interface ConfigItem {
 
 export default function ConfigsDashboard() {
   const { t } = useLanguage();
+  const { config: settingsConfig } = useSettings();
 
   const formatSize = (bytes?: number) => {
     if (!bytes) return '0 B';
@@ -168,29 +171,29 @@ export default function ConfigsDashboard() {
     setShowAiPanel(true);
     setAnalysisResult('');
 
-    try {
-      const prompt = t.configs.aiAnalyzePrompt
-        .replace('{name}', config.name)
-        .replace('{lang}', t.common.aiResponseLang)
-        .replace('{content}', content);
-
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAnalysisResult(data.data);
-      } else if (data.error === 'AI_CONFIG_MISSING') {
-        setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+    streamAiContent(
+      { 
+        prompt: t.configs.aiAnalyzePrompt
+          .replace('{name}', config.name)
+          .replace('{lang}', t.common.aiResponseLang)
+          .replace('{content}', content.length > 30000 ? `... [TRUNCATED] ...\n${content.slice(-30000)}` : content),
+        config: settingsConfig?.ai
+      },
+      (chunk) => {
+        setAnalysisResult(chunk);
+      },
+      () => {
+        setIsAiAnalyzing(false);
+      },
+      (err) => {
+        if (err === 'AI_CONFIG_MISSING') {
+          setAnalysisResult(`${t.common.errors.aiConfigMissing}: ${t.common.errors.aiConfigMissingDetail}`);
+        } else {
+          setAnalysisResult(`${t.common.error}: ${err}`);
+        }
+        setIsAiAnalyzing(false);
       }
-    } catch (e) {
-      console.error(e);
-      setAnalysisResult(t.common.error);
-    } finally {
-      setIsAiAnalyzing(false);
-    }
+    );
   };
 
   const handleAddConfig = async () => {
@@ -416,17 +419,24 @@ export default function ConfigsDashboard() {
                   </div>
 
                   <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-                    {isAiAnalyzing ? (
+                    {isAiAnalyzing && !analysisResult && (
                       <div className="flex-center" style={{ padding: '2rem', flexDirection: 'column', gap: '1rem' }}>
                         <div className="animate-spin" style={{ width: '24px', height: '24px', border: '3px solid var(--color-primary-light)', borderTopColor: 'var(--color-primary)', borderRadius: '50%' }}></div>
                         <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{t.common.analyzing}</span>
                       </div>
-                    ) : (
+                    )}
+                    {(analysisResult || !isAiAnalyzing) && (
                       <div className="markdown-content" style={{ fontSize: '0.85rem', lineHeight: 1.6 }}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{analysisResult || t.common.analyzing}</ReactMarkdown>
                         {analysisResult.includes(t.common.errors.aiConfigMissing) && (
                           <div style={{ marginTop: '0.75rem' }}>
                             <Link href="/dashboard/settings" className="btn btn-primary btn-sm">{t.common.goToSettings}</Link>
+                          </div>
+                        )}
+                        {isAiAnalyzing && analysisResult && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1rem', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                            <div className="animate-spin" style={{ width: '12px', height: '12px', border: '2px solid var(--color-surface-bg)', borderTopColor: 'var(--color-primary)', borderRadius: '50%' }}></div>
+                            {t.common.analyzing}...
                           </div>
                         )}
                       </div>
