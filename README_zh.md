@@ -46,15 +46,14 @@
 ### 1. macOS 启动器 (服务端)
 在 macOS 上使用“浮光”最简单的方法是下载应用程序。它会自动启动后端服务并提供菜单栏图标。
 
-- **通用下载**: [![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+[![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+
 - **安装**: 将 **Flux Monitor** 拖入 **Applications** (应用程序) 文件夹。
 - **启动**: 打开应用程序即可开启监控面板。
 
 ### 2. iOS 客户端 (移动端)
 在 iPhone 或 iPad 上随时随地监控和管理您的服务器。
 
-- **下载**: [前往 App Store 下载“浮光遥控”](https://apps.apple.com/app/flux-remote/id6761290185)
-- **官方徽标**:
 [![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
