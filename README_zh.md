@@ -4,9 +4,12 @@
 
 ---
 
-一款专为**作为服务器运行的 Mac** 设计的监控与服务管理面板。
+一款专为作为服务器运行的 Mac 设计的监控与服务管理面板。
 
-下载启动器: [最新版本](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+**macOS 启动器:** [![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+
+**iOS 客户端:** [![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+
 
 ### 功能
 
@@ -23,7 +26,7 @@
 **待开发功能**
 
 - [x] **浮光面板启动器**: 原生 macOS 应用程序，可启动监控 Web 服务器，无需手动部署。
-- [ ] **iOS 客户端**: 原生 iOS 应用程序，可随时随地监控和管理系统。
+- [x] **iOS 客户端**: 原生 iOS 应用程序，可随时随地监控和管理系统。([App Store](https://apps.apple.com/app/flux-remote/id6761290185))
 - [ ] **Android 客户端**: 原生 Android 应用程序，可随时随地监控和管理系统。
 
 ---
@@ -38,13 +41,22 @@
 ![Screenshot 6](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164316.jpg)
 ![Screenshot 7](screenshots/iScreen%20Shoter%20-%20Safari%E6%B5%8F%E8%A7%88%E5%99%A8%20-%20260311164341.jpg)
 
-## 快速安装 (macOS)
+## 安装与设置
 
-在 macOS 上使用 Flux Monitor 最简单的方法是下载应用。 
+### 1. macOS 启动器 (服务端)
+在 macOS 上使用“浮光”最简单的方法是下载应用程序。它会自动启动后端服务并提供菜单栏图标。
 
-1.  **下载**: 前往 [Releases](https://github.com/chentao1006/FluxMonitor/releases) 页面下载 `FluxMonitor.dmg`。
-2.  **安装**: 打开 `.dmg` file，将 **Flux Monitor** 拖入 **Applications** (应用程序) 文件夹。
-3.  **启动**: 打开应用程序。它会自动启动后台服务器，并提供原生菜单栏图标以便快速访问。
+- **通用下载**: [![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+- **安装**: 将 **Flux Monitor** 拖入 **Applications** (应用程序) 文件夹。
+- **启动**: 打开应用程序即可开启监控面板。
+
+### 2. iOS 客户端 (移动端)
+在 iPhone 或 iPad 上随时随地监控和管理您的服务器。
+
+- **下载**: [前往 App Store 下载“浮光遥控”](https://apps.apple.com/app/flux-remote/id6761290185)
+- **官方徽标**:
+[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+
 
 ---
 

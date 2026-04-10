@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>浮光 Flux - macOS Server Monitoring & Management</title>
-    <meta name="description" content="A system monitoring and management dashboard for macOS servers. Monitor CPU, memory, disk, network, logs, Docker, and Nginx.">
+    <meta name="description" content="A system monitoring and management dashboard designed for Macs running as servers. Now features a companion iOS app (Flux Remote) for monitoring on the go. Monitor CPU, memory, disk, network, logs, Docker, and Nginx.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -104,19 +104,26 @@
             color: var(--text-primary);
         }
 
-        .btn-primary {
-            background: var(--accent-gradient);
-            color: white;
-            padding: 12px 28px;
+        .btn-primary, .btn-secondary, .app-store-badge {
+            height: 48px;
             border-radius: 12px;
             text-decoration: none;
             font-weight: 600;
-            font-size: 1rem;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-size: 0.95rem;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 0 28px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
         }
 
         .btn-primary:hover {
@@ -127,16 +134,8 @@
         .btn-secondary {
             background: var(--bg-secondary);
             color: var(--text-primary);
-            padding: 12px 28px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1rem;
+            padding: 0 28px;
             border: 1px solid rgba(128, 128, 128, 0.2);
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
         }
 
         .btn-secondary:hover {
@@ -144,12 +143,30 @@
             transform: translateY(-2px);
         }
 
+        .app-store-badge {
+            background: transparent;
+            padding: 0;
+            border: none;
+        }
+
+        .app-store-badge img {
+            height: 48px;
+            width: auto;
+            display: block;
+            border-radius: 8px;
+        }
+
+        .app-store-badge:hover {
+            transform: scale(1.02) translateY(-3px);
+        }
+
         .download-group {
             display: flex;
-            gap: 15px;
+            gap: 16px;
             margin-top: 2rem;
             justify-content: center;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .download-section {
@@ -158,57 +175,22 @@
             text-align: center;
         }
 
-        .download-card {
-            background: var(--card-bg);
-            padding: 3rem;
-            border-radius: 32px;
-            max-width: 800px;
-            margin: 0 auto;
-            border: 1px solid rgba(128, 128, 128, 0.1);
-            box-shadow: var(--card-shadow);
-        }
-
-        .version-badge {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--accent);
-            padding: 4px 12px;
-            border-radius: 100px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            display: inline-block;
-        }
-
-        .download-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 2.5rem;
-        }
-
-        .download-option {
-            background: var(--bg-secondary);
-            padding: 24px;
-            border-radius: 16px;
-            text-align: left;
-            border: 1px solid rgba(128, 128, 128, 0.15);
-            transition: border-color 0.3s;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .download-option:hover {
-            border-color: var(--accent);
-        }
-
-        .download-option h4 {
-            font-size: 1.1rem;
-            margin-bottom: 4px;
-        }
-
-        .download-option p {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
+        @media (max-width: 600px) {
+            .download-group {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 0 10%;
+                gap: 12px;
+            }
+            .btn-primary, .btn-secondary, .app-store-badge {
+                width: 100%;
+                height: 52px; /* Slightly taller on mobile for better touch */
+            }
+            .app-store-badge img {
+                height: 100%;
+                width: auto;
+                margin: 0 auto;
+            }
         }
 
         section {
@@ -427,11 +409,11 @@
         }
 
         /* Lang switcher logic */
-        [lang-en] { display: block; }
-        [lang-zh] { display: none; }
+        [lang-en] { display: block !important; }
+        [lang-zh] { display: none !important; }
 
-        .zh-active [lang-en] { display: none; }
-        .zh-active [lang-zh] { display: block; }
+        .zh-active [lang-en] { display: none !important; }
+        .zh-active [lang-zh] { display: block !important; }
 
     </style>
 </head>
@@ -439,8 +421,8 @@
     <header>
         <div class="logo-container" onclick="scrollToTop()">
             <img src="public/logo.png" alt="Flux Logo">
-            <span lang-en>Flux</span>
-            <span lang-zh>浮光</span>
+            <span lang-en>Flux Monitor</span>
+            <span lang-zh>浮光面板</span>
         </div>
         <div class="nav-actions">
             <button class="lang-toggle" onclick="toggleLang()">
@@ -456,16 +438,20 @@
     </header>
 
     <section class="hero">
-        <h1 lang-en>macOS Server<br>Management Dashboard</h1>
-        <h1 lang-zh>浮光<br>macOS 服务器管理面板</h1>
-        <p lang-en>A unified interface for monitoring system status, managing processes, logs, Docker containers, and Nginx configurations on macOS.</p>
-        <p lang-zh>“浮光”是一个用于监控 macOS 系统状态、管理进程、日志、Docker 容器以及 Nginx 配置的统一管理界面。</p>
+        <h1 lang-en>Flux Monitor<br>macOS Server Management Dashboard</h1>
+        <h1 lang-zh>浮光面板<br>macOS 服务器管理系统</h1>
+        <p lang-en>A unified interface for monitoring system status, managing processes, logs, Docker containers, and Nginx configurations on macOS. Now with a native iOS app for remote management.</p>
+        <p lang-zh>“浮光”是一款专为作为服务器运行的 Mac 设计的监控与服务管理面板。现已推出配套 iOS 客户端 (浮光遥控)，支持随时随地远程监控。</p>
         
         <div class="download-group">
             <a href="https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg" class="btn-primary">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 <span lang-en>Download Launcher</span>
                 <span lang-zh>下载启动器</span>
+            </a>
+            <a href="https://apps.apple.com/app/flux-remote/id6761290185" class="app-store-badge" target="_blank">
+                <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b" alt="Download on the App Store" lang-en>
+                <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b" alt="在 App Store 下载" lang-zh>
             </a>
             <a href="https://github.com/chentao1006/FluxMonitor" class="btn-secondary">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-3-7-3"></path></svg>
@@ -533,6 +519,13 @@
                 <h3 lang-zh>配置管理</h3>
                 <p lang-en>Edit configuration files with history tracking and AI-assisted auditing.</p>
                 <p lang-zh>编辑配置文件，支持历史记录追踪以及 AI 辅助配置审计。</p>
+            </div>
+            <div class="feature-card" style="border-color: var(--accent); background: rgba(59, 130, 246, 0.05);">
+                <div class="feature-icon">📱</div>
+                <h3 lang-en>Mobile Remote</h3>
+                <h3 lang-zh>移动远程</h3>
+                <p lang-en>Get real-time alerts and manage your server on the go with the Flux Remote iOS app.</p>
+                <p lang-zh>通过“浮光遥控” iOS 应用，在手机上接收实时告警并随时管理您的服务器。</p>
             </div>
         </div>
     </section>
@@ -638,53 +631,32 @@
     </section>
 
     <section class="download-section" id="download">
-        <div class="download-card">
-            <h2 lang-en>Download Launcher</h2>
-            <h2 lang-zh>下载启动器</h2>
-            <p lang-en>Professional server management, right from your menu bar.</p>
-            <p lang-zh>专业的服务器管理，尽在您的菜单栏。</p>
-
-            <div class="download-options">
-                <a href="https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg" class="download-option">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="background: var(--accent-gradient); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.94c1.88-1.55 3-3.3 3-4.94 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 1.64 1.12 3.39 3 4.94"></path><path d="M12 11c1.88-1.55 3-3.3 3-4.94 0-2.21-1.79-4-4-4s-4 1.79-4 4c0 1.64 1.12 3.39 3 4.94"></path><circle cx="12" cy="13" r="3"></circle></svg>
-                        </div>
-                        <div>
-                            <h4 lang-en>Apple Silicon</h4>
-                            <h4 lang-zh>Apple 芯片</h4>
-                            <p lang-en>M1, M2, M3 series (arm64)</p>
-                            <p lang-zh>M1, M2, M3 系列 (arm64)</p>
-                        </div>
-                    </div>
-                </a>
-                <a href="https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg" class="download-option">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="background: var(--text-primary); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                        </div>
-                        <div>
-                            <h4 lang-en>Intel Chip</h4>
-                            <h4 lang-zh>Intel 芯片</h4>
-                            <p lang-en>Core i5, i7, i9 (x64)</p>
-                            <p lang-zh>酷睿 i5, i7, i9 (x64)</p>
-                        </div>
-                    </div>
-                </a>
-            </div>
+        <div class="section-header">
+            <h2 lang-en>Download Now</h2>
+            <h2 lang-zh>开启体验</h2>
+        </div>
+        
+        <div class="download-group" style="margin-top: 0;">
+            <!-- macOS Launcher -->
+            <a href="https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg" class="btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span lang-en>Download Launcher</span>
+                <span lang-zh>下载启动器</span>
+            </a>
             
-            <p style="margin-top: 2rem; font-size: 0.85rem; opacity: 0.7;">
-                <span lang-en>Requires macOS 11.0 Big Sur or later</span>
-                <span lang-zh>需要 macOS 11.0 Big Sur 或更高版本</span>
-            </p>
+            <!-- iOS Client -->
+            <a href="https://apps.apple.com/app/flux-remote/id6761290185" class="app-store-badge" target="_blank">
+                <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b" alt="App Store" lang-en>
+                <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b" alt="App Store" lang-zh>
+            </a>
         </div>
     </section>
 
     <footer>
         <div class="footer-logo">
             <img src="public/logo.png" alt="Flux" style="width:24px; height:24px; border-radius:6px;">
-            <span lang-en>Flux</span>
-            <span lang-zh>浮光</span>
+            <span lang-en>Flux Monitor</span>
+            <span lang-zh>浮光面板</span>
         </div>
         <p>&copy; 2026 Flux Team. All rights reserved.</p>
     </footer>
