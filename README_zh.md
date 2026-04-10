@@ -6,9 +6,13 @@
 
 一款专为作为服务器运行的 Mac 设计的监控与服务管理面板。
 
-**macOS 启动器:** [![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+**macOS 启动器:** 
 
-**iOS 客户端:** [![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+[![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+
+**iOS 客户端:** 
+
+[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
 ### 功能

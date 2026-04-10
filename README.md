@@ -6,9 +6,13 @@
 
 A system monitoring and management dashboard designed for **Macs running as servers**.
 
-**macOS Launcher:** [![Download on macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+**macOS Launcher:** 
 
-**iOS Client:** [![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+[![Download on macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
+
+**iOS Client:** 
+
+[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
 ### Features
