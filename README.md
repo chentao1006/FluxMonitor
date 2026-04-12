@@ -12,7 +12,7 @@ A system monitoring and management dashboard designed for **Macs running as serv
 
 **iOS Client:** 
 
-[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+[![Download on the App Store](public/app-store-badge-en.svg)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
 ### Features
@@ -60,7 +60,7 @@ The easiest way to use Flux Monitor on macOS is by downloading the application. 
 ### 2. iOS Client (Mobile-side)
 Monitor and manage your server from anywhere using your iPhone or iPad.
 
-[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+[![Download on the App Store](public/app-store-badge-en.svg)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
 ---

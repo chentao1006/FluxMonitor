@@ -230,6 +230,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         dashboardItem.target = self
         dashboardItem.isEnabled = isRunning
         menu.addItem(dashboardItem)
+
+        let appStoreItem = NSMenuItem(title: i18n.t("view_on_app_store"), action: #selector(openAppStore), keyEquivalent: "")
+        appStoreItem.target = self
+        menu.addItem(appStoreItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -263,6 +267,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func openDashboard() {
         let port = UserDefaults.standard.integer(forKey: "port") != 0 ? UserDefaults.standard.integer(forKey: "port") : 4210
         if let url = URL(string: "http://localhost:\(port)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc func openAppStore() {
+        if let url = URL(string: "https://apps.apple.com/app/flux-remote/id6761290185") {
             NSWorkspace.shared.open(url)
         }
     }

@@ -313,10 +313,10 @@ export default function DashboardOverview() {
               padding: '0.6rem 1.25rem',
               display: 'flex',
               alignItems: 'center',
-              background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
+              background: 'linear-gradient(90deg, #6082AA 0%, #8da9c4 100%)',
               color: '#fff',
               border: 'none',
-              boxShadow: '0 2px 8px 0 rgba(139,92,246,0.10)'
+              boxShadow: '0 2px 8px 0 rgba(96,130,170,0.15)'
             }}
           >
             <Sparkles size={20} className={aiAnalyzing ? 'animate-pulse' : ''} />

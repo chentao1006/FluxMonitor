@@ -9,16 +9,32 @@ class ProcessManager: ObservableObject {
     private var startCount = 0 // Safety against infinite recursion
     @Published var logs = "" {
         didSet {
-            // Keep logs to a reasonable size
+            // Keep logs to a reasonable size in memory
             if logs.count > 50000 {
                 logs = String(logs.suffix(25000))
             }
         }
     }
     
+    private var logFileUrl: URL {
+        let bundleID = Bundle.main.bundleIdentifier!
+        let appSupportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent(bundleID, isDirectory: true)
+        try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
+        return appSupportDir.appendingPathComponent("service.log")
+    }
+    
     private let logPipe = Pipe()
     
     init() {
+        // Load initial logs from file
+        if let savedLogs = try? String(contentsOf: logFileUrl, encoding: .utf8) {
+            self.logs = savedLogs
+            if self.logs.count > 50000 {
+                self.logs = String(self.logs.suffix(25000))
+            }
+        }
+        
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             self.stop()
         }
@@ -209,7 +225,25 @@ class ProcessManager: ObservableObject {
         if !formattedMessage.isEmpty {
             DispatchQueue.main.async {
                 self.logs += formattedMessage
+                
+                // Append to file
+                if let data = formattedMessage.data(using: .utf8) {
+                    if let fileHandle = try? FileHandle(forWritingTo: self.logFileUrl) {
+                        fileHandle.seekToEndOfFile()
+                        fileHandle.write(data)
+                        fileHandle.closeFile()
+                    } else {
+                        try? data.write(to: self.logFileUrl)
+                    }
+                }
             }
+        }
+    }
+    
+    func clearLogs() {
+        DispatchQueue.main.async {
+            self.logs = ""
+            try? "".write(to: self.logFileUrl, atomically: true, encoding: .utf8)
         }
     }
     

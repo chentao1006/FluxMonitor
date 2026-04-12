@@ -6,9 +6,10 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/LanguageContext';
 import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES } from '@/lib/translations';
 import { useSettings } from '@/lib/SettingsContext';
-import { Languages, Sun, Moon, SunMoon } from 'lucide-react';
+import { Languages, Sun, Moon, SunMoon, Smartphone } from 'lucide-react';
 import GlobalTerminal from '@/components/GlobalTerminal';
 import { useTheme } from '@/lib/ThemeContext';
+import IOSAppGuide from '@/components/IOSAppGuide';
 
 export default function DashboardLayout({
   children,
@@ -21,7 +22,25 @@ export default function DashboardLayout({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isIOSGuideOpen, setIsIOSGuideOpen] = useState(false);
   const mounted = !settingsLoading;
+
+  useEffect(() => {
+    if (mounted) {
+      const isDismissed = localStorage.getItem('ios_guide_dismissed');
+      if (!isDismissed) {
+        const timer = setTimeout(() => {
+          setIsIOSGuideOpen(true);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [mounted]);
+
+  const closeIOSGuide = () => {
+    setIsIOSGuideOpen(false);
+    localStorage.setItem('ios_guide_dismissed', 'true');
+  };
 
   const features = config?.features || {};
   const version = config?.version || '';
@@ -108,6 +127,40 @@ export default function DashboardLayout({
             {features?.docker !== false && <NavLink href="/dashboard/docker" icon="box" onClick={() => setIsMenuOpen(false)}>{t.sidebar.docker}</NavLink>}
             {features?.nginx !== false && <NavLink href="/dashboard/nginx" icon="server" onClick={() => setIsMenuOpen(false)}>{t.sidebar.nginx}</NavLink>}
           </nav>
+          
+          <div style={{ padding: '0 0.75rem', marginBottom: '0.5rem' }}>
+            <button 
+              onClick={() => setIsIOSGuideOpen(true)}
+              className="btn btn-primary"
+              style={{ 
+                width: '100%', 
+                justifyContent: 'space-between', 
+                gap: '0.75rem', 
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                padding: '0.75rem 1rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, #6366f1 100%)',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)',
+                border: 'none',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Smartphone size={18} />
+                <span>{t.sidebar.remoteClient}</span>
+              </div>
+              <span style={{ 
+                fontSize: '0.55rem', 
+                background: 'rgba(255, 255, 255, 0.2)', 
+                padding: '2px 6px', 
+                borderRadius: '10px',
+                letterSpacing: '0.05em',
+                fontWeight: 800
+              }}>NEW</span>
+            </button>
+          </div>
 
           <div className="sidebar-footer">
             <div className="footer-icons-row">
@@ -219,6 +272,7 @@ export default function DashboardLayout({
         {children}
       </main>
       <GlobalTerminal />
+      <IOSAppGuide isOpen={isIOSGuideOpen} onClose={closeIOSGuide} />
     </div>
   );
 }

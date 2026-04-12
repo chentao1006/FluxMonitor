@@ -9,9 +9,9 @@
   --color-text: #0f172a;
   --color-text-muted: #64748b;
 
-  --color-primary: #3b82f6;
-  --color-primary-hover: #2563eb;
-  --color-primary-light: #eff6ff;
+  --color-primary: #6082AA;
+  --color-primary-hover: #4e6b8c;
+  --color-primary-light: #f0f4f8;
 
   --color-success: #10b981;
   --color-warning: #f59e0b;
@@ -42,9 +42,9 @@
   --color-text: #f8fafc;
   --color-text-muted: #94a3b8;
 
-  --color-primary: #3b82f6;
-  --color-primary-hover: #60a5fa;
-  --color-primary-light: rgba(59, 130, 246, 0.15);
+  --color-primary: #6082AA;
+  --color-primary-hover: #7ba2c7;
+  --color-primary-light: rgba(96, 130, 170, 0.15);
 
   --color-success: #10b981;
   --color-warning: #f59e0b;
@@ -130,14 +130,14 @@ p {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-primary), #60a5fa);
+  background: linear-gradient(135deg, var(--color-primary), #7ba2c7);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(96, 130, 170, 0.3);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, var(--color-primary-hover), var(--color-primary));
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 16px rgba(96, 130, 170, 0.4);
 }
 
 .btn-success {
@@ -174,14 +174,14 @@ p {
 }
 
 .btn-info {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #6082AA, #4e6b8c);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(96, 130, 170, 0.2);
 }
 
 .btn-info:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #4e6b8c, #3d546f);
+  box-shadow: 0 6px 16px rgba(96, 130, 170, 0.3);
 }
 
 .btn:disabled {
@@ -801,7 +801,7 @@ input:checked+.slider:before {
 .stat-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 15px 35px var(--color-shadow), 0 1px 2px rgba(0, 0, 0, 0.05);
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(96, 130, 170, 0.3);
   background: var(--color-card-hover-bg);
 }
 
@@ -827,7 +827,7 @@ input:checked+.slider:before {
   background: var(--color-primary);
   color: white;
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(96, 130, 170, 0.2);
 }
 
 .stat-card-label {

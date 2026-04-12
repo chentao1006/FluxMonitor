@@ -13,6 +13,7 @@ export const translations = {
       settings: '系统设置',
       logout: '退出登录',
       logoutConfirm: '确定要退出登录吗？',
+      remoteClient: '浮光远控',
     },
     login: {
       title: 'Flux Monitor',
@@ -461,6 +462,14 @@ export const translations = {
       endpoint: 'API Endpoint (Base URL, e.g. .../v1)',
       apiKey: 'API Key',
       model: '模型名称 (Model)',
+    },
+    ios: {
+      title: '浮光远控 (iOS) 已推出',
+      desc: '在 iPhone 或 iPad 上远程查看和管理您的服务器。',
+      viewOnAppStore: 'App Store',
+      dismiss: '稍后再说',
+      scanToRemote: '扫码体验 浮光远控',
+      appStoreBadge: '/app-store-badge-zh.svg'
     }
   },
   en: {
@@ -477,6 +486,7 @@ export const translations = {
       settings: 'Settings',
       logout: 'Logout',
       logoutConfirm: 'Are you sure you want to logout?',
+      remoteClient: 'Flux Remote',
     },
     login: {
       title: 'Flux Monitor',
@@ -924,6 +934,14 @@ export const translations = {
       endpoint: 'API Endpoint (Base URL, e.g. .../v1)',
       apiKey: 'API Key',
       model: 'Model Name',
+    },
+    ios: {
+      title: 'Flux Remote (iOS) Available',
+      desc: 'Monitor and manage your server remotely from your iPhone or iPad.',
+      viewOnAppStore: 'View on App Store',
+      dismiss: 'Maybe Later',
+      scanToDownload: 'Scan to Download Flux Remote',
+      appStoreBadge: '/app-store-badge-en.svg'
     }
   }
 };

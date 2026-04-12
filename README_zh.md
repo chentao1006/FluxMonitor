@@ -12,7 +12,7 @@
 
 **iOS 客户端:** 
 
-[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+[![Download on the App Store](public/app-store-badge-zh.svg)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
 ### 功能
@@ -58,7 +58,7 @@
 ### 2. iOS 客户端 (移动端)
 在 iPhone 或 iPad 上随时随地监控和管理您的服务器。
 
-[![Download on the App Store](https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/zh-cn?size=250x83&releaseDate=1433462400&h=7a917e85289f91bb95a31518f8e08d6b)](https://apps.apple.com/app/flux-remote/id6761290185)
+[![Download on the App Store](public/app-store-badge-zh.svg)](https://apps.apple.com/app/flux-remote/id6761290185)
 
 
 ---

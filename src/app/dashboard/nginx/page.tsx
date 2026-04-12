@@ -796,7 +796,7 @@ export default function NginxDashboard() {
                   >
                     {site.status === 'enabled' ? t.common.disableTitle : t.common.enableTitle}
                   </button>
-                  <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#3b82f6', border: '1px solid #3b82f6' }} onClick={() => handleEditSite(site.name)}>{t.common.edit}</button>
+                  <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#6082AA', border: '1px solid #6082AA' }} onClick={() => handleEditSite(site.name)}>{t.common.edit}</button>
                   <button className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', color: '#ef4444', border: '1px solid #ef4444' }} onClick={() => handleDeleteSite(site.name)} disabled={siteLoading}>{t.common.delete}</button>
                 </div>
               </li>

@@ -18,6 +18,9 @@
 		AABBCCD01234567890ABCDE0 /* NodeInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCD01234567890ABCDEF /* NodeInstaller.swift */; };
 		BE84BB595B073EB883790509 /* i18n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFBCA42DF81FB121BCD14F6 /* i18n.swift */; };
 		C620CCAD47C1630EC2DDCC4D /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 5662DE609534DFCC1E144FA9 /* InfoPlist.strings */; };
+		C6306D0E2F8B38AE00A35045 /* IOSAppGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6306D0D2F8B38AD00A35045 /* IOSAppGuideView.swift */; };
+		C68EFC152F8AC1EF00C1F901 /* TunnelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68EFC142F8AC1EF00C1F901 /* TunnelView.swift */; };
+		C68EFC162F8AC1EF00C1F901 /* ICloudManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C68EFC132F8AC1EF00C1F901 /* ICloudManager.swift */; };
 		D09F5FADDBD668BAE4497C25 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 465F879BFF9EBC7C9C88BD52 /* Sparkle */; };
 		DDFCB55E4E3A38AA88D80A79 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03BFEE759758B114455EF06B /* main.swift */; };
 		FA3B2DE51A2AD83AB616C38C /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA649293D6EEBD8A0CDFD409 /* AboutView.swift */; };
@@ -40,6 +43,9 @@
 		AABBCCD01234567890ABCDEF /* NodeInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeInstaller.swift; sourceTree = "<group>"; };
 		B8C977157EF1FB1B8DEFEB72 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		BDDEA3ED4DB9636E1F415A71 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		C6306D0D2F8B38AD00A35045 /* IOSAppGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSAppGuideView.swift; sourceTree = "<group>"; };
+		C68EFC132F8AC1EF00C1F901 /* ICloudManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudManager.swift; sourceTree = "<group>"; };
+		C68EFC142F8AC1EF00C1F901 /* TunnelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelView.swift; sourceTree = "<group>"; };
 		CC0D7807E9C1E45DF24911FF /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		DD95961A54AE7D60D4DB779D /* ServiceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceView.swift; sourceTree = "<group>"; };
 		F6414C59A89ED941499CAACA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -60,6 +66,9 @@
 		1AB425D963DC7A60FF55F51F /* FluxMonitor */ = {
 			isa = PBXGroup;
 			children = (
+				C6306D0D2F8B38AD00A35045 /* IOSAppGuideView.swift */,
+				C68EFC132F8AC1EF00C1F901 /* ICloudManager.swift */,
+				C68EFC142F8AC1EF00C1F901 /* TunnelView.swift */,
 				AA649293D6EEBD8A0CDFD409 /* AboutView.swift */,
 				BDDEA3ED4DB9636E1F415A71 /* App.entitlements */,
 				4C5C4A4E749C03739375DEE5 /* AppDelegate.swift */,
@@ -200,9 +209,12 @@
 				9F9AE2F03F3C699D98B3128E /* AppDelegate.swift in Sources */,
 				6EDE5D9100A71EDDDBDC20FA /* LogViewer.swift in Sources */,
 				3C175DAE41651FCDF0A77C96 /* MainView.swift in Sources */,
+				C68EFC152F8AC1EF00C1F901 /* TunnelView.swift in Sources */,
+				C68EFC162F8AC1EF00C1F901 /* ICloudManager.swift in Sources */,
 				1D909EA758810603F2C1B0D2 /* NetworkUtils.swift in Sources */,
 				AABBCCD01234567890ABCDE0 /* NodeInstaller.swift in Sources */,
 				2D5D5D7B23C41047EBF9C42C /* ProcessManager.swift in Sources */,
+				C6306D0E2F8B38AE00A35045 /* IOSAppGuideView.swift in Sources */,
 				FDD93ABC7B4C4B8846FFE688 /* ServiceView.swift in Sources */,
 				794CB254DDE3B638215ADB1C /* SettingsView.swift in Sources */,
 				7E582D527BF3B019CE6784CB /* WelcomeView.swift in Sources */,

@@ -111,7 +111,7 @@ struct ServiceView: View {
                             .foregroundColor(.secondary)
                         Spacer()
                         Button(i18n.t("clear_logs")) {
-                            pm.logs = ""
+                            pm.clearLogs()
                         }
                         .buttonStyle(.plain)
                         .font(.caption)
