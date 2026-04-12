@@ -12,6 +12,8 @@ import {
   Search,
   RefreshCw,
   Trash2,
+  XCircle,
+  Square,
   XOctagon,
   User,
   Settings,
@@ -369,7 +371,7 @@ export default function ProcessManager() {
                         onClick={() => handleAction(p.pid, 'term')}
                         title="SIGTERM"
                       >
-                        <Trash2 size={16} />
+                        <XCircle size={16} />
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -377,7 +379,7 @@ export default function ProcessManager() {
                         onClick={() => handleAction(p.pid, 'kill')}
                         title="SIGKILL"
                       >
-                        <XOctagon size={16} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -556,16 +558,18 @@ export default function ProcessManager() {
             <div className="flex-center" style={{ padding: '1.5rem 2rem', gap: '1rem', borderTop: '1px solid var(--color-surface-border)', background: 'var(--color-surface-bg)' }}>
               <button
                 className="btn btn-warning"
-                style={{ flex: 1 }}
+                style={{ flex: 1, gap: '0.5rem' }}
                 onClick={() => handleAction(selectedPid, 'term')}
               >
+                <XCircle size={16} />
                 {t.processes.terminate}
               </button>
               <button
                 className="btn btn-danger"
-                style={{ flex: 1 }}
+                style={{ flex: 1, gap: '0.5rem' }}
                 onClick={() => handleAction(selectedPid, 'kill')}
               >
+                <Trash2 size={16} />
                 {t.processes.forceKill}
               </button>
             </div>

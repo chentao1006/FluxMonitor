@@ -4,6 +4,7 @@ struct AboutView: View {
     @StateObject var i18n = I18N.shared
     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.1.4"
     let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    @Binding var showingIOSAppGuide: Bool
     
     var body: some View {
         VStack(spacing: 20) {
@@ -27,18 +28,18 @@ struct AboutView: View {
             Divider()
             
             VStack(spacing: 12) {
-                if let urlObj = URL(string: "https://apps.apple.com/app/flux-remote/id6761290185") {
-                    Link(destination: urlObj) {
-                        HStack {
-                            Image(systemName: "apple.logo")
-                            Text(i18n.t("view_on_app_store"))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                Button(action: {
+                    showingIOSAppGuide = true
+                }) {
+                    HStack {
+                        Image(systemName: "smartphone")
+                        Text(i18n.t("view_on_app_store"))
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
 
                 if let urlObj = URL(string: "https://github.com/chentao1006/FluxMonitor") {
                     Link(destination: urlObj) {

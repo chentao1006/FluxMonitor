@@ -80,9 +80,9 @@ export default function DashboardLayout({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1 }}>{t.login.title}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px' }}>
-              <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.2em' }}>{t.login.logoText}</span>
-              {version && <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', opacity: 0.5 }}>v{version}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
+              <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.15em' }}>{t.login.logoText}</span>
+              {version && <span style={{ fontSize: '0.55rem', color: 'var(--color-text-muted)', opacity: 0.6, fontWeight: 500 }}>v{version}</span>}
             </div>
           </div>
         </div>
@@ -109,9 +109,9 @@ export default function DashboardLayout({
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
               <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800, letterSpacing: '0.1em', lineHeight: 1 }}>{t.login.title}</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.4em', textIndent: '0.2em' }}>{t.login.logoText}</span>
-                {version && <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', opacity: 0.5 }}>v{version}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', fontWeight: 600, letterSpacing: '0.3em', textIndent: '0.2em' }}>{t.login.logoText}</span>
+                {version && <span style={{ fontSize: '0.6rem', color: 'var(--color-text-muted)', opacity: 0.6, fontWeight: 500 }}>v{version}</span>}
               </div>
             </div>
           </a>
@@ -140,7 +140,7 @@ export default function DashboardLayout({
                 fontWeight: 700,
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius-md)',
-                background: 'linear-gradient(135deg, var(--color-primary) 0%, #6366f1 100%)',
+                background: 'var(--color-primary)',
                 boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)',
                 border: 'none',
                 position: 'relative',
@@ -153,7 +153,8 @@ export default function DashboardLayout({
               </div>
               <span style={{ 
                 fontSize: '0.55rem', 
-                background: 'rgba(255, 255, 255, 0.2)', 
+                background: '#f97316', 
+                color: 'white',
                 padding: '2px 6px', 
                 borderRadius: '10px',
                 letterSpacing: '0.05em',

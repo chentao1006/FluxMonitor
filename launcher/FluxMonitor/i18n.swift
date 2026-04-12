@@ -121,7 +121,7 @@ class I18N: ObservableObject {
         "open_icloud_folder": "打开 iCloud 文件夹",
         "ios_app_title": "浮光远控 (iOS) 已推出",
         "ios_app_desc": "在 iPhone 或 iPad 上远程查看和管理您的服务器。",
-        "view_on_app_store": "App Store",
+        "view_on_app_store": "下载移动客户端",
         "dismiss": "稍后再说",
         "app_store_badge": "AppStoreBadgeZH"
     ]
@@ -208,7 +208,7 @@ class I18N: ObservableObject {
         "open_icloud_folder": "Open iCloud Folder",
         "ios_app_title": "Flux Remote (iOS) Available",
         "ios_app_desc": "Monitor and manage your server remotely from your iPhone or iPad.",
-        "view_on_app_store": "View on App Store",
+        "view_on_app_store": "Download Mobile Client",
         "dismiss": "Maybe Later",
         "app_store_badge": "AppStoreBadgeEN"
     ]

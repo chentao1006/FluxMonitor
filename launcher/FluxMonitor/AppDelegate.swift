@@ -124,6 +124,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         
+        // Observe service status to trigger one-time iOS guide after service starts
+        ProcessManager.shared.$isRunning
+            .receive(on: RunLoop.main)
+            .filter { $0 == true }
+            .first() // Only trigger once per session
+            .sink { [weak self] _ in
+                let iosGuideShown = UserDefaults.standard.bool(forKey: "iosAppGuideShown")
+                if !iosGuideShown {
+                    self?.showSettings()
+                    // Delay slightly to ensure MainView is ready
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        NotificationCenter.default.post(name: NSNotification.Name("ShowIOSAppGuide"), object: nil)
+                        UserDefaults.standard.set(true, forKey: "iosAppGuideShown")
+                    }
+                }
+            }
+            .store(in: &cancellables)
+
         // Show window if Node.js is missing OR setup is needed OR silent start is disabled
         if !isNodeAvailable || needsSetup || !silentStart {
             showSettings()
@@ -272,8 +290,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func openAppStore() {
-        if let url = URL(string: "https://apps.apple.com/app/flux-remote/id6761290185") {
-            NSWorkspace.shared.open(url)
+        showSettings()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NotificationCenter.default.post(name: NSNotification.Name("ShowIOSAppGuide"), object: nil)
         }
     }
 

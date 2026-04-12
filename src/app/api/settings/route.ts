@@ -10,8 +10,10 @@ export async function GET() {
     let version = '';
     try {
       const pkgPath = path.join(process.cwd(), 'package.json');
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      version = pkg.version;
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        version = pkg.version;
+      }
     } catch (e) {
       console.error('Error reading package.json version:', e);
     }

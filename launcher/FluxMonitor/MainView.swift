@@ -32,12 +32,6 @@ struct MainView: View {
                 _showingFirstRunAlert = State(initialValue: false)
             }
         }
-        
-        // Show iOS guide if not shown before
-        if !UserDefaults.standard.bool(forKey: "iosAppGuideShown") {
-            _showingIOSAppGuide = State(initialValue: true)
-            UserDefaults.standard.set(true, forKey: "iosAppGuideShown")
-        }
     }
     
     var body: some View {
@@ -60,7 +54,7 @@ struct MainView: View {
                 }
                 .tag(2)
             
-            AboutView()
+            AboutView(showingIOSAppGuide: $showingIOSAppGuide)
                 .tabItem {
                     Text(i18n.t("about"))
                 }
@@ -111,6 +105,9 @@ struct MainView: View {
         }
         .sheet(isPresented: $showingIOSAppGuide) {
             IOSAppGuideView()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowIOSAppGuide"))) { _ in
+            showingIOSAppGuide = true
         }
     }
 }
