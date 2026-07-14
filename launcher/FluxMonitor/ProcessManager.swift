@@ -326,7 +326,11 @@ class ProcessManager: ObservableObject {
     private func getPIDForPort(_ port: Int) -> Int? {
         let task = Process()
         task.launchPath = "/usr/sbin/lsof"
-        task.arguments = ["-t", "-i", "tcp:\(port)", "-n", "-P"]
+        // Only a listening socket can block the service from binding this port.
+        // Without this filter, lsof also returns clients connected to the local
+        // service (including this app's analytics request), which can make Flux
+        // Monitor report its own process as a port conflict.
+        task.arguments = ["-t", "-iTCP:\(port)", "-sTCP:LISTEN", "-n", "-P"]
         let pipe = Pipe()
         task.standardOutput = pipe
         
@@ -364,7 +368,7 @@ class ProcessManager: ObservableObject {
         }
         return nil
     }
-    
+
     private func isFluxMonitorProcess(pid: Int) -> Bool {
         let task = Process()
         task.launchPath = "/usr/sbin/lsof"
