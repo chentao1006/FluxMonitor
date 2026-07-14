@@ -4,7 +4,7 @@
 
 ---
 
-A system monitoring and management dashboard designed for **Macs running as servers**.
+A system monitoring and remote control dashboard designed for **your Mac**.
 
 **macOS Launcher:** 
 
@@ -37,7 +37,7 @@ brew install --cask chentao1006/tap/flux-monitor
 
 ## Planned Features
 
-- [x] **Mac Launcher App**: A native macOS application that can launch the monitor web server. No need to deploy manually.
+- [x] **Mac Launcher App**: A native macOS application that starts the monitor service. No need to deploy manually.
 - [x] **iOS Client App**: A native iOS application that can monitor and manage the system on the go. ([App Store](https://apps.apple.com/app/flux-remote/id6761290185))
 - [x] **Android Client App**: A native Android application that can monitor and manage the system on the go. ([Google Play](https://play.google.com/store/apps/details?id=com.ct106.flux_remote))
 
@@ -57,8 +57,8 @@ brew install --cask chentao1006/tap/flux-monitor
 
 ## Installation & Setup
 
-### 1. macOS Launcher (Server-side)
-The easiest way to use Flux Monitor on macOS is by downloading the application. This starts the backend server and provides a menu bar icon.
+### 1. macOS Launcher
+The easiest way to use Flux Monitor on macOS is by downloading the application. This starts the local monitor service and provides a menu bar icon.
 
 [![Download on macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
 
@@ -80,7 +80,7 @@ brew install --cask flux-monitor
 ```
 
 ### 2. Mobile Clients (iOS & Android)
-Monitor and manage your server from anywhere using your smartphone or tablet.
+Remotely connect to, monitor, and control your Mac from anywhere using your smartphone or tablet.
 
 [![Download on the App Store](public/app-store-badge-en.svg)](https://apps.apple.com/app/flux-remote/id6761290185)
 [![Get it on Google Play](public/en-play-badge.png)](https://play.google.com/store/apps/details?id=com.ct106.flux_remote)
@@ -105,7 +105,7 @@ Monitor and manage your server from anywhere using your smartphone or tablet.
 
 ## Deployment
 
-This project provides a deploy script `deploy.sh`. It builds the Next.js application as a standalone server and installs it to the specified directory (default: `~/Applications/flux-monitor`).
+This project provides a deploy script `deploy.sh`. It builds the Next.js application as a standalone app and installs it to the specified directory (default: `~/Applications/flux-monitor`).
 
 ```bash
 # Grant execution permissions and deploy

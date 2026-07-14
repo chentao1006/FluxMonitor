@@ -4,7 +4,7 @@
 
 ---
 
-一款专为作为服务器运行的 Mac 设计的监控与服务管理面板。
+一款为你的 Mac 设计的监控、管理与远程控制面板。
 
 **macOS 启动器:** 
 
@@ -35,7 +35,7 @@ brew install --cask chentao1006/tap/flux-monitor
 
 **待开发功能**
 
-- [x] **浮光面板启动器**: 原生 macOS 应用程序，可启动监控 Web 服务器，无需手动部署。
+- [x] **浮光面板启动器**: 原生 macOS 应用程序，可启动本地监控服务，无需手动部署。
 - [x] **iOS 客户端**: 原生 iOS 应用程序，可随时随地监控和管理系统。([App Store](https://apps.apple.com/app/flux-remote/id6761290185))
 - [x] **Android 客户端**: 原生 Android 应用程序，可随时随地监控和管理系统。([Google Play](https://play.google.com/store/apps/details?id=com.ct106.flux_remote))
 
@@ -55,7 +55,7 @@ brew install --cask chentao1006/tap/flux-monitor
 
 ## 安装与设置
 
-### 1. macOS 启动器 (服务端)
+### 1. macOS 启动器
 在 macOS 上使用“浮光”最简单的方法是下载应用程序。它会自动启动后端服务并提供菜单栏图标。
 
 [![下载 macOS 版](https://img.shields.io/badge/下载-macOS%20版-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/chentao1006/FluxMonitor/releases/latest/download/FluxMonitor.dmg)
@@ -78,7 +78,7 @@ brew install --cask flux-monitor
 ```
 
 ### 2. 移动端客户端 (iOS & Android)
-在手机或平板上随时随地监控和管理您的服务器。
+在手机或平板上随时随地远程连接、监控并控制你的 Mac。
 
 [![Download on the App Store](public/app-store-badge-zh.svg)](https://apps.apple.com/app/flux-remote/id6761290185)
 [![Get it on Google Play](public/en-play-badge.png)](https://play.google.com/store/apps/details?id=com.ct106.flux_remote)
