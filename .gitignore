@@ -42,6 +42,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 *.txt
+!app-ads.txt
 *.log
 config.json
 *sparkle*
