@@ -484,6 +484,7 @@ export const en = {
       addItem: 'Add Item',
       parseError: 'Parse Error',
       fixInCodeMode: 'Please fix XML syntax in Code Mode.',
+      repairXml: 'Repair XML',
       rootIsPrimitive: 'Root node is a primitive. Please edit in code mode.',
       visualMode: 'Visual Mode',
       codeMode: 'Code Mode',

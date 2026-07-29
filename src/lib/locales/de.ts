@@ -485,6 +485,7 @@ export const de = {
     addItem: 'Element hinzufügen',
     parseError: 'Parsing-Fehler',
     fixInCodeMode: 'Bitte beheben Sie die XML-Syntax im Code-Modus.',
+    repairXml: 'XML reparieren',
     rootIsPrimitive: 'Wurzelknoten primitiv. Bearbeiten Sie im Code-Modus.',
     visualMode: 'Visueller Modus',
     codeMode: 'Code-Modus',

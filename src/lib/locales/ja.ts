@@ -485,6 +485,7 @@ export const ja = {
     addItem: 'アイテムを追加',
     parseError: '解析エラー',
     fixInCodeMode: 'コードモードで XML 構文を修正してください。',
+    repairXml: 'XML を修復',
     rootIsPrimitive: 'ルートノードがプリミティブです。コードモードで編集してください。',
     visualMode: 'ビジュアルモード',
     codeMode: 'コードモード',

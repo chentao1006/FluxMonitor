@@ -485,6 +485,7 @@ export const zh = {
       addItem: '添加子项',
       parseError: '解析错误',
       fixInCodeMode: '请在代码模式下修复 XML 语法。',
+      repairXml: '修复 XML',
       rootIsPrimitive: '根节点是基本类型。请在代码模式下编辑。',
       visualMode: '可视化模式',
       codeMode: '代码模式',

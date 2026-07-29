@@ -485,6 +485,7 @@ export const es = {
     addItem: 'Añadir Elemento',
     parseError: 'Error de Análisis',
     fixInCodeMode: 'Corrige la sintaxis en el Modo Código.',
+    repairXml: 'Reparar XML',
     rootIsPrimitive: 'Nodo raíz primitivo. Edita en el Modo Código.',
     visualMode: 'Modo Visual',
     codeMode: 'Modo Código',

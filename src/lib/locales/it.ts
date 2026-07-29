@@ -485,6 +485,7 @@ export const it = {
     addItem: 'Aggiungi Elemento',
     parseError: 'Errore di Analisi',
     fixInCodeMode: 'Correggi la sintassi nel Modo Codice.',
+    repairXml: 'Ripara XML',
     rootIsPrimitive: 'Nodo radice primitivo. Modifica nel Modo Codice.',
     visualMode: 'Modo Visivo',
     codeMode: 'Modo Codice',

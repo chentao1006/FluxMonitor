@@ -485,6 +485,7 @@ export const ko = {
     addItem: '항목 추가',
     parseError: '구문 분석 오류',
     fixInCodeMode: '코드 모드에서 XML 구문을 수정하십시오.',
+    repairXml: 'XML 복구',
     rootIsPrimitive: '루트 노드가 기본 요소입니다. 코드 모드에서 편집하십시오.',
     visualMode: '시각적 모드',
     codeMode: '코드 모드',

@@ -485,6 +485,7 @@ export const fr = {
     addItem: 'Ajouter Élément',
     parseError: 'Erreur d\'Analyse',
     fixInCodeMode: 'Corrigez la syntaxe dans le mode Code.',
+    repairXml: 'Reparer le XML',
     rootIsPrimitive: 'Nœud racine primitif. Éditez dans le mode Code.',
     visualMode: 'Mode Visuel',
     codeMode: 'Mode Code',

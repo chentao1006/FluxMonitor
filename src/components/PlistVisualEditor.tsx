@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Trash2, Plus, ChevronDown } from 'lucide-react';
+import { Trash2, Plus, ChevronDown, Wrench } from 'lucide-react';
 import { useLanguage } from '@/lib/LanguageContext';
 
 export type PlistNodeType = 'string' | 'integer' | 'real' | 'boolean' | 'array' | 'dict';
@@ -9,12 +9,28 @@ export interface PlistNode {
   value: unknown;
 }
 
+const PLIST_DOCTYPE = '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">';
+
+function repairPlistXml(xml: string): string {
+  // A malformed plist DOCTYPE is a common copy-and-paste error. Replacing only
+  // that declaration keeps the user's service configuration untouched.
+  return xml.replace(/<!DOCTYPE\s+plist\b[\s\S]*?>/i, PLIST_DOCTYPE);
+}
+
+function getXmlParseError(parseError: Element): string {
+  const message = parseError.textContent?.replace(/\s+/g, ' ').trim() || 'Unknown XML syntax error';
+  const location = message.match(/(?:line|Line)\s*(\d+).*?(?:column|Column|col)\s*(\d+)/);
+  return location
+    ? `XML syntax error at line ${location[1]}, column ${location[2]}: ${message}`
+    : `XML syntax error: ${message}`;
+}
+
 export function parsePlistXml(xml: string): PlistNode {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xml, "application/xml");
   const parseError = doc.querySelector("parsererror");
   if (parseError) {
-    throw new Error("Invalid XML");
+    throw new Error(getXmlParseError(parseError));
   }
 
   const rootPlist = doc.documentElement;
@@ -113,7 +129,7 @@ function escapeXml(unsafe: string) {
 }
 
 export function createFullPlistXml(node: PlistNode) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n${buildPlistXmlString(node, 0)}\n</plist>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${PLIST_DOCTYPE}\n<plist version="1.0">\n${buildPlistXmlString(node, 0)}\n</plist>`;
 }
 
 const typeOptions: PlistNodeType[] = ['string', 'integer', 'real', 'boolean', 'array', 'dict'];
@@ -446,10 +462,49 @@ export const PlistVisualEditor: React.FC<PlistVisualEditorProps> = ({ xml, onCha
     onChange(newXml);
   }, [onChange]);
 
+  const handleRepair = useCallback(() => {
+    const repairedXml = repairPlistXml(xml);
+    try {
+      const parsed = parsePlistXml(repairedXml);
+      lastEmittedXml.current = repairedXml;
+      setRootNode(parsed);
+      setError(null);
+      onChange(repairedXml);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setError(err.message || 'Failed to parse XML');
+    }
+  }, [xml, onChange]);
+
+  let canRepair = false;
+  if (error) {
+    const repairedXml = repairPlistXml(xml);
+    if (repairedXml !== xml) {
+      try {
+        parsePlistXml(repairedXml);
+        canRepair = true;
+      } catch {
+        // The document still has an error after the safe repair, so do not
+        // offer a button that cannot complete successfully.
+      }
+    }
+  }
+
   if (error) {
     return (
        <div style={{ padding: '2rem', color: 'var(--color-danger)' }}>
-         {t.launchagent.parseError || 'Parse Error'}: {error}. {t.launchagent.fixInCodeMode || 'Please fix XML syntax in Code Mode.'}
+         <div>{t.launchagent.parseError || 'Parse Error'}: {error}. {t.launchagent.fixInCodeMode || 'Please fix XML syntax in Code Mode.'}</div>
+         {canRepair && (
+           <button
+             type="button"
+             className="btn btn-sm"
+             style={{ marginTop: '1rem' }}
+             onClick={handleRepair}
+           >
+             <Wrench size={14} style={{ marginRight: '4px' }} />
+             {t.launchagent.repairXml || 'Repair XML'}
+           </button>
+         )}
        </div>
     );
   }
