@@ -433,10 +433,14 @@ export const PlistVisualEditor: React.FC<PlistVisualEditorProps> = ({ xml, onCha
   const [rootNode, setRootNode] = useState<PlistNode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lastEmittedXml = useRef<string>('');
+  const isLoading = xml === 'Loading...' || xml === t.common.loading;
 
   useEffect(() => {
     if (xml === lastEmittedXml.current) return;
-    if (xml === 'Loading...' || xml === t.common.loading || !xml.trim().startsWith('<')) {
+    if (isLoading) {
+      return;
+    }
+    if (!xml.trim().startsWith('<')) {
       return;
     }
 
@@ -453,7 +457,7 @@ export const PlistVisualEditor: React.FC<PlistVisualEditorProps> = ({ xml, onCha
         setRootNode(null);
       }, 0);
     }
-  }, [xml, t.common.loading]);
+  }, [xml, isLoading]);
 
   const handleChange = useCallback((newNode: PlistNode) => {
     setRootNode(newNode);
@@ -507,6 +511,10 @@ export const PlistVisualEditor: React.FC<PlistVisualEditorProps> = ({ xml, onCha
          )}
        </div>
     );
+  }
+
+  if (isLoading) {
+    return <div className="flex-center" style={{ flex: 1 }}>{t.common.loading}</div>;
   }
 
   if (!rootNode) return null;

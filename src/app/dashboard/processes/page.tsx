@@ -18,7 +18,8 @@ import {
   User,
   Settings,
   Filter,
-  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
   Cpu,
   Database,
   Info,
@@ -170,6 +171,12 @@ export default function ProcessManager() {
       setSortField(field);
       setSortOrder('desc');
     }
+  };
+
+  const sortIcon = (field: 'cpu' | 'mem' | 'pid' | 'command' | 'user') => {
+    if (sortField !== field) return null;
+    const SortIcon = sortOrder === 'asc' ? ArrowUp : ArrowDown;
+    return <SortIcon size={12} aria-label={sortOrder === 'asc' ? 'Ascending' : 'Descending'} />;
   };
 
   const handleAction = async (pid: string, action: 'kill' | 'term') => {
@@ -327,27 +334,27 @@ export default function ProcessManager() {
               <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
                 <th onClick={() => toggleSort('pid')} className="col-pid sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    {t.processes.pid} {sortField === 'pid' && <ArrowUpDown size={12} />}
+                    {t.processes.pid} {sortIcon('pid')}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('command')} className="col-command sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    {t.processes.name} {sortField === 'command' && <ArrowUpDown size={12} />}
+                    {t.processes.name} {sortIcon('command')}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('user')} className="col-user sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    {t.processes.user} {sortField === 'user' && <ArrowUpDown size={12} />}
+                    {t.processes.user} {sortIcon('user')}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('cpu')} className="col-cpu sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    <Cpu size={12} /> CPU {sortField === 'cpu' && <ArrowUpDown size={12} />}
+                    <Cpu size={12} /> CPU {sortIcon('cpu')}
                   </div>
                 </th>
                 <th onClick={() => toggleSort('mem')} className="col-mem sortable">
                   <div className="flex-center" style={{ justifyContent: 'flex-start', gap: '0.4rem' }}>
-                    <Database size={12} /> MEM {sortField === 'mem' && <ArrowUpDown size={12} />}
+                    <Database size={12} /> MEM {sortIcon('mem')}
                   </div>
                 </th>
                 <th className="col-actions">{t.common.actions}</th>

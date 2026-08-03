@@ -11,6 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem?
     static var shared: AppDelegate?
     var cancellables = Set<AnyCancellable>()
+    private var dailyAnalyticsTimer: DispatchSourceTimer?
     
     var settingsWindow: NSWindow?
     var logsWindow: NSWindow?
@@ -23,6 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         
         AptabaseTracker.shared.tryInitializeFromBundle()
         AptabaseTracker.shared.trackEvent("启动")
+        scheduleNextDailyAnalyticsEvent()
         
         // Handle SIGTERM/SIGINT for clean cleanup when killed from terminal/scripts
         let signals = [SIGTERM, SIGINT]
@@ -162,6 +164,36 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         
         // Ensure first run alert is shown if needed
         checkFirstRun()
+    }
+
+    /// Tracks a daily heartbeat independently from the optional web analytics setting.
+    /// A one-shot timer is rescheduled after each fire so daylight-saving changes are
+    /// accounted for when finding the next local midnight.
+    private func scheduleNextDailyAnalyticsEvent() {
+        dailyAnalyticsTimer?.cancel()
+
+        var midnight = DateComponents()
+        midnight.hour = 0
+        midnight.minute = 0
+        midnight.second = 0
+
+        guard let nextMidnight = Calendar.current.nextDate(
+            after: Date(),
+            matching: midnight,
+            matchingPolicy: .nextTime
+        ) else {
+            return
+        }
+
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        let delay = max(0, nextMidnight.timeIntervalSinceNow)
+        timer.schedule(deadline: .now() + delay)
+        timer.setEventHandler { [weak self] in
+            AptabaseTracker.shared.trackEvent("daily_midnight")
+            self?.scheduleNextDailyAnalyticsEvent()
+        }
+        dailyAnalyticsTimer = timer
+        timer.resume()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
