@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ct106.flux_remote",
+      "sha256_cert_fingerprints": [
+        "88:DE:37:CC:48:4C:82:05:C5:50:48:43:7F:0D:96:CA:25:75:19:77:CD:CF:6E:17:E1:F2:33:CA:68:12:B6:25"
+      ]
+    }
+  }
+]
