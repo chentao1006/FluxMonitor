@@ -220,7 +220,7 @@ export default function PortsPage() {
   };
 
   return (
-    <div className="grid no-scrollbar" style={{ gap: '1rem', height: 'calc(100vh - 24px)', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div className="grid no-scrollbar ports-page" style={{ gap: '1rem', display: 'flex', flexDirection: 'column' }}>
       <div className="flex-between dashboard-page-header" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: '0.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)', display: 'flex' }}>
@@ -337,7 +337,7 @@ export default function PortsPage() {
         </div>
       )}
 
-      <div className="port-groups no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '0.5rem' }}>
+      <div className="port-groups no-scrollbar">
         {loading && groups.length === 0 ? (
           <div className="card glass-panel flex-center" style={{ minHeight: '240px', flexDirection: 'column', gap: '1rem' }}>
             <RefreshCw size={32} className="animate-spin" color="var(--color-primary)" />
@@ -419,6 +419,18 @@ export default function PortsPage() {
       )}
 
       <style jsx>{`
+        .ports-page {
+          height: calc(100vh - 24px);
+          overflow-y: hidden;
+        }
+        .port-groups {
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          padding-bottom: 0.5rem;
+        }
         .port-toolbar {
           display: flex;
           align-items: center;
@@ -651,6 +663,17 @@ export default function PortsPage() {
         }
 
         @media (max-width: 768px) {
+          .ports-page {
+            height: auto;
+            min-height: 100%;
+            overflow-y: visible;
+          }
+
+          .port-groups {
+            flex: none;
+            overflow-y: visible;
+          }
+
           .port-header-actions {
             justify-content: flex-end;
           }

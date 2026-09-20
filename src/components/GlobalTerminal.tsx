@@ -618,8 +618,8 @@ export default function GlobalTerminal() {
           </div>
 
           {/* Command Input Form */}
-          <form onSubmit={executeCommand} style={{ display: 'flex', gap: '0.75rem' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
+          <form className="terminal-command-form" onSubmit={executeCommand}>
+            <div className="terminal-command-input">
               <input
                 type="text"
                 className="input"
@@ -647,7 +647,7 @@ export default function GlobalTerminal() {
             </div>
             <button
               type="button"
-              className="btn"
+              className="btn terminal-command-action"
               title={t.monitor.aiTranslate}
               style={{ 
                 background: 'var(--color-primary-light)', 
@@ -667,7 +667,7 @@ export default function GlobalTerminal() {
             {isExecuting ? (
               <button 
                 type="button" 
-                className="btn btn-danger" 
+                className="btn btn-danger terminal-command-run"
                 onClick={(e) => stopCommand(e)}
                 style={{ width: '100px' }}
               >
@@ -676,7 +676,7 @@ export default function GlobalTerminal() {
             ) : (
               <button 
                 type="submit" 
-                className="btn btn-primary" 
+                className="btn btn-primary terminal-command-run"
                 disabled={!cmd}
                 style={{ width: '100px', display: 'flex', gap: '8px' }}
               >

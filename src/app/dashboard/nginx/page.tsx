@@ -560,7 +560,7 @@ export default function NginxDashboard() {
   if (loading && isRunning === null) return <div className="flex-center" style={{ height: '70vh' }}>{t.common.loading}</div>;
 
   return (
-    <div className="grid no-scrollbar" style={{ overflowY: 'hidden', height: 'calc(100vh - 24px)', display: 'flex', flexDirection: 'column' }}>
+    <div className="grid no-scrollbar nginx-page" style={{ display: 'flex', flexDirection: 'column' }}>
       {toast && (
         <div style={{
           position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
@@ -765,8 +765,8 @@ export default function NginxDashboard() {
         </div>
       </div>
 
-      <div className={`responsive-grid ${editingSite ? 'responsive-grid-2' : ''}`} style={{ transition: 'all 0.3s', marginTop: '0.5rem', flex: 1, minHeight: 0 }}>
-        <div className="card glass-panel" style={{ height: '100%', overflowY: 'auto' }}>
+      <div className={`responsive-grid nginx-sites-layout ${editingSite ? 'responsive-grid-2' : ''}`} style={{ transition: 'all 0.3s', marginTop: '0.5rem', flex: 1, minHeight: 0 }}>
+        <div className="card glass-panel nginx-sites-list" style={{ height: '100%', overflowY: 'auto' }}>
           <div className="flex-between" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--color-bg)', zIndex: 10, padding: '1rem', margin: '-1rem -1rem 1rem -1rem', borderBottom: '1px solid var(--color-surface-border)' }}>
             <h3 style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', margin: 0 }}>{t.nginx.siteManager} ({sitesDir})</h3>
             <div style={{ display: 'flex', gap: '0.4rem' }}>

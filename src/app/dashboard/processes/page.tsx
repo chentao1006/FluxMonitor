@@ -230,7 +230,7 @@ export default function ProcessManager() {
   }, [processes, searchTerm, sortField, sortOrder, filterUser]);
 
   return (
-    <div className="grid no-scrollbar" style={{ gap: '1rem', height: 'calc(100vh - 24px)', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div className="grid no-scrollbar process-page" style={{ gap: '1rem', display: 'flex', flexDirection: 'column' }}>
       <div className="flex-between dashboard-page-header" style={{ flexWrap: 'wrap', gap: '1rem', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.5rem', borderRadius: 'var(--radius-md)' }}>
@@ -327,8 +327,8 @@ export default function ProcessManager() {
       </div>
 
       {/* Process Table / Card List */}
-      <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <div className="process-table-container" style={{ flex: 1, overflowY: 'auto' }}>
+      <div className="card glass-panel process-list-card">
+        <div className="process-table-container">
           <table className="process-table">
             <thead>
               <tr style={{ background: 'var(--color-primary-light)', borderBottom: '1px solid var(--color-surface-border)' }}>
@@ -607,7 +607,21 @@ export default function ProcessManager() {
       }
 
       <style jsx>{`
+        .process-page {
+          height: calc(100vh - 24px);
+          overflow-y: hidden;
+        }
+        .process-list-card {
+          padding: 0;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-height: 0;
+        }
         .process-table-container {
+          flex: 1;
+          overflow-y: auto;
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
         }
@@ -675,6 +689,20 @@ export default function ProcessManager() {
         }
         
         @media (max-width: 768px) {
+          .process-page {
+            height: auto;
+            min-height: 100%;
+            overflow-y: visible;
+          }
+          .process-list-card {
+            flex: none;
+            min-height: auto;
+            overflow: visible;
+          }
+          .process-table-container {
+            flex: none;
+            overflow-y: visible;
+          }
           .process-table {
             table-layout: auto;
             min-width: 100%;

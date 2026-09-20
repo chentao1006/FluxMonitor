@@ -290,6 +290,56 @@ p {
   width: 100% !important;
 }
 
+.terminal-command-form {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.terminal-command-input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.nginx-page {
+  height: calc(100vh - 24px);
+  overflow-y: hidden;
+}
+
+@media (max-width: 768px) {
+  .terminal-command-form {
+    flex-wrap: wrap;
+  }
+
+  .terminal-command-input {
+    flex: 0 0 100%;
+    width: 100%;
+  }
+
+  .terminal-command-action,
+  .terminal-command-run {
+    flex: 1;
+    width: auto !important;
+    justify-content: center;
+  }
+
+  .nginx-page {
+    height: auto;
+    min-height: 100%;
+    overflow-y: visible;
+  }
+
+  .nginx-sites-layout {
+    flex: none !important;
+    min-height: auto !important;
+  }
+
+  .nginx-sites-list {
+    height: auto !important;
+    overflow-y: visible !important;
+  }
+}
+
 @media (min-width: 768px) {
   .mobile-full-width {
     width: auto !important;

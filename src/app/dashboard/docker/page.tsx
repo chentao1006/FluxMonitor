@@ -324,7 +324,7 @@ export default function DockerDashboard() {
   };
 
   return (
-    <div className="grid no-scrollbar animate-fade-in" style={{ height: 'calc(100vh - 24px)', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div className="grid no-scrollbar animate-fade-in docker-page" style={{ display: 'flex', flexDirection: 'column' }}>
       <div className="flex-between dashboard-page-header" style={{ marginBottom: '0.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div className="icon-container" style={{ background: 'var(--color-primary-light)', padding: '0.4rem', borderRadius: 'var(--radius-md)' }}>
@@ -450,8 +450,8 @@ export default function DockerDashboard() {
         </div>
       </div>
 
-      <div className="card glass-panel" style={{ padding: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div className="docker-table-container" style={{ flex: 1, overflowY: 'auto' }}>
+      <div className="card glass-panel docker-list-card">
+        <div className="docker-table-container">
           {activeTab === 'containers' ? (
             <table className="docker-table">
               <thead>
@@ -690,7 +690,21 @@ export default function DockerDashboard() {
       )}
 
       <style jsx>{`
+        .docker-page {
+          height: calc(100vh - 24px);
+          overflow-y: hidden;
+        }
+        .docker-list-card {
+          padding: 0;
+          overflow: hidden;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
         .docker-table-container {
+          flex: 1;
+          overflow-y: auto;
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
         }
@@ -743,6 +757,20 @@ export default function DockerDashboard() {
         }
 
         @media (max-width: 768px) {
+          .docker-page {
+            height: auto;
+            min-height: 100%;
+            overflow-y: visible;
+          }
+          .docker-list-card {
+            flex: none;
+            min-height: auto;
+            overflow: visible;
+          }
+          .docker-table-container {
+            flex: none;
+            overflow-y: visible;
+          }
           .docker-table {
             min-width: 100%;
             table-layout: auto;
