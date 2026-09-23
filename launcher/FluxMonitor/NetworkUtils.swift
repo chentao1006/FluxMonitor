@@ -17,7 +17,8 @@ class NetworkUtils {
                 if addrFamily == UInt8(AF_INET) {
                     let name = String(cString: interface.ifa_name)
                     // Check if it's en (Wifi/Ethernet) and not a loopback
-                    if (name.hasPrefix("en") || name.hasPrefix("eth")) {
+                    if (name.hasPrefix("en") || name.hasPrefix("eth")),
+                       !isHostOnlyAddress(interface) {
                         var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                         getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
                                    &hostname, socklen_t(hostname.count),
@@ -50,7 +51,8 @@ class NetworkUtils {
                 
                 if addrFamily == UInt8(AF_INET) {
                     let name = String(cString: interface.ifa_name)
-                    if (name.hasPrefix("en") || name.hasPrefix("eth")) {
+                    if (name.hasPrefix("en") || name.hasPrefix("eth")),
+                       !isHostOnlyAddress(interface) {
                         var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                         getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
                                    &hostname, socklen_t(hostname.count),
@@ -65,6 +67,27 @@ class NetworkUtils {
             freeifaddrs(ifaddr)
         }
         return addresses
+    }
+
+    private static func isHostOnlyAddress(_ interface: ifaddrs) -> Bool {
+        guard let netmask = interface.ifa_netmask else { return true }
+
+        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        let result = getnameinfo(
+            netmask,
+            socklen_t(netmask.pointee.sa_len),
+            &hostname,
+            socklen_t(hostname.count),
+            nil,
+            0,
+            NI_NUMERICHOST
+        )
+        guard result == 0 else { return true }
+
+        // macOS may attach VPN/virtual-network aliases to a physical enX
+        // interface. A /32 mask identifies a host-only alias, not a LAN
+        // address that another device can normally use to reach this Mac.
+        return String(cString: hostname) == "255.255.255.255"
     }
 }
 

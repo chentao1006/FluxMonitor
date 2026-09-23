@@ -327,10 +327,11 @@ class TunnelManager: ObservableObject {
     private var outputPipe: Pipe?
     private var errorPipe: Pipe?
     private var retryCount = 0
-    private let maxRetries = 10
+    private let maxAutomaticRetries = 10
     private var isRetrying = false
     private var retryWorkItem: DispatchWorkItem?
     private var processOutputBuffer = ""
+    private var currentFailureAllowsExtendedRetry = false
     private var didAttemptAutomaticUpdate = false
     private var didAttemptArchitectureRepair = false
     private var isAutomaticallyUpdating = false
@@ -376,7 +377,8 @@ class TunnelManager: ObservableObject {
         let canStart: Bool
         switch status {
         case .stopped, .error: canStart = true
-        default: canStart = false
+        case .starting: canStart = isRetrying && process == nil
+        case .running: canStart = false
         }
         
         guard canStart else { return }
@@ -411,6 +413,7 @@ class TunnelManager: ObservableObject {
     private func launchProcess(binaryPath: String, port: Int) {
         let executableURL = URL(fileURLWithPath: binaryPath)
         processOutputBuffer = ""
+        currentFailureAllowsExtendedRetry = false
 
         if let currentProcess = process, currentProcess.isRunning {
             pendingStartPort = port
@@ -486,7 +489,10 @@ class TunnelManager: ObservableObject {
                 if exitStatus != 0 {
                     self.status = .error("Exit code \(exitStatus)")
                     // Auto-restart on error
-                    self.handleRetry(port: self.lastStartPort)
+                    self.handleRetry(
+                        port: self.lastStartPort,
+                        allowExtendedRecovery: self.currentFailureAllowsExtendedRetry
+                    )
                 } else {
                     self.status = .stopped
                 }
@@ -512,25 +518,48 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    private func handleRetry(port: Int) {
-        guard retryCount < maxRetries else {
+    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false) {
+        guard retryCount < maxAutomaticRetries || allowExtendedRecovery else {
             self.isRetrying = false
             self.retryCount = 0
+            appendLog("Automatic retry limit reached. Start the tunnel again to retry.\n")
             return
         }
         
         retryCount += 1
         isRetrying = true
+        status = .starting
+
+        let delay = retryDelay(for: retryCount)
+        if retryCount <= maxAutomaticRetries {
+            appendLog("Tunnel unavailable. Retrying in \(Int(delay)) seconds (attempt \(retryCount)/\(maxAutomaticRetries))...\n")
+        } else {
+            appendLog("InstaTunnel service is still unavailable. Will keep trying every \(Int(delay / 60)) minutes...\n")
+        }
 
         retryWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             self.retryWorkItem = nil
-            self.appendLog("Retrying (\(self.retryCount)/\(self.maxRetries))...\n")
+            self.appendLog("Retrying tunnel connection...\n")
             self.startInstalledTunnel(port: port)
         }
         retryWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func retryDelay(for attempt: Int) -> TimeInterval {
+        switch attempt {
+        case 1: return 2
+        case 2: return 5
+        case 3: return 10
+        case 4: return 20
+        case 5: return 30
+        case 6: return 60
+        case 7: return 120
+        case 8: return 180
+        default: return 300
+        }
     }
     
     func stop() {
@@ -648,6 +677,26 @@ class TunnelManager: ObservableObject {
         processOutputBuffer.append(text.lowercased())
         if processOutputBuffer.count > 8192 {
             processOutputBuffer = String(processOutputBuffer.suffix(8192))
+        }
+
+        let transientFailureMarkers = [
+            ": eof",
+            "i/o timeout",
+            "timed out",
+            "connection reset",
+            "connection refused",
+            "network is unreachable",
+            "temporary failure",
+            "tls handshake timeout",
+            "status code 429",
+            "status code 500",
+            "status code 502",
+            "status code 503",
+            "status code 504"
+        ]
+        if processOutputBuffer.contains("failed to create tunnel"),
+           transientFailureMarkers.contains(where: processOutputBuffer.contains) {
+            currentFailureAllowsExtendedRetry = true
         }
 
         let isUnsupportedVersion = processOutputBuffer.contains("this instatunnel cli version is no longer supported for anonymous tunnels")
