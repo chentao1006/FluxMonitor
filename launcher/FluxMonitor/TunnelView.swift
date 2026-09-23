@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import Darwin
 
 // MARK: - Cloudflare Tunnel Implementation
 
@@ -60,6 +61,11 @@ class InstaTunnelDownloader: ObservableObject {
         if size < 1024 { 
             appendLog("Checking installation: file too small (\(size) bytes)\n")
             return false 
+        }
+
+        guard binarySupportsNativeArchitecture(at: path) else {
+            appendLog("Checking installation: binary does not support native \(instaTunnelArchitecture()) architecture\n")
+            return false
         }
         
         _ = fixPermissions(at: path)
@@ -139,11 +145,59 @@ class InstaTunnelDownloader: ObservableObject {
     }
 
     private func instaTunnelArchitecture() -> String {
-        #if arch(arm64)
-        return "arm64"
-        #else
+        var supportsARM64: Int32 = 0
+        var valueSize = MemoryLayout<Int32>.size
+        if sysctlbyname("hw.optional.arm64", &supportsARM64, &valueSize, nil, 0) == 0,
+           supportsARM64 == 1 {
+            return "arm64"
+        }
+
         return "amd64"
-        #endif
+    }
+
+    private func binarySupportsNativeArchitecture(at path: String) -> Bool {
+        guard let file = try? FileHandle(forReadingFrom: URL(fileURLWithPath: path)) else { return false }
+        defer { try? file.close() }
+
+        guard let data = try? file.read(upToCount: 4096), data.count >= 8 else { return false }
+        let bytes = [UInt8](data)
+        let expectedCPUType: UInt32 = instaTunnelArchitecture() == "arm64" ? 0x0100000c : 0x01000007
+
+        func uint32(at offset: Int, bigEndian: Bool) -> UInt32? {
+            guard offset >= 0, offset + 4 <= bytes.count else { return nil }
+            if bigEndian {
+                return (UInt32(bytes[offset]) << 24)
+                    | (UInt32(bytes[offset + 1]) << 16)
+                    | (UInt32(bytes[offset + 2]) << 8)
+                    | UInt32(bytes[offset + 3])
+            }
+            return UInt32(bytes[offset])
+                | (UInt32(bytes[offset + 1]) << 8)
+                | (UInt32(bytes[offset + 2]) << 16)
+                | (UInt32(bytes[offset + 3]) << 24)
+        }
+
+        let littleEndianMagic = uint32(at: 0, bigEndian: false)
+        switch littleEndianMagic {
+        case 0xfeedface, 0xfeedfacf:
+            return uint32(at: 4, bigEndian: false) == expectedCPUType
+        case 0xcefaedfe, 0xcffaedfe:
+            return uint32(at: 4, bigEndian: true) == expectedCPUType
+        default:
+            break
+        }
+
+        let bigEndianMagic = uint32(at: 0, bigEndian: true)
+        guard bigEndianMagic == 0xcafebabe || bigEndianMagic == 0xcafebabf,
+              let architectureCount = uint32(at: 4, bigEndian: true) else { return false }
+
+        let recordSize = bigEndianMagic == 0xcafebabf ? 32 : 20
+        for index in 0..<Int(architectureCount) {
+            if uint32(at: 8 + index * recordSize, bigEndian: true) == expectedCPUType {
+                return true
+            }
+        }
+        return false
     }
     
     fileprivate func handleDownloadFinish(localURL: URL) {
@@ -155,21 +209,29 @@ class InstaTunnelDownloader: ObservableObject {
         let destinationURL = URL(fileURLWithPath: self.localInstaTunnelPath)
         
         do {
+            guard binarySupportsNativeArchitecture(at: localURL.path) else {
+                try? FileManager.default.removeItem(at: localURL)
+                handleDownloadError("Downloaded binary does not support native \(instaTunnelArchitecture()) architecture")
+                return
+            }
+
+            guard fixPermissions(at: localURL.path) else {
+                try? FileManager.default.removeItem(at: localURL)
+                handleDownloadError("Failed to fix permissions for binary")
+                return
+            }
+
             if FileManager.default.fileExists(atPath: destinationURL.path) {
                 try? FileManager.default.removeItem(at: destinationURL)
             }
             try FileManager.default.moveItem(at: localURL, to: destinationURL)
             
-            if fixPermissions(at: destinationURL.path) {
-                appendLog("Binary moved and permissions fixed: \(destinationURL.path)\n")
-                DispatchQueue.main.async {
-                    self.status = .completed
-                    AptabaseTracker.shared.trackEvent("公网更新")
-                    self.completion?(true)
-                    self.completion = nil
-                }
-            } else {
-                handleDownloadError("Failed to fix permissions for binary")
+            appendLog("Binary architecture verified and installation completed: \(destinationURL.path)\n")
+            DispatchQueue.main.async {
+                self.status = .completed
+                AptabaseTracker.shared.trackEvent("公网更新")
+                self.completion?(true)
+                self.completion = nil
             }
         } catch {
             handleDownloadError("Move error: \(error.localizedDescription)")
@@ -270,8 +332,10 @@ class TunnelManager: ObservableObject {
     private var retryWorkItem: DispatchWorkItem?
     private var processOutputBuffer = ""
     private var didAttemptAutomaticUpdate = false
+    private var didAttemptArchitectureRepair = false
     private var isAutomaticallyUpdating = false
     private weak var processBeingReplaced: Process?
+    private var pendingStartPort: Int?
     
     private var lastStartPort: Int = 4210
     private var restartTimer: Timer?
@@ -299,6 +363,7 @@ class TunnelManager: ObservableObject {
         retryCount = 0
         isRetrying = false
         didAttemptAutomaticUpdate = false
+        didAttemptArchitectureRepair = false
         startInstalledTunnel(port: port)
     }
 
@@ -346,6 +411,13 @@ class TunnelManager: ObservableObject {
     private func launchProcess(binaryPath: String, port: Int) {
         let executableURL = URL(fileURLWithPath: binaryPath)
         processOutputBuffer = ""
+
+        if let currentProcess = process, currentProcess.isRunning {
+            pendingStartPort = port
+            appendLog("Waiting for the previous InstaTunnel process to stop before restarting...\n")
+            terminateProcess(currentProcess)
+            return
+        }
         
         DispatchQueue.main.async {
             self.status = .starting
@@ -390,12 +462,18 @@ class TunnelManager: ObservableObject {
                     if self.process === p {
                         self.process = nil
                     }
+                    self.resumePendingStartIfNeeded()
                     return
                 }
 
                 // Ignore callbacks from a process that has already been superseded.
                 guard self.process === p else { return }
                 self.process = nil
+
+                if self.pendingStartPort != nil {
+                    self.resumePendingStartIfNeeded()
+                    return
+                }
                 
                 // If already stopped manually, don't trigger retry or update status to error
                 if self.status == .stopped { return }
@@ -419,6 +497,13 @@ class TunnelManager: ObservableObject {
             try process.run()
         } catch {
             DispatchQueue.main.async {
+                if self.isBadCPUTypeError(error), !self.didAttemptArchitectureRepair {
+                    self.didAttemptArchitectureRepair = true
+                    self.process = nil
+                    self.repairIncompatibleBinary(port: port)
+                    return
+                }
+
                 let msg = error.localizedDescription
                 self.appendLog("[ERROR] Failed to start InstaTunnel: \(msg)\n")
                 self.status = .error(msg)
@@ -451,8 +536,12 @@ class TunnelManager: ObservableObject {
     func stop() {
         retryWorkItem?.cancel()
         retryWorkItem = nil
-        process?.terminate()
-        process = nil
+        pendingStartPort = nil
+        if let currentProcess = process, currentProcess.isRunning {
+            terminateProcess(currentProcess)
+        } else {
+            process = nil
+        }
         status = .stopped
         isRetrying = false
         retryCount = 0
@@ -465,6 +554,55 @@ class TunnelManager: ObservableObject {
         
         // Disconnect MQTT
         MQTTRemoteSync.shared.disconnect()
+    }
+
+    private func terminateProcess(_ target: Process) {
+        target.terminate()
+        let pid = target.processIdentifier
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2.0) {
+            if target.isRunning {
+                Darwin.kill(pid, SIGKILL)
+            }
+        }
+    }
+
+    private func resumePendingStartIfNeeded() {
+        guard let port = pendingStartPort else { return }
+        pendingStartPort = nil
+        status = .stopped
+        isRetrying = true
+        startInstalledTunnel(port: port)
+    }
+
+    private func isBadCPUTypeError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(EBADARCH) {
+            return true
+        }
+        if let underlyingError = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+            return isBadCPUTypeError(underlyingError)
+        }
+        return false
+    }
+
+    private func repairIncompatibleBinary(port: Int) {
+        appendLog("InstaTunnel could not run on this CPU. Reinstalling the native binary...\n")
+        status = .starting
+
+        InstaTunnelDownloader.shared.downloadInstaTunnel { [weak self] success in
+            guard let self = self else { return }
+            if success {
+                self.appendLog("Native InstaTunnel binary installed. Restarting tunnel...\n")
+                self.status = .stopped
+                self.isRetrying = true
+                self.startInstalledTunnel(port: port)
+            } else {
+                self.isRetrying = false
+                let message = "Automatic InstaTunnel architecture repair failed"
+                self.status = .error(message)
+                self.appendLog("[ERROR] \(message).\n")
+            }
+        }
     }
     
     func restart() {
