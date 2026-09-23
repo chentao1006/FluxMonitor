@@ -267,6 +267,11 @@ class TunnelManager: ObservableObject {
     private var retryCount = 0
     private let maxRetries = 10
     private var isRetrying = false
+    private var retryWorkItem: DispatchWorkItem?
+    private var processOutputBuffer = ""
+    private var didAttemptAutomaticUpdate = false
+    private var isAutomaticallyUpdating = false
+    private weak var processBeingReplaced: Process?
     
     private var lastStartPort: Int = 4210
     private var restartTimer: Timer?
@@ -289,6 +294,15 @@ class TunnelManager: ObservableObject {
     }
     
     func start(port: Int) {
+        retryWorkItem?.cancel()
+        retryWorkItem = nil
+        retryCount = 0
+        isRetrying = false
+        didAttemptAutomaticUpdate = false
+        startInstalledTunnel(port: port)
+    }
+
+    private func startInstalledTunnel(port: Int) {
         self.lastStartPort = port
         
         if logs.isEmpty { appendLog("Starting InstaTunnel...\n") }
@@ -331,6 +345,7 @@ class TunnelManager: ObservableObject {
     
     private func launchProcess(binaryPath: String, port: Int) {
         let executableURL = URL(fileURLWithPath: binaryPath)
+        processOutputBuffer = ""
         
         DispatchQueue.main.async {
             self.status = .starting
@@ -352,7 +367,7 @@ class TunnelManager: ObservableObject {
         let env = ProcessInfo.processInfo.environment
         process.environment = env
         
-        var args = [String(port)]
+        let args = [String(port)]
         process.arguments = args
         
         
@@ -361,18 +376,34 @@ class TunnelManager: ObservableObject {
         process.standardOutput = outPipe
         process.standardError = errPipe
         
-        setupPipeReader(outPipe)
-        setupPipeReader(errPipe)
+        setupPipeReader(outPipe, process: process)
+        setupPipeReader(errPipe, process: process)
         
         process.terminationHandler = { [weak self] p in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 let exitStatus = p.terminationStatus
-                self.process = nil
                 self.appendLog("Process terminated with exit code: \(exitStatus)\n")
+
+                if self.processBeingReplaced === p {
+                    self.processBeingReplaced = nil
+                    if self.process === p {
+                        self.process = nil
+                    }
+                    return
+                }
+
+                // Ignore callbacks from a process that has already been superseded.
+                guard self.process === p else { return }
+                self.process = nil
                 
                 // If already stopped manually, don't trigger retry or update status to error
                 if self.status == .stopped { return }
+
+                if self.status.isRunning {
+                    ICloudManager.shared.syncServer(url: nil, isOffline: true)
+                    MQTTRemoteSync.shared.disconnect()
+                }
                 
                 if exitStatus != 0 {
                     self.status = .error("Exit code \(exitStatus)")
@@ -405,17 +436,26 @@ class TunnelManager: ObservableObject {
         
         retryCount += 1
         isRetrying = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+
+        retryWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.retryWorkItem = nil
             self.appendLog("Retrying (\(self.retryCount)/\(self.maxRetries))...\n")
-            self.start(port: port)
+            self.startInstalledTunnel(port: port)
         }
+        retryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: workItem)
     }
     
     func stop() {
+        retryWorkItem?.cancel()
+        retryWorkItem = nil
         process?.terminate()
         process = nil
         status = .stopped
+        isRetrying = false
+        retryCount = 0
         
         restartTimer?.invalidate()
         restartTimer = nil
@@ -445,19 +485,72 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    private func setupPipeReader(_ pipe: Pipe) {
+    private func setupPipeReader(_ pipe: Pipe, process: Process) {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
+            if data.isEmpty {
+                handle.readabilityHandler = nil
+                return
+            }
             if let str = String(data: data, encoding: .utf8), !str.isEmpty {
                 DispatchQueue.main.async {
                     self?.appendLog(str)
-                    self?.parseUrl(from: str)
+                    self?.parseProcessOutput(str, from: process)
                 }
             }
         }
     }
-    
-    private func parseUrl(from text: String) {
+
+    private func parseProcessOutput(_ text: String, from process: Process) {
+        // The termination callback and final stderr chunk can reach the main queue
+        // in either order. Accept the chunk while this process is current, or while
+        // its delayed retry is still pending.
+        guard self.process === process || (self.process == nil && retryWorkItem != nil) else { return }
+
+        processOutputBuffer.append(text.lowercased())
+        if processOutputBuffer.count > 8192 {
+            processOutputBuffer = String(processOutputBuffer.suffix(8192))
+        }
+
+        let isUnsupportedVersion = processOutputBuffer.contains("this instatunnel cli version is no longer supported for anonymous tunnels")
+            || (processOutputBuffer.contains("\"required_version\"") && processOutputBuffer.contains("\"update_command\""))
+        if isUnsupportedVersion {
+            updateUnsupportedInstaTunnel(replacing: process)
+            return
+        }
+
+        parseTunnelEvents(from: processOutputBuffer)
+    }
+
+    private func updateUnsupportedInstaTunnel(replacing staleProcess: Process) {
+        guard !isAutomaticallyUpdating, !didAttemptAutomaticUpdate else { return }
+
+        didAttemptAutomaticUpdate = true
+        isAutomaticallyUpdating = true
+        retryWorkItem?.cancel()
+        retryWorkItem = nil
+        processBeingReplaced = staleProcess
+        appendLog("Installed InstaTunnel version is no longer supported. Downloading the latest version automatically...\n")
+        staleProcess.terminate()
+
+        InstaTunnelDownloader.shared.downloadInstaTunnel { [weak self] success in
+            guard let self = self else { return }
+            self.isAutomaticallyUpdating = false
+
+            if success {
+                self.appendLog("InstaTunnel update completed. Restarting tunnel...\n")
+                self.status = .stopped
+                self.isRetrying = true
+                self.startInstalledTunnel(port: self.lastStartPort)
+            } else {
+                self.isRetrying = false
+                self.status = .error("Automatic InstaTunnel update failed")
+                self.appendLog("[ERROR] Automatic InstaTunnel update failed.\n")
+            }
+        }
+    }
+
+    private func parseTunnelEvents(from text: String) {
         if text.contains("subdomain already taken") {
             DispatchQueue.main.async {
                 self.appendLog("Subdomain already taken. Will retry in 2 seconds...\n")
@@ -468,27 +561,41 @@ class TunnelManager: ObservableObject {
             }
             return
         }
-        
-        let range = NSRange(text.startIndex..., in: text)
-        if let match = urlRegex.firstMatch(in: text, options: [], range: range) {
-            // First capture group is the URL
-            if match.numberOfRanges > 1, let urlRange = Range(match.range(at: 1), in: text) {
-                let url = String(text[urlRange])
-                if case .starting = self.status {
-                    self.status = .running(url: url)
-                    self.retryCount = 0
-                    self.isRetrying = false
-                    
-                    // Sync to iCloud
-                    ICloudManager.shared.syncServer(url: url, isOffline: false)
-                    
-                    // Publish to MQTT for cross-network remote access
-                    MQTTRemoteSync.shared.publishURL(url)
-                    
-                    // Schedule 24h restart
-                    self.scheduleRestart()
-                }
-            }
+
+        // Errors and help output also contain URLs such as api.instatunnel.my.
+        // Only a URL on the CLI's explicit success line represents a live tunnel.
+        let successLine = text.components(separatedBy: .newlines).first { line in
+            line.contains("your app is now live at")
+                || line.contains("tunnel created:")
+                || line.contains("public url:")
+                || line.contains("tunnel url:")
+        }
+        guard let successLine else { return }
+
+        let range = NSRange(successLine.startIndex..., in: successLine)
+        guard let match = urlRegex.firstMatch(in: successLine, options: [], range: range),
+              match.numberOfRanges > 1,
+              let urlRange = Range(match.range(at: 1), in: successLine) else { return }
+
+        let url = String(successLine[urlRange])
+        guard let host = URL(string: url)?.host,
+              host != "api.instatunnel.my",
+              host.hasSuffix(".instatunnel.my") else { return }
+
+        if case .starting = self.status {
+            self.status = .running(url: url)
+            self.retryCount = 0
+            self.isRetrying = false
+            self.didAttemptAutomaticUpdate = false
+
+            // Sync to iCloud
+            ICloudManager.shared.syncServer(url: url, isOffline: false)
+
+            // Publish to MQTT for cross-network remote access
+            MQTTRemoteSync.shared.publishURL(url)
+
+            // Schedule 24h restart
+            self.scheduleRestart()
         }
     }
     
