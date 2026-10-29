@@ -340,6 +340,10 @@ class TunnelManager: ObservableObject {
     
     private var lastStartPort: Int = 4210
     private var restartTimer: Timer?
+    private var healthCheckTimer: Timer?
+    private var consecutiveHealthCheckFailures = 0
+    private let healthCheckInterval: TimeInterval = 60
+    private let healthCheckFailureThreshold = 3
     
     private let urlRegex = try! NSRegularExpression(pattern: #"(https:\/\/[a-zA-Z0-9\-\.]+\.instatunnel\.my)"#, options: [])
     
@@ -356,12 +360,15 @@ class TunnelManager: ObservableObject {
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             self.stop()
         }
+
+        startHealthMonitoring()
     }
     
     func start(port: Int) {
         retryWorkItem?.cancel()
         retryWorkItem = nil
         retryCount = 0
+        consecutiveHealthCheckFailures = 0
         isRetrying = false
         didAttemptAutomaticUpdate = false
         didAttemptArchitectureRepair = false
@@ -651,6 +658,79 @@ class TunnelManager: ObservableObject {
             self?.restart()
         }
     }
+
+    private func startHealthMonitoring() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: healthCheckInterval, repeats: true) { [weak self] _ in
+            self?.checkTunnelHealthIfNeeded()
+        }
+    }
+
+    private func checkTunnelHealthIfNeeded() {
+        guard UserDefaults.standard.bool(forKey: "autoStartTunnel"),
+              ProcessManager.shared.isRunning else {
+            consecutiveHealthCheckFailures = 0
+            return
+        }
+
+        switch status {
+        case .stopped, .error:
+            appendLog("Automatic public access check found the tunnel stopped. Restarting...\n")
+            start(port: configuredPort)
+
+        case .starting:
+            // Active retries and updates already own their recovery schedule. A starting
+            // state without any of those means the process disappeared unexpectedly.
+            if process == nil && retryWorkItem == nil && !isAutomaticallyUpdating {
+                appendLog("Automatic public access check found the tunnel unavailable. Restarting...\n")
+                start(port: configuredPort)
+            }
+
+        case .running(let url):
+            guard process?.isRunning == true else {
+                appendLog("Automatic public access check found the tunnel process closed. Restarting...\n")
+                status = .stopped
+                start(port: configuredPort)
+                return
+            }
+            checkPublicURL(url)
+        }
+    }
+
+    private var configuredPort: Int {
+        let port = UserDefaults.standard.integer(forKey: "port")
+        return port != 0 ? port : lastStartPort
+    }
+
+    private func checkPublicURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 10
+
+        URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+            DispatchQueue.main.async {
+                guard let self = self,
+                      UserDefaults.standard.bool(forKey: "autoStartTunnel"),
+                      case .running(let currentURL) = self.status,
+                      currentURL == urlString else { return }
+
+                if response != nil {
+                    self.consecutiveHealthCheckFailures = 0
+                    return
+                }
+
+                self.consecutiveHealthCheckFailures += 1
+                guard self.consecutiveHealthCheckFailures >= self.healthCheckFailureThreshold else { return }
+
+                self.consecutiveHealthCheckFailures = 0
+                let detail = error?.localizedDescription ?? "no response"
+                self.appendLog("Public URL health check failed repeatedly (\(detail)). Restarting tunnel...\n")
+                self.restart()
+            }
+        }.resume()
+    }
     
     private func setupPipeReader(_ pipe: Pipe, process: Process) {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
@@ -772,6 +852,7 @@ class TunnelManager: ObservableObject {
         if case .starting = self.status {
             self.status = .running(url: url)
             self.retryCount = 0
+            self.consecutiveHealthCheckFailures = 0
             self.isRetrying = false
             self.didAttemptAutomaticUpdate = false
 
