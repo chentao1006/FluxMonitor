@@ -344,6 +344,7 @@ class TunnelManager: ObservableObject {
     private var restartTimer: Timer?
     private var healthCheckTimer: Timer?
     private var consecutiveHealthCheckFailures = 0
+    private var consecutiveStartingChecks = 0
     private let healthCheckInterval: TimeInterval = 60
     private let healthCheckFailureThreshold = 3
 
@@ -380,6 +381,7 @@ class TunnelManager: ObservableObject {
         retryWorkItem = nil
         retryCount = 0
         consecutiveHealthCheckFailures = 0
+        consecutiveStartingChecks = 0
         isRetrying = false
         didAttemptAutomaticUpdate = false
         didAttemptArchitectureRepair = false
@@ -746,6 +748,7 @@ class TunnelManager: ObservableObject {
         guard UserDefaults.standard.bool(forKey: "autoStartTunnel"),
               ProcessManager.shared.isRunning else {
             consecutiveHealthCheckFailures = 0
+            consecutiveStartingChecks = 0
             return
         }
 
@@ -760,6 +763,14 @@ class TunnelManager: ObservableObject {
             if process == nil && retryWorkItem == nil && !isAutomaticallyUpdating {
                 appendLog("Automatic public access check found the tunnel unavailable. Restarting...\n")
                 start(port: configuredPort)
+            } else if process?.isRunning == true && retryWorkItem == nil && !isAutomaticallyUpdating {
+                // The CLI is alive but never reported a public URL.
+                consecutiveStartingChecks += 1
+                if consecutiveStartingChecks >= healthCheckFailureThreshold {
+                    consecutiveStartingChecks = 0
+                    appendLog("Tunnel has been starting for too long without a public URL. Restarting...\n")
+                    restart()
+                }
             }
 
         case .running(let url):
@@ -909,6 +920,14 @@ class TunnelManager: ObservableObject {
             return
         }
 
+        // `connect` never prints the full public URL ("Connecting to existing tunnel:
+        // xxx.instatunnel.my"), so rebuild it from the subdomain once connected.
+        if let reconnectSubdomain = currentLaunchSubdomain,
+           text.contains("tunnel connected and ready") {
+            markTunnelRunning(url: "https://\(reconnectSubdomain).instatunnel.my")
+            return
+        }
+
         // Errors and help output also contain URLs such as api.instatunnel.my.
         // Only a URL on the CLI's explicit success line represents a live tunnel.
         let successLine = text.components(separatedBy: .newlines).first { line in
@@ -930,10 +949,17 @@ class TunnelManager: ObservableObject {
               host != "api.instatunnel.my",
               host.hasSuffix(".instatunnel.my") else { return }
 
+        markTunnelRunning(url: url)
+    }
+
+    private func markTunnelRunning(url: String) {
+        guard let host = URL(string: url)?.host else { return }
+
         if case .starting = self.status {
             self.status = .running(url: url)
             self.retryCount = 0
             self.consecutiveHealthCheckFailures = 0
+            self.consecutiveStartingChecks = 0
             self.isRetrying = false
             self.didAttemptAutomaticUpdate = false
 
