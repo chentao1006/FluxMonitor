@@ -60,7 +60,7 @@ struct MainView: View {
                 }
                 .tag(3)
         }
-        .frame(minWidth: 600, minHeight: 450)
+        .frame(minWidth: 600, minHeight: 588)
         .padding()
         .overlay {
             if installer.status != .idle && installer.status != .completed {

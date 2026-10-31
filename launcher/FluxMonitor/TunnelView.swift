@@ -1234,7 +1234,7 @@ struct TunnelView: View {
             }
             
             TunnelLogViewer(logs: tunnelManager.logs)
-                .frame(minHeight: 150, maxHeight: .infinity)
+                .frame(minHeight: 120, maxHeight: .infinity)
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)

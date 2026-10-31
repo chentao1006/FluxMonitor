@@ -200,7 +200,30 @@ class ICloudAPIKeySync: NSObject, NSFilePresenter {
         NSFileCoordinator.removeFilePresenter(self)
     }
 
+    private var metadataQuery: NSMetadataQuery?
+
     func start() {
+        pull()
+        startMetadataQuery()
+    }
+
+    // NSFilePresenter is not reliably notified when a file that did not exist at
+    // registration arrives from iCloud, and the first copy may still be an
+    // undownloaded placeholder. A metadata query reports both arrival and download.
+    private func startMetadataQuery() {
+        guard metadataQuery == nil else { return }
+        let query = NSMetadataQuery()
+        query.searchScopes = [NSMetadataQueryUbiquitousDataScope]
+        query.predicate = NSPredicate(format: "%K == %@", NSMetadataItemFSNameKey, "instatunnel.json")
+        NotificationCenter.default.addObserver(self, selector: #selector(metadataQueryDidUpdate), name: .NSMetadataQueryDidFinishGathering, object: query)
+        NotificationCenter.default.addObserver(self, selector: #selector(metadataQueryDidUpdate), name: .NSMetadataQueryDidUpdate, object: query)
+        metadataQuery = query
+        query.start()
+    }
+
+    @objc private func metadataQueryDidUpdate(_ notification: Notification) {
+        metadataQuery?.disableUpdates()
+        defer { metadataQuery?.enableUpdates() }
         pull()
     }
 

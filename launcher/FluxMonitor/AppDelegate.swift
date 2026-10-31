@@ -338,11 +338,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if settingsWindow == nil {
             let contentView = MainView()
             settingsWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+                contentRect: NSRect(x: 0, y: 0, width: 640, height: 640),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered, defer: false)
             settingsWindow?.center()
             settingsWindow?.setFrameAutosaveName("MainWindow")
+            // macOS 12 does not derive the window's minimum size from SwiftUI content,
+            // so overflowing tabs would cover the tab bar. Enforce it explicitly,
+            // including for a smaller frame restored from autosave.
+            let minContentSize = NSSize(width: 632, height: 620)
+            settingsWindow?.contentMinSize = minContentSize
+            if let window = settingsWindow {
+                let current = window.contentRect(forFrameRect: window.frame).size
+                if current.width < minContentSize.width || current.height < minContentSize.height {
+                    window.setContentSize(NSSize(
+                        width: max(current.width, minContentSize.width),
+                        height: max(current.height, minContentSize.height)
+                    ))
+                }
+            }
             settingsWindow?.contentView = NSHostingView(rootView: contentView)
             settingsWindow?.titlebarAppearsTransparent = true
             settingsWindow?.title = I18N.shared.t("app_title")
