@@ -165,3 +165,95 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
         }
     }
 }
+
+// MARK: - InstaTunnel API Key Synchronization
+
+// The key lives in the container root rather than Documents, so it is shared
+// between Macs on the same iCloud account without showing up in iCloud Drive.
+class ICloudAPIKeySync: NSObject, NSFilePresenter {
+    static let shared = ICloudAPIKeySync()
+
+    static let apiKeyDefaultsKey = "instaTunnelApiKey"
+    private let updatedAtDefaultsKey = "instaTunnelApiKeyUpdatedAt"
+
+    private struct Payload: Codable {
+        var apiKey: String
+        var updatedAt: Date
+    }
+
+    var presentedItemURL: URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.ct106.flux.shared")?
+            .appendingPathComponent("instatunnel.json")
+    }
+
+    var presentedItemOperationQueue: OperationQueue = .main
+
+    private override init() {
+        super.init()
+        NSFileCoordinator.addFilePresenter(self)
+        NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.pull()
+        }
+    }
+
+    deinit {
+        NSFileCoordinator.removeFilePresenter(self)
+    }
+
+    func start() {
+        pull()
+    }
+
+    // Triggered when iCloud syncs a version from another device
+    func presentedItemDidChange() {
+        pull()
+    }
+
+    func push() {
+        guard let url = presentedItemURL else {
+            TunnelManager.shared.appendLog("[iCloud] \(I18N.shared.t("icloud_unavailable"))\n")
+            return
+        }
+
+        let payload = Payload(
+            apiKey: UserDefaults.standard.string(forKey: Self.apiKeyDefaultsKey) ?? "",
+            updatedAt: Date()
+        )
+        UserDefaults.standard.set(payload.updatedAt, forKey: updatedAtDefaultsKey)
+
+        let coordinator = NSFileCoordinator(filePresenter: self)
+        coordinator.coordinate(writingItemAt: url, options: [], error: nil) { writeURL in
+            if let data = try? JSONEncoder().encode(payload), (try? data.write(to: writeURL)) != nil {
+                TunnelManager.shared.appendLog("[iCloud] InstaTunnel API key synced to iCloud\n")
+            }
+        }
+    }
+
+    private func pull() {
+        guard let url = presentedItemURL else { return }
+        try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+
+        var payload: Payload?
+        let coordinator = NSFileCoordinator(filePresenter: self)
+        coordinator.coordinate(readingItemAt: url, options: [], error: nil) { readURL in
+            if let data = try? Data(contentsOf: readURL) {
+                payload = try? JSONDecoder().decode(Payload.self, from: data)
+            }
+        }
+
+        // Last write wins; ignore our own or older copies.
+        guard let payload else { return }
+        let localUpdatedAt = UserDefaults.standard.object(forKey: updatedAtDefaultsKey) as? Date ?? .distantPast
+        guard payload.updatedAt > localUpdatedAt else { return }
+
+        let changed = payload.apiKey != (UserDefaults.standard.string(forKey: Self.apiKeyDefaultsKey) ?? "")
+        UserDefaults.standard.set(payload.apiKey, forKey: Self.apiKeyDefaultsKey)
+        UserDefaults.standard.set(payload.updatedAt, forKey: updatedAtDefaultsKey)
+
+        if changed {
+            TunnelManager.shared.appendLog("[iCloud] Received InstaTunnel API key from iCloud\n")
+            TunnelManager.shared.applyAPIKeyChange()
+        }
+    }
+}

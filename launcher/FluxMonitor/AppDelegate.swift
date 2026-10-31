@@ -109,6 +109,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let isNodeAvailable = ProcessManager.shared.findNodePath() != nil
         let silentStart = UserDefaults.standard.bool(forKey: "silentStart")
 
+        // Pick up an InstaTunnel API key set on another Mac before the tunnel starts
+        ICloudAPIKeySync.shared.start()
+
         if !isFirstRun && UserDefaults.standard.bool(forKey: "autoStartService") && hasCredentials {
             ProcessManager.shared.start()
             
@@ -378,12 +381,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: i18n.t("quit"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         
-        // Edit Menu (Required for Cmd+C, Cmd+A shortcuts)
+        // Edit Menu (Required for Cmd+Z/X/C/V/A shortcuts in text fields)
         let editMenuItem = NSMenuItem(title: i18n.t("edit"), action: nil, keyEquivalent: "")
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: i18n.t("edit"))
         editMenuItem.submenu = editMenu
+        editMenu.addItem(withTitle: i18n.t("undo"), action: Selector(("undo:")), keyEquivalent: "z")
+        let redoItem = editMenu.addItem(withTitle: i18n.t("redo"), action: Selector(("redo:")), keyEquivalent: "z")
+        redoItem.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(NSMenuItem.separator())
+        editMenu.addItem(withTitle: i18n.t("cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: i18n.t("copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: i18n.t("paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: i18n.t("select_all"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         
         NSApp.mainMenu = mainMenu
