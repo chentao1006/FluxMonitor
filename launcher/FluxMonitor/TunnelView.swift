@@ -332,7 +332,10 @@ class TunnelManager: ObservableObject {
     private var retryWorkItem: DispatchWorkItem?
     private var processOutputBuffer = ""
     private var currentFailureAllowsExtendedRetry = false
+    private var currentFailureIsTunnelLimit = false
     private var currentFailureIsAnonymousLimit = false
+    private var shouldUseAnonymousFallback = false
+    private var currentLaunchUsedAPIKey = false
     private var currentLaunchSubdomain: String?
     private var didAttemptAutomaticUpdate = false
     private var didAttemptArchitectureRepair = false
@@ -353,7 +356,7 @@ class TunnelManager: ObservableObject {
     // to the last tunnel instead of creating a new one whenever it is still valid.
     private let anonymousTunnelLifetime: TimeInterval = 24 * 3600
     private let reusableTunnelMargin: TimeInterval = 3600
-    private let anonymousLimitRetryDelay: TimeInterval = 600
+    private let tunnelLimitRetryDelay: TimeInterval = 600
     private let lastTunnelSubdomainKey = "instaTunnelLastSubdomain"
     private let lastTunnelCreatedAtKey = "instaTunnelLastCreatedAt"
 
@@ -383,6 +386,7 @@ class TunnelManager: ObservableObject {
         consecutiveHealthCheckFailures = 0
         consecutiveStartingChecks = 0
         isRetrying = false
+        shouldUseAnonymousFallback = false
         didAttemptAutomaticUpdate = false
         didAttemptArchitectureRepair = false
         startInstalledTunnel(port: port)
@@ -434,6 +438,7 @@ class TunnelManager: ObservableObject {
         let executableURL = URL(fileURLWithPath: binaryPath)
         processOutputBuffer = ""
         currentFailureAllowsExtendedRetry = false
+        currentFailureIsTunnelLimit = false
         currentFailureIsAnonymousLimit = false
 
         if let currentProcess = process, currentProcess.isRunning {
@@ -475,8 +480,11 @@ class TunnelManager: ObservableObject {
         } else {
             args = [String(port)]
         }
-        if let apiKey = configuredAPIKey {
+        if let apiKey = configuredAPIKey, !shouldUseAnonymousFallback {
             args += ["--api-key", apiKey]
+            currentLaunchUsedAPIKey = true
+        } else {
+            currentLaunchUsedAPIKey = false
         }
         process.arguments = args
         
@@ -523,6 +531,13 @@ class TunnelManager: ObservableObject {
                 }
 
                 if exitStatus != 0 {
+                    let shouldFallbackToAnonymous = self.currentFailureIsTunnelLimit
+                        && !self.currentFailureIsAnonymousLimit
+                        && self.currentLaunchUsedAPIKey
+                    if shouldFallbackToAnonymous {
+                        self.shouldUseAnonymousFallback = true
+                    }
+
                     // A reconnect that was rejected for a non-network reason will not
                     // succeed later either, so fall back to creating a new tunnel.
                     if let reconnectSubdomain, !wasRunning, !self.currentFailureAllowsExtendedRetry {
@@ -535,7 +550,9 @@ class TunnelManager: ObservableObject {
                     self.handleRetry(
                         port: self.lastStartPort,
                         allowExtendedRecovery: self.currentFailureAllowsExtendedRetry,
-                        isAnonymousLimit: self.currentFailureIsAnonymousLimit
+                        isTunnelLimit: self.currentFailureIsTunnelLimit,
+                        isAnonymousLimit: self.currentFailureIsAnonymousLimit,
+                        fallbackToAnonymous: shouldFallbackToAnonymous
                     )
                 } else {
                     self.status = .stopped
@@ -562,8 +579,8 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isAnonymousLimit: Bool = false) {
-        guard retryCount < maxAutomaticRetries || allowExtendedRecovery || isAnonymousLimit else {
+    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, fallbackToAnonymous: Bool = false) {
+        guard retryCount < maxAutomaticRetries || allowExtendedRecovery || isTunnelLimit else {
             self.isRetrying = false
             self.retryCount = 0
             appendLog("Automatic retry limit reached. Start the tunnel again to retry.\n")
@@ -574,11 +591,15 @@ class TunnelManager: ObservableObject {
         isRetrying = true
         status = .starting
 
-        // The anonymous limit only clears when an earlier tunnel expires, so rapid
-        // retries cannot succeed and just keep hitting the server.
-        let delay = isAnonymousLimit ? anonymousLimitRetryDelay : retryDelay(for: retryCount)
-        if isAnonymousLimit {
+        // Tunnel limits require an existing tunnel to be released, so rapid retries
+        // cannot succeed and just keep hitting the server.
+        let delay = fallbackToAnonymous ? 2 : (isTunnelLimit ? tunnelLimitRetryDelay : retryDelay(for: retryCount))
+        if fallbackToAnonymous {
+            appendLog("InstaTunnel account tunnel limit reached. Falling back to an anonymous tunnel...\n")
+        } else if isAnonymousLimit {
             appendLog("Anonymous tunnel limit reached for this network. Earlier tunnels are released when they expire (up to 24 hours). Set an InstaTunnel API key to avoid this limit. Retrying in \(Int(delay / 60)) minutes...\n")
+        } else if isTunnelLimit {
+            appendLog("InstaTunnel account tunnel limit reached. Close an unused active tunnel or increase the account limit. Retrying in \(Int(delay / 60)) minutes...\n")
         } else if retryCount <= maxAutomaticRetries {
             appendLog("Tunnel unavailable. Retrying in \(Int(delay)) seconds (attempt \(retryCount)/\(maxAutomaticRetries))...\n")
         } else {
@@ -864,6 +885,9 @@ class TunnelManager: ObservableObject {
         if processOutputBuffer.contains("failed to create tunnel"),
            transientFailureMarkers.contains(where: processOutputBuffer.contains) {
             currentFailureAllowsExtendedRetry = true
+        }
+        if processOutputBuffer.contains("tunnel limit reached") {
+            currentFailureIsTunnelLimit = true
         }
         if processOutputBuffer.contains("anonymous tunnel limit reached") {
             currentFailureIsAnonymousLimit = true
