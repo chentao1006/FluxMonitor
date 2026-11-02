@@ -331,9 +331,11 @@ class TunnelManager: ObservableObject {
     private var isRetrying = false
     private var retryWorkItem: DispatchWorkItem?
     private var processOutputBuffer = ""
+    private var isSuppressingCLIHelpOutput = false
     private var currentFailureAllowsExtendedRetry = false
     private var currentFailureIsTunnelLimit = false
     private var currentFailureIsAnonymousLimit = false
+    private var currentFailureIsDailyRequestLimit = false
     private var shouldUseAnonymousFallback = false
     private var currentLaunchUsedAPIKey = false
     private var currentLaunchSubdomain: String?
@@ -346,19 +348,26 @@ class TunnelManager: ObservableObject {
     private var lastStartPort: Int = 4210
     private var restartTimer: Timer?
     private var healthCheckTimer: Timer?
+    private var dailyLimitResetTimer: Timer?
     private var consecutiveHealthCheckFailures = 0
     private var consecutiveStartingChecks = 0
+    private var lastPublicHealthCheckAt: Date?
     private let healthCheckInterval: TimeInterval = 60
+    private let publicHealthCheckInterval: TimeInterval = 10 * 60
     private let healthCheckFailureThreshold = 3
 
     // Anonymous tunnels stay registered on the server for 24 hours even after the
     // CLI disconnects, and each one counts toward the per-network limit. Reconnect
     // to the last tunnel instead of creating a new one whenever it is still valid.
     private let anonymousTunnelLifetime: TimeInterval = 24 * 3600
-    private let reusableTunnelMargin: TimeInterval = 3600
+    // Keep reconnecting for the full advertised lifetime. Stopping reuse early
+    // creates a second anonymous tunnel while the first still counts toward the
+    // per-network limit.
+    private let anonymousTunnelExpiryBuffer: TimeInterval = 60
     private let tunnelLimitRetryDelay: TimeInterval = 600
     private let lastTunnelSubdomainKey = "instaTunnelLastSubdomain"
     private let lastTunnelCreatedAtKey = "instaTunnelLastCreatedAt"
+    private let apiKeyDailyLimitResetAtKey = "instaTunnelApiKeyDailyLimitResetAt"
 
     private let urlRegex = try! NSRegularExpression(pattern: #"(https:\/\/[a-zA-Z0-9\-\.]+\.instatunnel\.my)"#, options: [])
     
@@ -377,6 +386,7 @@ class TunnelManager: ObservableObject {
         }
 
         startHealthMonitoring()
+        scheduleAPIKeyDailyLimitResetIfNeeded()
     }
     
     func start(port: Int) {
@@ -385,8 +395,9 @@ class TunnelManager: ObservableObject {
         retryCount = 0
         consecutiveHealthCheckFailures = 0
         consecutiveStartingChecks = 0
+        lastPublicHealthCheckAt = nil
         isRetrying = false
-        shouldUseAnonymousFallback = false
+        shouldUseAnonymousFallback = isAPIKeyDailyLimitActive
         didAttemptAutomaticUpdate = false
         didAttemptArchitectureRepair = false
         startInstalledTunnel(port: port)
@@ -437,9 +448,11 @@ class TunnelManager: ObservableObject {
     private func launchProcess(binaryPath: String, port: Int) {
         let executableURL = URL(fileURLWithPath: binaryPath)
         processOutputBuffer = ""
+        isSuppressingCLIHelpOutput = false
         currentFailureAllowsExtendedRetry = false
         currentFailureIsTunnelLimit = false
         currentFailureIsAnonymousLimit = false
+        currentFailureIsDailyRequestLimit = false
 
         if let currentProcess = process, currentProcess.isRunning {
             pendingStartPort = port
@@ -531,11 +544,21 @@ class TunnelManager: ObservableObject {
                 }
 
                 if exitStatus != 0 {
-                    let shouldFallbackToAnonymous = self.currentFailureIsTunnelLimit
-                        && !self.currentFailureIsAnonymousLimit
+                    if self.currentFailureIsDailyRequestLimit && self.currentLaunchUsedAPIKey {
+                        self.rememberAPIKeyDailyLimit()
+                    }
+
+                    let dailyLimitRequiresAnonymous = self.currentFailureIsDailyRequestLimit
                         && self.currentLaunchUsedAPIKey
-                    if shouldFallbackToAnonymous {
-                        self.shouldUseAnonymousFallback = true
+                    let canAlternateTunnelMode = self.currentFailureIsTunnelLimit
+                        && self.configuredAPIKey != nil
+                        && !self.isAPIKeyDailyLimitActive
+                    let switchingToAnonymous = (canAlternateTunnelMode
+                        && self.currentLaunchUsedAPIKey) || dailyLimitRequiresAnonymous
+                    let switchingBackToAPIKey = canAlternateTunnelMode
+                        && !self.currentLaunchUsedAPIKey
+                    if canAlternateTunnelMode || dailyLimitRequiresAnonymous {
+                        self.shouldUseAnonymousFallback = switchingToAnonymous
                     }
 
                     // A reconnect that was rejected for a non-network reason will not
@@ -552,7 +575,9 @@ class TunnelManager: ObservableObject {
                         allowExtendedRecovery: self.currentFailureAllowsExtendedRetry,
                         isTunnelLimit: self.currentFailureIsTunnelLimit,
                         isAnonymousLimit: self.currentFailureIsAnonymousLimit,
-                        fallbackToAnonymous: shouldFallbackToAnonymous
+                        isDailyRequestLimit: self.currentFailureIsDailyRequestLimit,
+                        switchingToAnonymous: switchingToAnonymous,
+                        switchingBackToAPIKey: switchingBackToAPIKey
                     )
                 } else {
                     self.status = .stopped
@@ -579,8 +604,8 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, fallbackToAnonymous: Bool = false) {
-        guard retryCount < maxAutomaticRetries || allowExtendedRecovery || isTunnelLimit else {
+    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, isDailyRequestLimit: Bool = false, switchingToAnonymous: Bool = false, switchingBackToAPIKey: Bool = false) {
+        guard retryCount < maxAutomaticRetries || allowExtendedRecovery || isTunnelLimit || isDailyRequestLimit else {
             self.isRetrying = false
             self.retryCount = 0
             appendLog("Automatic retry limit reached. Start the tunnel again to retry.\n")
@@ -593,9 +618,13 @@ class TunnelManager: ObservableObject {
 
         // Tunnel limits require an existing tunnel to be released, so rapid retries
         // cannot succeed and just keep hitting the server.
-        let delay = fallbackToAnonymous ? 2 : (isTunnelLimit ? tunnelLimitRetryDelay : retryDelay(for: retryCount))
-        if fallbackToAnonymous {
-            appendLog("InstaTunnel account tunnel limit reached. Falling back to an anonymous tunnel...\n")
+        let delay = switchingToAnonymous ? 2 : (isTunnelLimit ? tunnelLimitRetryDelay : retryDelay(for: retryCount))
+        if isDailyRequestLimit && switchingToAnonymous {
+            appendLog("InstaTunnel API key daily request limit reached. Trying an anonymous tunnel until the limit resets...\n")
+        } else if switchingToAnonymous {
+            appendLog("InstaTunnel account tunnel limit reached. Trying an anonymous tunnel...\n")
+        } else if switchingBackToAPIKey {
+            appendLog("Anonymous tunnel limit reached. Retrying with the configured API key in \(Int(delay / 60)) minutes...\n")
         } else if isAnonymousLimit {
             appendLog("Anonymous tunnel limit reached for this network. Earlier tunnels are released when they expire (up to 24 hours). Set an InstaTunnel API key to avoid this limit. Retrying in \(Int(delay / 60)) minutes...\n")
         } else if isTunnelLimit {
@@ -713,13 +742,13 @@ class TunnelManager: ObservableObject {
     
     private func scheduleRestart() {
         restartTimer?.invalidate()
-        // Anonymous sessions expire 24 hours after creation, which may be earlier
-        // than now when this tunnel was reconnected. Restart 10 minutes before that.
+        // Anonymous sessions still count toward the per-network limit until they
+        // expire. Restart just after expiry so we never overlap two registrations.
         let createdAt = UserDefaults.standard.object(forKey: lastTunnelCreatedAtKey) as? Date ?? Date()
-        let expiresAt = createdAt.addingTimeInterval(anonymousTunnelLifetime - 600)
+        let expiresAt = createdAt.addingTimeInterval(anonymousTunnelLifetime + anonymousTunnelExpiryBuffer)
         let interval = max(60, expiresAt.timeIntervalSinceNow)
         restartTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
-            self?.appendLog("Anonymous session will expire soon. Triggering auto-restart...\n")
+            self?.appendLog("Anonymous session has expired. Triggering auto-restart...\n")
             self?.restart()
         }
     }
@@ -728,6 +757,46 @@ class TunnelManager: ObservableObject {
         let key = (UserDefaults.standard.string(forKey: ICloudAPIKeySync.apiKeyDefaultsKey) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return key.isEmpty ? nil : key
+    }
+
+    private var isAPIKeyDailyLimitActive: Bool {
+        guard let resetAt = UserDefaults.standard.object(forKey: apiKeyDailyLimitResetAtKey) as? Date else {
+            return false
+        }
+        if resetAt > Date() {
+            return true
+        }
+        UserDefaults.standard.removeObject(forKey: apiKeyDailyLimitResetAtKey)
+        return false
+    }
+
+    private func rememberAPIKeyDailyLimit() {
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(24 * 3600)
+        let resetAt = calendar.startOfDay(for: tomorrow).addingTimeInterval(5 * 60)
+        UserDefaults.standard.set(resetAt, forKey: apiKeyDailyLimitResetAtKey)
+        scheduleAPIKeyDailyLimitResetIfNeeded()
+    }
+
+    private func scheduleAPIKeyDailyLimitResetIfNeeded() {
+        dailyLimitResetTimer?.invalidate()
+        dailyLimitResetTimer = nil
+
+        guard let resetAt = UserDefaults.standard.object(forKey: apiKeyDailyLimitResetAtKey) as? Date,
+              resetAt > Date() else { return }
+
+        dailyLimitResetTimer = Timer.scheduledTimer(withTimeInterval: resetAt.timeIntervalSinceNow, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            UserDefaults.standard.removeObject(forKey: self.apiKeyDailyLimitResetAtKey)
+            self.shouldUseAnonymousFallback = false
+            self.appendLog("InstaTunnel API key daily request limit window has reset. Returning to API key mode...\n")
+            if self.configuredAPIKey != nil,
+               !self.currentLaunchUsedAPIKey,
+               UserDefaults.standard.bool(forKey: "autoStartTunnel"),
+               self.status != .stopped {
+                self.restart()
+            }
+        }
     }
 
     func applyAPIKeyChange() {
@@ -744,7 +813,7 @@ class TunnelManager: ObservableObject {
         let defaults = UserDefaults.standard
         guard let subdomain = defaults.string(forKey: lastTunnelSubdomainKey),
               let createdAt = defaults.object(forKey: lastTunnelCreatedAtKey) as? Date,
-              Date().timeIntervalSince(createdAt) < anonymousTunnelLifetime - reusableTunnelMargin else { return nil }
+              Date().timeIntervalSince(createdAt) < anonymousTunnelLifetime else { return nil }
         return subdomain
     }
 
@@ -801,7 +870,11 @@ class TunnelManager: ObservableObject {
                 start(port: configuredPort)
                 return
             }
-            checkPublicURL(url)
+            let now = Date()
+            if lastPublicHealthCheckAt.map({ now.timeIntervalSince($0) >= publicHealthCheckInterval }) ?? true {
+                lastPublicHealthCheckAt = now
+                checkPublicURL(url)
+            }
         }
     }
 
@@ -849,11 +922,27 @@ class TunnelManager: ObservableObject {
             }
             if let str = String(data: data, encoding: .utf8), !str.isEmpty {
                 DispatchQueue.main.async {
-                    self?.appendLog(str)
-                    self?.parseProcessOutput(str, from: process)
+                    guard let self else { return }
+                    let visibleOutput = self.outputWithoutCLIHelp(str)
+                    self.appendLog(visibleOutput)
+                    self.parseProcessOutput(str, from: process)
                 }
             }
         }
+    }
+
+    private func outputWithoutCLIHelp(_ text: String) -> String {
+        guard !isSuppressingCLIHelpOutput else { return "" }
+
+        let pattern = #"(?m)^Usage:\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range, in: text) else {
+            return text
+        }
+
+        isSuppressingCLIHelpOutput = true
+        return String(text[..<range.lowerBound])
     }
 
     private func parseProcessOutput(_ text: String, from process: Process) {
@@ -891,6 +980,9 @@ class TunnelManager: ObservableObject {
         }
         if processOutputBuffer.contains("anonymous tunnel limit reached") {
             currentFailureIsAnonymousLimit = true
+        }
+        if processOutputBuffer.contains("daily request limit exceeded") {
+            currentFailureIsDailyRequestLimit = true
         }
 
         let isUnsupportedVersion = processOutputBuffer.contains("this instatunnel cli version is no longer supported for anonymous tunnels")
