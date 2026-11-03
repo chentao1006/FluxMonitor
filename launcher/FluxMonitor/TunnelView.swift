@@ -464,20 +464,6 @@ class TunnelManager: ObservableObject {
         let reconnectSubdomain = reusableSubdomain
         currentLaunchSubdomain = reconnectSubdomain
 
-        DispatchQueue.main.async {
-            self.status = .starting
-            // Removed: self.logs = "" - Don't clear logs on restart
-            self.appendLog("Starting InstaTunnel from: \(executableURL.path)\n")
-            if let reconnectSubdomain {
-                self.appendLog("Reconnecting to existing tunnel: \(reconnectSubdomain)\n")
-            }
-
-            let fm = FileManager.default
-            if !fm.fileExists(atPath: executableURL.path) {
-                self.appendLog("[ERROR] Binary not found at path: \(executableURL.path)\n")
-            }
-        }
-        
         let process = Process()
         self.process = process
         process.executableURL = executableURL
@@ -500,6 +486,29 @@ class TunnelManager: ObservableObject {
             currentLaunchUsedAPIKey = false
         }
         process.arguments = args
+
+        let authenticationMessage: String
+        if currentLaunchUsedAPIKey {
+            authenticationMessage = "Authentication mode: API key (using the saved key).\n"
+        } else if configuredAPIKey != nil && shouldUseAnonymousFallback {
+            authenticationMessage = "Authentication mode: anonymous fallback. A saved API key is configured but is intentionally not passed to InstaTunnel. Reason: \(anonymousFallbackReason).\n"
+        } else {
+            authenticationMessage = "Authentication mode: anonymous (no API key configured).\n"
+        }
+
+        DispatchQueue.main.async {
+            self.status = .starting
+            self.appendLog("Starting InstaTunnel from: \(executableURL.path)\n")
+            self.appendLog(authenticationMessage)
+            if let reconnectSubdomain {
+                self.appendLog("Reconnecting to existing tunnel: \(reconnectSubdomain)\n")
+            }
+
+            let fm = FileManager.default
+            if !fm.fileExists(atPath: executableURL.path) {
+                self.appendLog("[ERROR] Binary not found at path: \(executableURL.path)\n")
+            }
+        }
         
         
         let outPipe = Pipe()
@@ -625,6 +634,8 @@ class TunnelManager: ObservableObject {
             appendLog("InstaTunnel account tunnel limit reached. Trying an anonymous tunnel...\n")
         } else if switchingBackToAPIKey {
             appendLog("Anonymous tunnel limit reached. Retrying with the configured API key in \(Int(delay / 60)) minutes...\n")
+        } else if isAnonymousLimit && configuredAPIKey != nil && shouldUseAnonymousFallback {
+            appendLog("Anonymous tunnel limit reached for this network. Remaining in anonymous fallback because \(anonymousFallbackReason). Retrying in \(Int(delay / 60)) minutes...\n")
         } else if isAnonymousLimit {
             appendLog("Anonymous tunnel limit reached for this network. Earlier tunnels are released when they expire (up to 24 hours). Set an InstaTunnel API key to avoid this limit. Retrying in \(Int(delay / 60)) minutes...\n")
         } else if isTunnelLimit {
@@ -759,6 +770,16 @@ class TunnelManager: ObservableObject {
         return key.isEmpty ? nil : key
     }
 
+    private var anonymousFallbackReason: String {
+        if let resetAt = UserDefaults.standard.object(forKey: apiKeyDailyLimitResetAtKey) as? Date,
+           resetAt > Date() {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss zzz"
+            return "the API key daily request limit was reached; API key mode is scheduled to retry after \(formatter.string(from: resetAt))"
+        }
+        return "the API key account tunnel limit was reached"
+    }
+
     private var isAPIKeyDailyLimitActive: Bool {
         guard let resetAt = UserDefaults.standard.object(forKey: apiKeyDailyLimitResetAtKey) as? Date else {
             return false
@@ -800,6 +821,15 @@ class TunnelManager: ObservableObject {
     }
 
     func applyAPIKeyChange() {
+        // A quota failure belongs to the previous key. Also allow an explicit
+        // submission of the same key to recheck the service instead of trusting
+        // the locally estimated reset time.
+        UserDefaults.standard.removeObject(forKey: apiKeyDailyLimitResetAtKey)
+        dailyLimitResetTimer?.invalidate()
+        dailyLimitResetTimer = nil
+        shouldUseAnonymousFallback = false
+        appendLog("API key settings applied. Cleared the cached daily limit and anonymous fallback state; the next launch will use the configured key if present.\n")
+
         switch status {
         case .running, .starting:
             appendLog("InstaTunnel API key changed. Restarting tunnel...\n")
