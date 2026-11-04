@@ -338,6 +338,7 @@ class TunnelManager: ObservableObject {
     private var currentFailureIsAnonymousLimit = false
     private var currentFailureIsDailyRequestLimit = false
     private var currentFailureConfirmsMissingTunnel = false
+    private var currentFailureIsReconnectUnauthorized = false
     private var shouldUseAnonymousFallback = false
     private var currentLaunchUsedAPIKey = false
     private var currentLaunchSubdomain: String?
@@ -376,6 +377,9 @@ class TunnelManager: ObservableObject {
         let updated_at: String
 
         func canClose(protected: Set<String>, now: Date = Date()) -> Bool {
+            // Expired registrations can no longer be used or reserved, so remove
+            // all of them in the same cleanup batch regardless of their age.
+            if status == "expired" { return true }
             guard status == "active", !protected.contains(subdomain.lowercased()) else { return false }
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -485,6 +489,7 @@ class TunnelManager: ObservableObject {
         currentFailureIsAnonymousLimit = false
         currentFailureIsDailyRequestLimit = false
         currentFailureConfirmsMissingTunnel = false
+        currentFailureIsReconnectUnauthorized = false
 
         if let currentProcess = process, currentProcess.isRunning {
             pendingStartPort = port
@@ -591,7 +596,9 @@ class TunnelManager: ObservableObject {
 
                 let dailyLimitRequiresAnonymous = self.currentFailureIsDailyRequestLimit
                     && self.currentLaunchUsedAPIKey
-                let canAlternateTunnelMode = self.currentFailureIsTunnelLimit
+                let anonymousReconnectRejected = self.currentFailureIsReconnectUnauthorized
+                    && !self.currentLaunchUsedAPIKey
+                let canAlternateTunnelMode = (self.currentFailureIsTunnelLimit || anonymousReconnectRejected)
                     && self.configuredAPIKey != nil
                     && !self.isAPIKeyDailyLimitActive
                 let switchingToAnonymous = (canAlternateTunnelMode
@@ -617,7 +624,7 @@ class TunnelManager: ObservableObject {
                 self.handleRetry(
                     port: self.lastStartPort,
                     allowExtendedRecovery: self.currentFailureAllowsExtendedRetry,
-                    isTunnelLimit: self.currentFailureIsTunnelLimit,
+                    isTunnelLimit: self.currentFailureIsTunnelLimit || switchingBackToAPIKey,
                     isAnonymousLimit: self.currentFailureIsAnonymousLimit,
                     isDailyRequestLimit: self.currentFailureIsDailyRequestLimit,
                     switchingToAnonymous: switchingToAnonymous,
@@ -697,7 +704,7 @@ class TunnelManager: ObservableObject {
         } else if switchingToAnonymous {
             appendLog("InstaTunnel account tunnel limit reached. Trying an anonymous tunnel...\n")
         } else if switchingBackToAPIKey {
-            appendLog("Anonymous tunnel limit reached. Retrying with the configured API key in \(Int(delay / 60)) minutes...\n")
+            appendLog("Anonymous tunnel unavailable. Retrying with the configured API key in \(Int(delay / 60)) minutes...\n")
         } else if isAnonymousLimit && configuredAPIKey != nil && shouldUseAnonymousFallback {
             appendLog("Anonymous tunnel limit reached for this network. Remaining in anonymous fallback because \(anonymousFallbackReason). Retrying in \(Int(delay / 60)) minutes...\n")
         } else if isAnonymousLimit {
@@ -762,7 +769,6 @@ class TunnelManager: ObservableObject {
     }
 
     private func cleanupUnusedAccountTunnels(completion: @escaping (Bool) -> Void) {
-        lastTunnelCleanupAt = Date()
         guard let apiKey = configuredAPIKey else { completion(false); return }
         let protected: Set<String>
         do { protected = try protectedSubdomainsForCleanup(apiKey: apiKey) }
@@ -771,6 +777,7 @@ class TunnelManager: ObservableObject {
             completion(false)
             return
         }
+        lastTunnelCleanupAt = Date()
         let requestID = UUID()
         cleanupRequestID = requestID
         appendLog("Account tunnel limit reached. Checking iCloud device usage before releasing all unused registrations...\n")
@@ -1241,6 +1248,10 @@ class TunnelManager: ObservableObject {
         ]
         if transientFailureMarkers.contains(where: processOutputBuffer.contains) {
             currentFailureAllowsExtendedRetry = true
+        }
+        if processOutputBuffer.contains("failed to check tunnel existence"),
+           processOutputBuffer.contains("unexpected status code: 401") {
+            currentFailureIsReconnectUnauthorized = true
         }
         if let subdomain = currentLaunchSubdomain {
             currentFailureConfirmsMissingTunnel = processOutputBuffer.contains("tunnel with subdomain \(subdomain.lowercased()) not found")

@@ -12,9 +12,11 @@ struct CloudServer: Codable, Identifiable {
     var isLauncher: Bool?
     // Preserve a reconnecting device's registration while its public URL is offline.
     var tunnelReservationURL: String?
+    // Explicitly distinguish a released reservation from a legacy client.
+    var tunnelReservationSupported: Bool?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, url, username, isOffline, isLauncher, tunnelReservationURL
+        case id, name, url, username, isOffline, isLauncher, tunnelReservationURL, tunnelReservationSupported
     }
 }
 
@@ -156,7 +158,8 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
             username: username,
             isOffline: isOffline,
             isLauncher: true,
-            tunnelReservationURL: reservedTunnelURL
+            tunnelReservationURL: reservedTunnelURL,
+            tunnelReservationSupported: true
         )
         
         coordinator.coordinate(writingItemAt: fileURL, options: [], error: nil) { writeURL in
@@ -203,9 +206,10 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
             guard let record else { throw NSError(domain: "TunnelCleanup", code: 4) }
             // Old clients have no reservation field. Give recent offline transitions
             // time to settle instead of deleting a tunnel during their restart.
-            if record.isOffline == true, record.tunnelReservationURL == nil,
+            if name != localFileName, record.tunnelReservationSupported != true,
+               record.isOffline == true, record.tunnelReservationURL == nil,
                let modifiedAt = values.contentModificationDate, now.timeIntervalSince(modifiedAt) < 10 * 60 {
-                throw NSError(domain: "TunnelCleanup", code: 5, userInfo: [NSLocalizedDescriptionKey: "an offline device record is still settling"])
+                throw NSError(domain: "TunnelCleanup", code: 5, userInfo: [NSLocalizedDescriptionKey: "legacy offline device \(record.name) (\(record.id)) is still settling"])
             }
             for url in [record.isOffline == true ? nil : record.url, record.tunnelReservationURL].compactMap({ $0 }) {
                 if let host = URL(string: url)?.host?.lowercased(), host.hasSuffix(".instatunnel.my") {

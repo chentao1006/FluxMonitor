@@ -54,8 +54,7 @@ func accountList() -> Data {
         ["id": 2, "subdomain": "reserved", "status": "active", "updated_at": old],
         ["id": 3, "subdomain": "local-saved", "status": "active", "updated_at": old],
         ["id": 4, "subdomain": "orphan", "status": "active", "updated_at": old],
-        ["id": 5, "subdomain": "fresh", "status": "active", "updated_at": fresh],
-        ["id": 6, "subdomain": "expired", "status": "expired", "updated_at": old]
+        ["id": 5, "subdomain": "fresh", "status": "active", "updated_at": fresh]
     ])
 }
 
@@ -95,6 +94,18 @@ for (error, shouldForget) in [
         expect(manager.currentFailureAllowsExtendedRetry, "Reconnect network errors need extended retry")
     }
 }
+
+// Anonymous existence checks can reject an old address without proving deletion.
+reset()
+manager.shouldUseAnonymousFallback = true
+manager.saveTunnel(.init(subdomain: "anonymous-rejected", createdAt: Date()), key: anonymousStorage)
+let rejectedScript = "#!/bin/sh\nprintf '%s\\n' 'failed to check tunnel existence: unexpected status code: 401' >&2\nexit 1\n"
+try! rejectedScript.write(toFile: InstaTunnelDownloader.shared.localInstaTunnelPath, atomically: true, encoding: .utf8)
+try! FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: InstaTunnelDownloader.shared.localInstaTunnelPath)
+manager.launchProcess(binaryPath: InstaTunnelDownloader.shared.localInstaTunnelPath, port: 4210)
+waitUntil { manager.process == nil && manager.retryWorkItem != nil }
+expect(!manager.shouldUseAnonymousFallback, "Anonymous reconnect 401 must return to the configured key")
+expect(regressionDefaults.data(forKey: anonymousStorage) != nil, "401 must not erase a registration or authorize creation")
 
 reset()
 manager.start(port: 4210)
@@ -154,6 +165,22 @@ waitUntil { cleaned != nil }
 expect(cleaned == true, "An unreferenced idle registration should free a slot")
 let deletes = FakeHTTP.requests.filter { $0.httpMethod == "DELETE" }
 expect(deletes.count == 1 && deletes[0].url!.path == "/api/tunnels/4", "Close the sole orphan while protecting used and fresh registrations")
+
+// Every expired registration is dead server-side and should be removed in one batch,
+// including a recent one or one whose old subdomain still appears in iCloud.
+reset()
+prepareCloud()
+let expiredList = try! JSONSerialization.data(withJSONObject: [
+    ["id": 21, "subdomain": "expired-old", "status": "expired", "updated_at": "2020-01-01T00:00:00Z"],
+    ["id": 22, "subdomain": "other", "status": "expired", "updated_at": "2020-01-01T00:00:00Z"],
+    ["id": 23, "subdomain": "expired-recent", "status": "expired", "updated_at": ISO8601DateFormatter().string(from: Date())]
+])
+FakeHTTP.reply = { request in request.httpMethod == "DELETE" ? (204, Data()) : (200, expiredList) }
+cleaned = nil
+manager.cleanupUnusedAccountTunnels { cleaned = $0 }
+waitUntil { cleaned != nil }
+expect(cleaned == true, "Expired registrations should be removed")
+expect(Set(FakeHTTP.requests.filter { $0.httpMethod == "DELETE" }.map { $0.url!.path }) == ["/api/tunnels/21", "/api/tunnels/22", "/api/tunnels/23"], "Cleanup must delete every expired registration in the account")
 
 func batchAccountList() -> Data {
     var list = try! JSONSerialization.jsonObject(with: accountList()) as! [[String: Any]]
@@ -281,6 +308,30 @@ for invalidCloud in ["disabled", "corrupt", "missing-local", "recent-offline"] {
     manager.cleanupUnusedAccountTunnels { cleaned = $0 }
     expect(cleaned == false && FakeHTTP.requests.isEmpty, "Incomplete iCloud must prevent cleanup: \(invalidCloud)")
 }
+
+// A local stop/start and an explicit release from a new client are complete snapshots.
+for source in ["local", "modern-remote"] {
+    reset()
+    prepareCloud()
+    manager.saveTunnel(.init(subdomain: "local-saved", createdAt: Date()), key: keyedStorage)
+    if source == "local" {
+        ICloudManager.shared.syncServer(url: nil, isOffline: true)
+    } else {
+        writeCloud(CloudServer(id: "modern", name: "Modern", url: "", isOffline: true, tunnelReservationSupported: true))
+    }
+    FakeHTTP.reply = { request in (request.httpMethod == "DELETE" ? 204 : 200, request.httpMethod == "DELETE" ? Data() : accountList()) }
+    cleaned = nil
+    manager.cleanupUnusedAccountTunnels { cleaned = $0 }
+    waitUntil { cleaned != nil }
+    expect(cleaned == true, "Fresh explicit offline state must not block cleanup: \(source)")
+    expect(FakeHTTP.requests.filter { $0.httpMethod == "DELETE" }.map { $0.url!.path } == ["/api/tunnels/4"], "Only the unused registration may be closed")
+}
+
+reset()
+prepareCloud()
+writeCloud(CloudServer(id: "legacy", name: "Legacy", url: "", isOffline: true))
+manager.cleanupUnusedAccountTunnels { _ in }
+expect(manager.lastTunnelCleanupAt == nil, "An inconclusive cloud snapshot must not consume the cleanup cooldown")
 
 reset()
 prepareCloud()
