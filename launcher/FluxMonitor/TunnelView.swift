@@ -664,7 +664,7 @@ class TunnelManager: ObservableObject {
            lastTunnelCleanupAt.map({ Date().timeIntervalSince($0) >= tunnelLimitRetryDelay }) ?? true {
             status = .starting
             isRetrying = true
-            cleanupUnusedAccountTunnel { [weak self] releasedSlot in
+            cleanupUnusedAccountTunnels { [weak self] releasedSlot in
                 guard let self else { return }
                 if releasedSlot {
                     self.shouldUseAnonymousFallback = false
@@ -761,7 +761,7 @@ class TunnelManager: ObservableObject {
         }.resume()
     }
 
-    private func cleanupUnusedAccountTunnel(completion: @escaping (Bool) -> Void) {
+    private func cleanupUnusedAccountTunnels(completion: @escaping (Bool) -> Void) {
         lastTunnelCleanupAt = Date()
         guard let apiKey = configuredAPIKey else { completion(false); return }
         let protected: Set<String>
@@ -773,7 +773,7 @@ class TunnelManager: ObservableObject {
         }
         let requestID = UUID()
         cleanupRequestID = requestID
-        appendLog("Account tunnel limit reached. Checking iCloud device usage before releasing an unused registration...\n")
+        appendLog("Account tunnel limit reached. Checking iCloud device usage before releasing all unused registrations...\n")
         let finish: (Bool) -> Void = { [weak self] released in
             guard let self, self.cleanupRequestID == requestID else { return }
             self.cleanupRequestID = nil
@@ -787,47 +787,62 @@ class TunnelManager: ObservableObject {
                 finish(false)
                 return
             }
-            // Free only the one slot needed by this device, oldest idle tunnel first.
-            let candidate = tunnels.filter { $0.canClose(protected: protected) }.sorted { $0.updated_at < $1.updated_at }.first
-            guard let candidate else {
+            let candidates = tunnels.filter { $0.canClose(protected: protected) }.sorted { $0.updated_at < $1.updated_at }
+            guard !candidates.isEmpty else {
                 self.appendLog("No unused account tunnel could be confirmed from iCloud. Keeping all registrations.\n")
                 finish(false)
                 return
             }
-            // Recheck BOTH sources immediately before deleting: another Mac may
-            // have published a URL or reconnected while the first request ran.
-            self.requestAccountTunnels(apiKey: apiKey) { [weak self] result in
-                guard let self, self.cleanupRequestID == requestID else { return }
-                guard self.configuredAPIKey == apiKey else { finish(false); return }
-                do {
-                    let latestProtected = try self.protectedSubdomainsForCleanup(apiKey: apiKey)
-                    guard case .success(let latest) = result,
-                          let unchanged = latest.first(where: { $0.id == candidate.id && $0.subdomain == candidate.subdomain }),
-                          unchanged.canClose(protected: latestProtected) else {
-                        self.appendLog("Tunnel usage changed during cleanup. Keeping the registration.\n")
-                        finish(false)
-                        return
-                    }
-                } catch {
-                    self.appendLog("Skipping cleanup because iCloud could not be rechecked: \(error.localizedDescription).\n")
-                    finish(false)
+            self.appendLog("Found \(candidates.count) unused account tunnels. Rechecking and closing each registration...\n")
+            func closeNext(_ index: Int, releasedCount: Int) {
+                guard self.cleanupRequestID == requestID else { return }
+                guard self.configuredAPIKey == apiKey else { finish(releasedCount > 0); return }
+                guard index < candidates.count else {
+                    self.appendLog("Unused account tunnel cleanup completed: \(releasedCount) of \(candidates.count) registrations released.\n")
+                    finish(releasedCount > 0)
                     return
                 }
-                var request = URLRequest(url: URL(string: "https://api.instatunnel.my/api/tunnels/\(candidate.id)")!, timeoutInterval: 15)
-                request.httpMethod = "DELETE"
-                request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-                URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
-                    DispatchQueue.main.async {
-                        guard let self, self.cleanupRequestID == requestID else { return }
-                        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-                        let released = error == nil && ((200..<300).contains(code) || code == 404)
-                        self.appendLog(released
-                            ? "Released unused account tunnel \(candidate.subdomain) (not used or reserved by any iCloud device). Retrying with the API key...\n"
-                            : "Could not release unused account tunnel \(candidate.subdomain) (HTTP \(code)).\n")
-                        finish(released)
+                let candidate = candidates[index]
+                // Recheck BOTH sources for every deletion. A device can recover
+                // while earlier candidates in the same batch are being closed.
+                self.requestAccountTunnels(apiKey: apiKey) { [weak self] result in
+                    guard let self, self.cleanupRequestID == requestID else { return }
+                    guard self.configuredAPIKey == apiKey else { finish(releasedCount > 0); return }
+                    do {
+                        let latestProtected = try self.protectedSubdomainsForCleanup(apiKey: apiKey)
+                        guard case .success(let latest) = result else {
+                            self.appendLog("Stopping cleanup because the account tunnel list could not be rechecked.\n")
+                            finish(releasedCount > 0)
+                            return
+                        }
+                        guard let unchanged = latest.first(where: { $0.id == candidate.id && $0.subdomain == candidate.subdomain }),
+                              unchanged.canClose(protected: latestProtected) else {
+                            self.appendLog("Tunnel \(candidate.subdomain) usage changed during cleanup. Keeping it and checking the next registration.\n")
+                            closeNext(index + 1, releasedCount: releasedCount)
+                            return
+                        }
+                    } catch {
+                        self.appendLog("Stopping cleanup because iCloud could not be rechecked: \(error.localizedDescription).\n")
+                        finish(releasedCount > 0)
+                        return
                     }
-                }.resume()
+                    var request = URLRequest(url: URL(string: "https://api.instatunnel.my/api/tunnels/\(candidate.id)")!, timeoutInterval: 15)
+                    request.httpMethod = "DELETE"
+                    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+                        DispatchQueue.main.async {
+                            guard let self, self.cleanupRequestID == requestID else { return }
+                            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                            let released = error == nil && ((200..<300).contains(code) || code == 404)
+                            self.appendLog(released
+                                ? "Released unused account tunnel \(candidate.subdomain) (not used or reserved by any iCloud device).\n"
+                                : "Could not release unused account tunnel \(candidate.subdomain) (HTTP \(code)). Continuing cleanup...\n")
+                            closeNext(index + 1, releasedCount: releasedCount + (released ? 1 : 0))
+                        }
+                    }.resume()
+                }
             }
+            closeNext(0, releasedCount: 0)
         }
     }
     

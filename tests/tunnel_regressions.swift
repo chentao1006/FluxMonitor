@@ -149,11 +149,57 @@ FakeHTTP.reply = { request in
     return request.httpMethod == "DELETE" ? (204, Data()) : (200, accountList())
 }
 var cleaned: Bool?
-manager.cleanupUnusedAccountTunnel { cleaned = $0 }
+manager.cleanupUnusedAccountTunnels { cleaned = $0 }
 waitUntil { cleaned != nil }
 expect(cleaned == true, "An unreferenced idle registration should free a slot")
 let deletes = FakeHTTP.requests.filter { $0.httpMethod == "DELETE" }
-expect(deletes.count == 1 && deletes[0].url!.path == "/api/tunnels/4", "Close only one orphan; protect all used and fresh registrations")
+expect(deletes.count == 1 && deletes[0].url!.path == "/api/tunnels/4", "Close the sole orphan while protecting used and fresh registrations")
+
+func batchAccountList() -> Data {
+    var list = try! JSONSerialization.jsonObject(with: accountList()) as! [[String: Any]]
+    for (id, subdomain) in [(7, "second-orphan"), (8, "third-orphan")] {
+        list.append(["id": id, "subdomain": subdomain, "status": "active", "updated_at": "2020-01-02T00:00:00Z"])
+    }
+    return try! JSONSerialization.data(withJSONObject: list)
+}
+
+for scenario in ["all-unused", "first-delete-fails", "second-becomes-used", "cloud-becomes-incomplete"] {
+    reset()
+    prepareCloud()
+    manager.saveTunnel(.init(subdomain: "local-saved", createdAt: Date()), key: keyedStorage)
+    FakeHTTP.reply = { request in
+        if request.httpMethod == "DELETE" {
+            if request.url!.path == "/api/tunnels/4" {
+                if scenario == "first-delete-fails" { return (503, Data()) }
+                if scenario == "second-becomes-used" {
+                    writeCloud(CloudServer(id: "new-owner", name: "New Owner", url: "https://second-orphan.instatunnel.my", isOffline: false))
+                }
+                if scenario == "cloud-becomes-incomplete" {
+                    try! Data("invalid".utf8).write(to: regressionRoot.appendingPathComponent("cloud/server_bad.json"))
+                }
+            }
+            return (204, Data())
+        }
+        return (200, batchAccountList())
+    }
+    cleaned = nil
+    var deletesAtCompletion = 0
+    manager.cleanupUnusedAccountTunnels {
+        cleaned = $0
+        deletesAtCompletion = FakeHTTP.requests.filter { $0.httpMethod == "DELETE" }.count
+    }
+    waitUntil { cleaned != nil }
+    let paths = Set(FakeHTTP.requests.filter { $0.httpMethod == "DELETE" }.map { $0.url!.path })
+    let expected: Set<String>
+    switch scenario {
+    case "second-becomes-used": expected = ["/api/tunnels/4", "/api/tunnels/8"]
+    case "cloud-becomes-incomplete": expected = ["/api/tunnels/4"]
+    default: expected = ["/api/tunnels/4", "/api/tunnels/7", "/api/tunnels/8"]
+    }
+    expect(paths == expected, "Batch cleanup must handle every unused registration safely: \(scenario)")
+    expect(cleaned == true, "Keep successful releases even when another candidate cannot be closed")
+    expect(deletesAtCompletion == expected.count, "Connection retry must wait until the batch finishes")
+}
 
 reset()
 prepareCloud()
@@ -167,7 +213,7 @@ FakeHTTP.reply = { _ in
     return (200, accountList())
 }
 cleaned = nil
-manager.cleanupUnusedAccountTunnel { cleaned = $0 }
+manager.cleanupUnusedAccountTunnels { cleaned = $0 }
 waitUntil { cleaned != nil }
 expect(cleaned == false && FakeHTTP.requests.allSatisfy { $0.httpMethod != "DELETE" }, "Recheck iCloud before deletion to protect a new owner")
 
@@ -186,7 +232,7 @@ FakeHTTP.reply = { _ in
     return (200, accountList())
 }
 cleaned = nil
-manager.cleanupUnusedAccountTunnel { cleaned = $0 }
+manager.cleanupUnusedAccountTunnels { cleaned = $0 }
 waitUntil { cleaned != nil }
 expect(cleaned == false && FakeHTTP.requests.allSatisfy { $0.httpMethod != "DELETE" }, "A newly reconnected server registration must survive cleanup")
 
@@ -199,7 +245,7 @@ for failure in ["list-error", "delete-error"] {
         return (200, accountList())
     }
     cleaned = nil
-    manager.cleanupUnusedAccountTunnel { cleaned = $0 }
+    manager.cleanupUnusedAccountTunnels { cleaned = $0 }
     waitUntil { cleaned != nil }
     expect(cleaned == false, "Never report a freed slot when an API operation failed")
     if failure == "list-error" {
@@ -232,14 +278,14 @@ for invalidCloud in ["disabled", "corrupt", "missing-local", "recent-offline"] {
     default: writeCloud(CloudServer(id: "recent", name: "Recent", url: "", isOffline: true))
     }
     cleaned = nil
-    manager.cleanupUnusedAccountTunnel { cleaned = $0 }
+    manager.cleanupUnusedAccountTunnels { cleaned = $0 }
     expect(cleaned == false && FakeHTTP.requests.isEmpty, "Incomplete iCloud must prevent cleanup: \(invalidCloud)")
 }
 
 reset()
 prepareCloud()
 FakeHTTP.reply = { _ in (200, accountList()) }
-manager.cleanupUnusedAccountTunnel { _ in fatalError("Cancelled cleanup must not schedule recovery") }
+manager.cleanupUnusedAccountTunnels { _ in fatalError("Cancelled cleanup must not schedule recovery") }
 manager.stop()
 drain()
 expect(FakeHTTP.requests.allSatisfy { $0.httpMethod != "DELETE" }, "Stopping must cancel pending destructive cleanup")
@@ -248,7 +294,7 @@ reset()
 prepareCloud()
 FakeHTTP.reply = { _ in (200, accountList()) }
 cleaned = nil
-manager.cleanupUnusedAccountTunnel { cleaned = $0 }
+manager.cleanupUnusedAccountTunnels { cleaned = $0 }
 regressionDefaults.set("changed-key", forKey: "instaTunnelApiKey")
 waitUntil { cleaned != nil }
 expect(cleaned == false && manager.cleanupRequestID == nil, "Changing credentials must not leave recovery permanently waiting")
