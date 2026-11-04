@@ -125,7 +125,7 @@ if [ "$SKIP_SIGN" = false ] && [ -z "$IDENTITY" ]; then
 fi
 
 # Ensure Next.js standalone is ready
-if [ ! -d ".next/standalone" ]; then
+if [ ! -f ".next/standalone/server.js" ]; then
     echo "Preparing Next.js standalone build..."
     NEXT_TELEMETRY_DISABLED=1 npm install && NEXT_TELEMETRY_DISABLED=1 npm run build
 fi

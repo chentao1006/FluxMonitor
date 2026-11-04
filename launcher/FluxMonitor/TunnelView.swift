@@ -800,7 +800,7 @@ class TunnelManager: ObservableObject {
                 finish(false)
                 return
             }
-            self.appendLog("Found \(candidates.count) unused account tunnels. Rechecking and closing each registration...\n")
+            self.appendLog("Found \(candidates.count) expired or unused account tunnels. Rechecking and closing each registration...\n")
             func closeNext(_ index: Int, releasedCount: Int) {
                 guard self.cleanupRequestID == requestID else { return }
                 guard self.configuredAPIKey == apiKey else { finish(releasedCount > 0); return }
@@ -841,9 +841,10 @@ class TunnelManager: ObservableObject {
                             guard let self, self.cleanupRequestID == requestID else { return }
                             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
                             let released = error == nil && ((200..<300).contains(code) || code == 404)
+                            let kind = candidate.status == "expired" ? "expired" : "unused"
                             self.appendLog(released
-                                ? "Released unused account tunnel \(candidate.subdomain) (not used or reserved by any iCloud device).\n"
-                                : "Could not release unused account tunnel \(candidate.subdomain) (HTTP \(code)). Continuing cleanup...\n")
+                                ? "Released \(kind) account tunnel \(candidate.subdomain).\n"
+                                : "Could not release \(kind) account tunnel \(candidate.subdomain) (HTTP \(code)). Continuing cleanup...\n")
                             closeNext(index + 1, releasedCount: releasedCount + (released ? 1 : 0))
                         }
                     }.resume()
