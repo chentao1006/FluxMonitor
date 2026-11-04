@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import Darwin
+import CryptoKit
 
 // MARK: - Cloudflare Tunnel Implementation
 
@@ -336,34 +337,58 @@ class TunnelManager: ObservableObject {
     private var currentFailureIsTunnelLimit = false
     private var currentFailureIsAnonymousLimit = false
     private var currentFailureIsDailyRequestLimit = false
+    private var currentFailureConfirmsMissingTunnel = false
     private var shouldUseAnonymousFallback = false
     private var currentLaunchUsedAPIKey = false
     private var currentLaunchSubdomain: String?
+    private var currentLaunchTunnelStorageKey = ""
+    private var currentProcessStartedAt: Date?
+    private var startRequestID: UUID?
+    private var restartWorkItem: DispatchWorkItem?
+    private var cleanupRequestID: UUID?
+    private var lastTunnelCleanupAt: Date?
     private var didAttemptAutomaticUpdate = false
     private var didAttemptArchitectureRepair = false
     private var isAutomaticallyUpdating = false
+    private var binaryRepairRequestID: UUID?
     private weak var processBeingReplaced: Process?
     private var pendingStartPort: Int?
     
     private var lastStartPort: Int = 4210
-    private var restartTimer: Timer?
     private var healthCheckTimer: Timer?
     private var dailyLimitResetTimer: Timer?
     private var consecutiveHealthCheckFailures = 0
-    private var consecutiveStartingChecks = 0
     private var lastPublicHealthCheckAt: Date?
     private let healthCheckInterval: TimeInterval = 60
     private let publicHealthCheckInterval: TimeInterval = 10 * 60
     private let healthCheckFailureThreshold = 3
 
-    // Anonymous tunnels stay registered on the server for 24 hours even after the
-    // CLI disconnects, and each one counts toward the per-network limit. Reconnect
-    // to the last tunnel instead of creating a new one whenever it is still valid.
-    private let anonymousTunnelLifetime: TimeInterval = 24 * 3600
-    // Keep reconnecting for the full advertised lifetime. Stopping reuse early
-    // creates a second anonymous tunnel while the first still counts toward the
-    // per-network limit.
-    private let anonymousTunnelExpiryBuffer: TimeInterval = 60
+    // A disconnected CLI does not mean the remote registration was released.
+    // Only the server can confirm that a saved tunnel no longer exists.
+    private struct SavedTunnel: Codable {
+        let subdomain: String
+        let createdAt: Date
+    }
+    private struct AccountTunnel: Decodable {
+        let id: Int
+        let subdomain: String
+        let status: String
+        let updated_at: String
+
+        func canClose(protected: Set<String>, now: Date = Date()) -> Bool {
+            guard status == "active", !protected.contains(subdomain.lowercased()) else { return false }
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            var date = formatter.date(from: updated_at)
+            if date == nil {
+                formatter.formatOptions = [.withInternetDateTime]
+                date = formatter.date(from: updated_at)
+            }
+            // A new or recently reconnected registration may not have reached
+            // iCloud yet. Missing activity timestamps are also inconclusive.
+            return date.map { now.timeIntervalSince($0) >= 10 * 60 } ?? false
+        }
+    }
     private let tunnelLimitRetryDelay: TimeInterval = 600
     private let lastTunnelSubdomainKey = "instaTunnelLastSubdomain"
     private let lastTunnelCreatedAtKey = "instaTunnelLastCreatedAt"
@@ -379,6 +404,7 @@ class TunnelManager: ObservableObject {
             if self.logs.count > 10000 {
                 self.logs = String(self.logs.suffix(10000))
             }
+            restoreSavedTunnels(from: savedLogs)
         }
         
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
@@ -390,11 +416,13 @@ class TunnelManager: ObservableObject {
     }
     
     func start(port: Int) {
+        guard !status.isRunning, status != .starting else { return }
+        restartWorkItem?.cancel()
+        restartWorkItem = nil
         retryWorkItem?.cancel()
         retryWorkItem = nil
         retryCount = 0
         consecutiveHealthCheckFailures = 0
-        consecutiveStartingChecks = 0
         lastPublicHealthCheckAt = nil
         isRetrying = false
         shouldUseAnonymousFallback = isAPIKeyDailyLimitActive
@@ -404,8 +432,6 @@ class TunnelManager: ObservableObject {
     }
 
     private func startInstalledTunnel(port: Int) {
-        self.lastStartPort = port
-        
         if logs.isEmpty { appendLog("Starting InstaTunnel...\n") }
         
         // Allow starting if stopped or in an error state
@@ -416,7 +442,8 @@ class TunnelManager: ObservableObject {
         case .running: canStart = false
         }
         
-        guard canStart else { return }
+        guard canStart, startRequestID == nil, !isAutomaticallyUpdating else { return }
+        self.lastStartPort = port
         
         guard InstaTunnelDownloader.shared.isInstalled() else {
             let errorMsg = I18N.shared.t("instatunnel_not_installed")
@@ -426,22 +453,26 @@ class TunnelManager: ObservableObject {
         }
         
         let binaryPath = InstaTunnelDownloader.shared.localInstaTunnelPath
+        let requestID = UUID()
+        startRequestID = requestID
+        status = .starting
         
         checkPortAccessibility(port: port) { [weak self] accessible in
-            guard let self = self else { return }
-            if !accessible {
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                guard let self, self.startRequestID == requestID else { return }
+                self.startRequestID = nil
+                if !accessible {
                     let msg = String(format: I18N.shared.t("port_not_accessible"), port)
                     self.appendLog("[ERROR] \(msg)\n")
                     self.status = .error(msg)
+                    return
                 }
-                return
+
+                if !self.isRetrying {
+                    self.retryCount = 0
+                }
+                self.launchProcess(binaryPath: binaryPath, port: port)
             }
-            
-            if !isRetrying {
-                self.retryCount = 0
-            }
-            self.launchProcess(binaryPath: binaryPath, port: port)
         }
     }
     
@@ -453,6 +484,7 @@ class TunnelManager: ObservableObject {
         currentFailureIsTunnelLimit = false
         currentFailureIsAnonymousLimit = false
         currentFailureIsDailyRequestLimit = false
+        currentFailureConfirmsMissingTunnel = false
 
         if let currentProcess = process, currentProcess.isRunning {
             pendingStartPort = port
@@ -461,6 +493,9 @@ class TunnelManager: ObservableObject {
             return
         }
 
+        let launchAPIKey = shouldUseAnonymousFallback ? nil : configuredAPIKey
+        currentLaunchUsedAPIKey = launchAPIKey != nil
+        currentLaunchTunnelStorageKey = tunnelStorageKey(apiKey: launchAPIKey)
         let reconnectSubdomain = reusableSubdomain
         currentLaunchSubdomain = reconnectSubdomain
 
@@ -479,11 +514,8 @@ class TunnelManager: ObservableObject {
         } else {
             args = [String(port)]
         }
-        if let apiKey = configuredAPIKey, !shouldUseAnonymousFallback {
+        if let apiKey = launchAPIKey {
             args += ["--api-key", apiKey]
-            currentLaunchUsedAPIKey = true
-        } else {
-            currentLaunchUsedAPIKey = false
         }
         process.arguments = args
 
@@ -496,101 +528,115 @@ class TunnelManager: ObservableObject {
             authenticationMessage = "Authentication mode: anonymous (no API key configured).\n"
         }
 
-        DispatchQueue.main.async {
-            self.status = .starting
-            self.appendLog("Starting InstaTunnel from: \(executableURL.path)\n")
-            self.appendLog(authenticationMessage)
-            if let reconnectSubdomain {
-                self.appendLog("Reconnecting to existing tunnel: \(reconnectSubdomain)\n")
-            }
-
-            let fm = FileManager.default
-            if !fm.fileExists(atPath: executableURL.path) {
-                self.appendLog("[ERROR] Binary not found at path: \(executableURL.path)\n")
-            }
+        currentProcessStartedAt = Date()
+        self.status = .starting
+        self.appendLog("Starting InstaTunnel from: \(executableURL.path)\n")
+        self.appendLog(authenticationMessage)
+        if let reconnectSubdomain {
+            self.appendLog("Reconnecting to existing tunnel: \(reconnectSubdomain)\n")
+            ICloudManager.shared.reserveTunnel(url: "https://\(reconnectSubdomain).instatunnel.my")
         }
-        
-        
+
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: executableURL.path) {
+            self.appendLog("[ERROR] Binary not found at path: \(executableURL.path)\n")
+        }
+
         let outPipe = Pipe()
         let errPipe = Pipe()
         process.standardOutput = outPipe
         process.standardError = errPipe
         
-        setupPipeReader(outPipe, process: process)
-        setupPipeReader(errPipe, process: process)
-        
-        process.terminationHandler = { [weak self] p in
+        // Wait for BOTH output streams to reach EOF before classifying the exit.
+        // Otherwise the final stderr error can arrive after the retry decision.
+        var openOutputStreams = 2
+        var didTerminate = false
+        let finishTermination = { [weak self, weak process] in
+            guard didTerminate, openOutputStreams == 0,
+                  let self, let p = process else { return }
+            let exitStatus = p.terminationStatus
+            self.appendLog("Process terminated with exit code: \(exitStatus)\n")
+
+            if self.processBeingReplaced === p {
+                self.processBeingReplaced = nil
+                if self.process === p {
+                    self.process = nil
+                }
+                self.resumePendingStartIfNeeded()
+                return
+            }
+
+            // Ignore callbacks from a process that has already been superseded.
+            guard self.process === p else { return }
+            self.process = nil
+
+            if self.pendingStartPort != nil {
+                self.resumePendingStartIfNeeded()
+                return
+            }
+
+            // If already stopped manually, don't trigger retry or update status to error
+            if self.status == .stopped { return }
+
+            let wasRunning = self.status.isRunning
+            if wasRunning {
+                ICloudManager.shared.syncServer(url: nil, isOffline: true, preservingTunnelReservation: true)
+                MQTTRemoteSync.shared.disconnect()
+            }
+
+            if exitStatus != 0 {
+                if self.currentFailureIsDailyRequestLimit && self.currentLaunchUsedAPIKey {
+                    self.rememberAPIKeyDailyLimit()
+                }
+
+                let dailyLimitRequiresAnonymous = self.currentFailureIsDailyRequestLimit
+                    && self.currentLaunchUsedAPIKey
+                let canAlternateTunnelMode = self.currentFailureIsTunnelLimit
+                    && self.configuredAPIKey != nil
+                    && !self.isAPIKeyDailyLimitActive
+                let switchingToAnonymous = (canAlternateTunnelMode
+                    && self.currentLaunchUsedAPIKey) || dailyLimitRequiresAnonymous
+                let switchingBackToAPIKey = canAlternateTunnelMode
+                    && !self.currentLaunchUsedAPIKey
+                if canAlternateTunnelMode || dailyLimitRequiresAnonymous {
+                    self.shouldUseAnonymousFallback = switchingToAnonymous
+                }
+
+                // EOF, timeouts, quota and authentication failures do not prove
+                // that the old registration disappeared. Never spend another
+                // slot merely because a reconnect attempt failed.
+                if let reconnectSubdomain, !wasRunning, self.currentFailureConfirmsMissingTunnel {
+                    self.appendLog("Server confirmed tunnel \(reconnectSubdomain) no longer exists. A new tunnel may be created.\n")
+                    self.forgetReusableTunnel()
+                } else if let reconnectSubdomain {
+                    self.appendLog("Keeping saved tunnel \(reconnectSubdomain) for reconnection; its removal has not been confirmed.\n")
+                }
+
+                self.status = .error("Exit code \(exitStatus)")
+                // Auto-restart on error
+                self.handleRetry(
+                    port: self.lastStartPort,
+                    allowExtendedRecovery: self.currentFailureAllowsExtendedRetry,
+                    isTunnelLimit: self.currentFailureIsTunnelLimit,
+                    isAnonymousLimit: self.currentFailureIsAnonymousLimit,
+                    isDailyRequestLimit: self.currentFailureIsDailyRequestLimit,
+                    switchingToAnonymous: switchingToAnonymous,
+                    switchingBackToAPIKey: switchingBackToAPIKey
+                )
+            } else {
+                self.status = .stopped
+            }
+        }
+        let outputClosed = {
+            openOutputStreams -= 1
+            finishTermination()
+        }
+        setupPipeReader(outPipe, process: process, onEOF: outputClosed)
+        setupPipeReader(errPipe, process: process, onEOF: outputClosed)
+        process.terminationHandler = { _ in
             DispatchQueue.main.async {
-                guard let self = self else { return }
-                let exitStatus = p.terminationStatus
-                self.appendLog("Process terminated with exit code: \(exitStatus)\n")
-
-                if self.processBeingReplaced === p {
-                    self.processBeingReplaced = nil
-                    if self.process === p {
-                        self.process = nil
-                    }
-                    self.resumePendingStartIfNeeded()
-                    return
-                }
-
-                // Ignore callbacks from a process that has already been superseded.
-                guard self.process === p else { return }
-                self.process = nil
-
-                if self.pendingStartPort != nil {
-                    self.resumePendingStartIfNeeded()
-                    return
-                }
-                
-                // If already stopped manually, don't trigger retry or update status to error
-                if self.status == .stopped { return }
-
-                let wasRunning = self.status.isRunning
-                if wasRunning {
-                    ICloudManager.shared.syncServer(url: nil, isOffline: true)
-                    MQTTRemoteSync.shared.disconnect()
-                }
-
-                if exitStatus != 0 {
-                    if self.currentFailureIsDailyRequestLimit && self.currentLaunchUsedAPIKey {
-                        self.rememberAPIKeyDailyLimit()
-                    }
-
-                    let dailyLimitRequiresAnonymous = self.currentFailureIsDailyRequestLimit
-                        && self.currentLaunchUsedAPIKey
-                    let canAlternateTunnelMode = self.currentFailureIsTunnelLimit
-                        && self.configuredAPIKey != nil
-                        && !self.isAPIKeyDailyLimitActive
-                    let switchingToAnonymous = (canAlternateTunnelMode
-                        && self.currentLaunchUsedAPIKey) || dailyLimitRequiresAnonymous
-                    let switchingBackToAPIKey = canAlternateTunnelMode
-                        && !self.currentLaunchUsedAPIKey
-                    if canAlternateTunnelMode || dailyLimitRequiresAnonymous {
-                        self.shouldUseAnonymousFallback = switchingToAnonymous
-                    }
-
-                    // A reconnect that was rejected for a non-network reason will not
-                    // succeed later either, so fall back to creating a new tunnel.
-                    if let reconnectSubdomain, !wasRunning, !self.currentFailureAllowsExtendedRetry {
-                        self.appendLog("Could not reconnect to tunnel \(reconnectSubdomain). A new tunnel will be created.\n")
-                        self.forgetReusableTunnel()
-                    }
-
-                    self.status = .error("Exit code \(exitStatus)")
-                    // Auto-restart on error
-                    self.handleRetry(
-                        port: self.lastStartPort,
-                        allowExtendedRecovery: self.currentFailureAllowsExtendedRetry,
-                        isTunnelLimit: self.currentFailureIsTunnelLimit,
-                        isAnonymousLimit: self.currentFailureIsAnonymousLimit,
-                        isDailyRequestLimit: self.currentFailureIsDailyRequestLimit,
-                        switchingToAnonymous: switchingToAnonymous,
-                        switchingBackToAPIKey: switchingBackToAPIKey
-                    )
-                } else {
-                    self.status = .stopped
-                }
+                didTerminate = true
+                finishTermination()
             }
         }
         
@@ -613,7 +659,25 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, isDailyRequestLimit: Bool = false, switchingToAnonymous: Bool = false, switchingBackToAPIKey: Bool = false) {
+    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, isDailyRequestLimit: Bool = false, switchingToAnonymous: Bool = false, switchingBackToAPIKey: Bool = false, didCheckUnusedTunnels: Bool = false) {
+        if isTunnelLimit, !isAnonymousLimit, currentLaunchUsedAPIKey, !didCheckUnusedTunnels,
+           lastTunnelCleanupAt.map({ Date().timeIntervalSince($0) >= tunnelLimitRetryDelay }) ?? true {
+            status = .starting
+            isRetrying = true
+            cleanupUnusedAccountTunnel { [weak self] releasedSlot in
+                guard let self else { return }
+                if releasedSlot {
+                    self.shouldUseAnonymousFallback = false
+                    self.retryCount = 0
+                }
+                self.handleRetry(port: port, allowExtendedRecovery: allowExtendedRecovery,
+                                 isTunnelLimit: releasedSlot ? false : isTunnelLimit,
+                                 isAnonymousLimit: isAnonymousLimit, isDailyRequestLimit: isDailyRequestLimit,
+                                 switchingToAnonymous: releasedSlot ? false : switchingToAnonymous,
+                                 switchingBackToAPIKey: switchingBackToAPIKey, didCheckUnusedTunnels: true)
+            }
+            return
+        }
         guard retryCount < maxAutomaticRetries || allowExtendedRecovery || isTunnelLimit || isDailyRequestLimit else {
             self.isRetrying = false
             self.retryCount = 0
@@ -670,8 +734,110 @@ class TunnelManager: ObservableObject {
         default: return 300
         }
     }
+
+    private func protectedSubdomainsForCleanup(apiKey: String) throws -> Set<String> {
+        var protected = try ICloudManager.shared.protectedTunnelSubdomains()
+        if let currentLaunchSubdomain { protected.insert(currentLaunchSubdomain.lowercased()) }
+        if let data = UserDefaults.standard.data(forKey: tunnelStorageKey(apiKey: apiKey)),
+           let saved = try? JSONDecoder().decode(SavedTunnel.self, from: data) {
+            protected.insert(saved.subdomain.lowercased())
+        }
+        return protected
+    }
+
+    private func requestAccountTunnels(apiKey: String, completion: @escaping (Result<[AccountTunnel], Error>) -> Void) {
+        var request = URLRequest(url: URL(string: "https://api.instatunnel.my/api/tunnels")!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            let result: Result<[AccountTunnel], Error>
+            do {
+                if let error { throw error }
+                guard let response = response as? HTTPURLResponse, response.statusCode == 200, let data else {
+                    throw NSError(domain: "TunnelCleanup", code: 6, userInfo: [NSLocalizedDescriptionKey: "could not read the account tunnel list"])
+                }
+                result = .success(try JSONDecoder().decode([AccountTunnel].self, from: data))
+            } catch { result = .failure(error) }
+            DispatchQueue.main.async { completion(result) }
+        }.resume()
+    }
+
+    private func cleanupUnusedAccountTunnel(completion: @escaping (Bool) -> Void) {
+        lastTunnelCleanupAt = Date()
+        guard let apiKey = configuredAPIKey else { completion(false); return }
+        let protected: Set<String>
+        do { protected = try protectedSubdomainsForCleanup(apiKey: apiKey) }
+        catch {
+            appendLog("Skipping unused tunnel cleanup: \(error.localizedDescription).\n")
+            completion(false)
+            return
+        }
+        let requestID = UUID()
+        cleanupRequestID = requestID
+        appendLog("Account tunnel limit reached. Checking iCloud device usage before releasing an unused registration...\n")
+        let finish: (Bool) -> Void = { [weak self] released in
+            guard let self, self.cleanupRequestID == requestID else { return }
+            self.cleanupRequestID = nil
+            completion(released)
+        }
+        requestAccountTunnels(apiKey: apiKey) { [weak self] result in
+            guard let self, self.cleanupRequestID == requestID else { return }
+            guard self.configuredAPIKey == apiKey else { finish(false); return }
+            guard case .success(let tunnels) = result else {
+                self.appendLog("Could not list account tunnels. Keeping all remote registrations.\n")
+                finish(false)
+                return
+            }
+            // Free only the one slot needed by this device, oldest idle tunnel first.
+            let candidate = tunnels.filter { $0.canClose(protected: protected) }.sorted { $0.updated_at < $1.updated_at }.first
+            guard let candidate else {
+                self.appendLog("No unused account tunnel could be confirmed from iCloud. Keeping all registrations.\n")
+                finish(false)
+                return
+            }
+            // Recheck BOTH sources immediately before deleting: another Mac may
+            // have published a URL or reconnected while the first request ran.
+            self.requestAccountTunnels(apiKey: apiKey) { [weak self] result in
+                guard let self, self.cleanupRequestID == requestID else { return }
+                guard self.configuredAPIKey == apiKey else { finish(false); return }
+                do {
+                    let latestProtected = try self.protectedSubdomainsForCleanup(apiKey: apiKey)
+                    guard case .success(let latest) = result,
+                          let unchanged = latest.first(where: { $0.id == candidate.id && $0.subdomain == candidate.subdomain }),
+                          unchanged.canClose(protected: latestProtected) else {
+                        self.appendLog("Tunnel usage changed during cleanup. Keeping the registration.\n")
+                        finish(false)
+                        return
+                    }
+                } catch {
+                    self.appendLog("Skipping cleanup because iCloud could not be rechecked: \(error.localizedDescription).\n")
+                    finish(false)
+                    return
+                }
+                var request = URLRequest(url: URL(string: "https://api.instatunnel.my/api/tunnels/\(candidate.id)")!, timeoutInterval: 15)
+                request.httpMethod = "DELETE"
+                request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+                    DispatchQueue.main.async {
+                        guard let self, self.cleanupRequestID == requestID else { return }
+                        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                        let released = error == nil && ((200..<300).contains(code) || code == 404)
+                        self.appendLog(released
+                            ? "Released unused account tunnel \(candidate.subdomain) (not used or reserved by any iCloud device). Retrying with the API key...\n"
+                            : "Could not release unused account tunnel \(candidate.subdomain) (HTTP \(code)).\n")
+                        finish(released)
+                    }
+                }.resume()
+            }
+        }
+    }
     
-    func stop() {
+    func stop(preservingTunnelReservation: Bool = false) {
+        startRequestID = nil
+        cleanupRequestID = nil
+        binaryRepairRequestID = nil
+        isAutomaticallyUpdating = false
+        restartWorkItem?.cancel()
+        restartWorkItem = nil
         retryWorkItem?.cancel()
         retryWorkItem = nil
         pendingStartPort = nil
@@ -684,11 +850,9 @@ class TunnelManager: ObservableObject {
         isRetrying = false
         retryCount = 0
         
-        restartTimer?.invalidate()
-        restartTimer = nil
         
         // Sync to iCloud as offline
-        ICloudManager.shared.syncServer(url: nil, isOffline: true)
+        ICloudManager.shared.syncServer(url: nil, isOffline: true, preservingTunnelReservation: preservingTunnelReservation)
         
         // Disconnect MQTT
         MQTTRemoteSync.shared.disconnect()
@@ -726,9 +890,14 @@ class TunnelManager: ObservableObject {
     private func repairIncompatibleBinary(port: Int) {
         appendLog("InstaTunnel could not run on this CPU. Reinstalling the native binary...\n")
         status = .starting
+        let requestID = UUID()
+        binaryRepairRequestID = requestID
+        isAutomaticallyUpdating = true
 
         InstaTunnelDownloader.shared.downloadInstaTunnel { [weak self] success in
-            guard let self = self else { return }
+            guard let self, self.binaryRepairRequestID == requestID else { return }
+            self.binaryRepairRequestID = nil
+            self.isAutomaticallyUpdating = false
             if success {
                 self.appendLog("Native InstaTunnel binary installed. Restarting tunnel...\n")
                 self.status = .stopped
@@ -745,23 +914,14 @@ class TunnelManager: ObservableObject {
     
     func restart() {
         appendLog("Restarting tunnel...\n")
-        stop()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+        stop(preservingTunnelReservation: true)
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.restartWorkItem = nil
             self.start(port: self.lastStartPort)
         }
-    }
-    
-    private func scheduleRestart() {
-        restartTimer?.invalidate()
-        // Anonymous sessions still count toward the per-network limit until they
-        // expire. Restart just after expiry so we never overlap two registrations.
-        let createdAt = UserDefaults.standard.object(forKey: lastTunnelCreatedAtKey) as? Date ?? Date()
-        let expiresAt = createdAt.addingTimeInterval(anonymousTunnelLifetime + anonymousTunnelExpiryBuffer)
-        let interval = max(60, expiresAt.timeIntervalSinceNow)
-        restartTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
-            self?.appendLog("Anonymous session has expired. Triggering auto-restart...\n")
-            self?.restart()
-        }
+        restartWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: workItem)
     }
 
     private var configuredAPIKey: String? {
@@ -810,11 +970,11 @@ class TunnelManager: ObservableObject {
             guard let self else { return }
             UserDefaults.standard.removeObject(forKey: self.apiKeyDailyLimitResetAtKey)
             self.shouldUseAnonymousFallback = false
-            self.appendLog("InstaTunnel API key daily request limit window has reset. Returning to API key mode...\n")
+            self.appendLog("InstaTunnel API key daily request limit window has reset. The next connection will use the API key; keeping any working tunnel.\n")
             if self.configuredAPIKey != nil,
                !self.currentLaunchUsedAPIKey,
                UserDefaults.standard.bool(forKey: "autoStartTunnel"),
-               self.status != .stopped {
+               !self.status.isRunning, self.status != .stopped {
                 self.restart()
             }
         }
@@ -828,10 +988,15 @@ class TunnelManager: ObservableObject {
         dailyLimitResetTimer?.invalidate()
         dailyLimitResetTimer = nil
         shouldUseAnonymousFallback = false
+        lastTunnelCleanupAt = nil
         appendLog("API key settings applied. Cleared the cached daily limit and anonymous fallback state; the next launch will use the configured key if present.\n")
 
         switch status {
         case .running, .starting:
+            if currentLaunchTunnelStorageKey == tunnelStorageKey(apiKey: configuredAPIKey), status.isRunning {
+                appendLog("The running tunnel already uses these authentication settings. Keeping the current connection.\n")
+                return
+            }
             appendLog("InstaTunnel API key changed. Restarting tunnel...\n")
             restart()
         case .stopped, .error:
@@ -841,20 +1006,74 @@ class TunnelManager: ObservableObject {
 
     private var reusableSubdomain: String? {
         let defaults = UserDefaults.standard
-        guard let subdomain = defaults.string(forKey: lastTunnelSubdomainKey),
-              let createdAt = defaults.object(forKey: lastTunnelCreatedAtKey) as? Date,
-              Date().timeIntervalSince(createdAt) < anonymousTunnelLifetime else { return nil }
+        if let data = defaults.data(forKey: currentLaunchTunnelStorageKey),
+           let tunnel = try? JSONDecoder().decode(SavedTunnel.self, from: data) {
+            return tunnel.subdomain
+        }
+        // Migrate the old single record without assuming that age means deletion.
+        guard let subdomain = defaults.string(forKey: lastTunnelSubdomainKey) else { return nil }
+        let createdAt = defaults.object(forKey: lastTunnelCreatedAtKey) as? Date ?? Date()
+        saveTunnel(SavedTunnel(subdomain: subdomain, createdAt: createdAt), key: currentLaunchTunnelStorageKey)
+        defaults.removeObject(forKey: lastTunnelSubdomainKey)
+        defaults.removeObject(forKey: lastTunnelCreatedAtKey)
         return subdomain
     }
 
+    private func tunnelStorageKey(apiKey: String?) -> String {
+        guard let apiKey else { return "instaTunnelSavedTunnel.anonymous" }
+        let fingerprint = SHA256.hash(data: Data(apiKey.utf8)).map { String(format: "%02x", $0) }.joined()
+        return "instaTunnelSavedTunnel.apiKey.\(fingerprint)"
+    }
+
+    private func saveTunnel(_ tunnel: SavedTunnel, key: String) {
+        guard let data = try? JSONEncoder().encode(tunnel) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+        UserDefaults.standard.removeObject(forKey: lastTunnelSubdomainKey)
+        UserDefaults.standard.removeObject(forKey: lastTunnelCreatedAtKey)
+    }
+
     private func rememberTunnel(subdomain: String) {
-        UserDefaults.standard.set(subdomain, forKey: lastTunnelSubdomainKey)
-        UserDefaults.standard.set(Date(), forKey: lastTunnelCreatedAtKey)
+        guard reusableSubdomain != subdomain else { return }
+        saveTunnel(SavedTunnel(subdomain: subdomain, createdAt: Date()), key: currentLaunchTunnelStorageKey)
     }
 
     private func forgetReusableTunnel() {
-        UserDefaults.standard.removeObject(forKey: lastTunnelSubdomainKey)
-        UserDefaults.standard.removeObject(forKey: lastTunnelCreatedAtKey)
+        UserDefaults.standard.removeObject(forKey: currentLaunchTunnelStorageKey)
+    }
+
+    private func restoreSavedTunnels(from savedLogs: String) {
+        // Older versions erased the saved subdomain on EOF. Recover only a URL
+        // this Mac actually brought online, with an explicitly logged auth mode.
+        var storageKey: String?
+        var candidates: [String: SavedTunnel] = [:]
+        let keyUpdatedAt = UserDefaults.standard.object(forKey: "instaTunnelApiKeyUpdatedAt") as? Date ?? .distantPast
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        for line in savedLogs.components(separatedBy: .newlines) {
+            if line.contains("Starting InstaTunnel from:") { storageKey = nil }
+            if line.contains("API key settings applied") || line.contains("Received InstaTunnel API key from iCloud") {
+                candidates.removeValue(forKey: tunnelStorageKey(apiKey: configuredAPIKey))
+                storageKey = nil
+            }
+            if line.contains("Authentication mode: API key"), configuredAPIKey != nil {
+                storageKey = tunnelStorageKey(apiKey: configuredAPIKey)
+            } else if line.contains("Authentication mode: anonymous") || line.contains("Running in anonymous mode") {
+                storageKey = tunnelStorageKey(apiKey: nil)
+            }
+            guard let storageKey, line.count > 21,
+                  let date = formatter.date(from: String(line.dropFirst().prefix(19))),
+                  (storageKey == tunnelStorageKey(apiKey: nil) || date >= keyUpdatedAt),
+                  line.lowercased().contains("your app is now live at"),
+                  let match = urlRegex.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)),
+                  let range = Range(match.range(at: 1), in: line),
+                  let host = URL(string: String(line[range]))?.host, host != "api.instatunnel.my" else { continue }
+            candidates[storageKey] = SavedTunnel(subdomain: String(host.dropLast(".instatunnel.my".count)), createdAt: date)
+        }
+        for (key, tunnel) in candidates where UserDefaults.standard.data(forKey: key) == nil {
+            saveTunnel(tunnel, key: key)
+            appendLog("Recovered this Mac's saved tunnel from its successful connection log: \(tunnel.subdomain). It will be checked before creating a new tunnel.\n")
+        }
     }
 
     private func startHealthMonitoring() {
@@ -868,26 +1087,27 @@ class TunnelManager: ObservableObject {
         guard UserDefaults.standard.bool(forKey: "autoStartTunnel"),
               ProcessManager.shared.isRunning else {
             consecutiveHealthCheckFailures = 0
-            consecutiveStartingChecks = 0
             return
         }
 
         switch status {
         case .stopped, .error:
+            guard restartWorkItem == nil, !isAutomaticallyUpdating else { return }
             appendLog("Automatic public access check found the tunnel stopped. Restarting...\n")
             start(port: configuredPort)
 
         case .starting:
+            guard startRequestID == nil, restartWorkItem == nil, cleanupRequestID == nil else { return }
             // Active retries and updates already own their recovery schedule. A starting
             // state without any of those means the process disappeared unexpectedly.
             if process == nil && retryWorkItem == nil && !isAutomaticallyUpdating {
                 appendLog("Automatic public access check found the tunnel unavailable. Restarting...\n")
+                status = .stopped
                 start(port: configuredPort)
             } else if process?.isRunning == true && retryWorkItem == nil && !isAutomaticallyUpdating {
                 // The CLI is alive but never reported a public URL.
-                consecutiveStartingChecks += 1
-                if consecutiveStartingChecks >= healthCheckFailureThreshold {
-                    consecutiveStartingChecks = 0
+                if let startedAt = currentProcessStartedAt,
+                   Date().timeIntervalSince(startedAt) >= healthCheckInterval * Double(healthCheckFailureThreshold) {
                     appendLog("Tunnel has been starting for too long without a public URL. Restarting...\n")
                     restart()
                 }
@@ -914,7 +1134,7 @@ class TunnelManager: ObservableObject {
     }
 
     private func checkPublicURL(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
+        guard let url = URL(string: urlString), let checkedProcess = process else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "HEAD"
@@ -923,6 +1143,7 @@ class TunnelManager: ObservableObject {
         URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
             DispatchQueue.main.async {
                 guard let self = self,
+                      self.process === checkedProcess,
                       UserDefaults.standard.bool(forKey: "autoStartTunnel"),
                       case .running(let currentURL) = self.status,
                       currentURL == urlString else { return }
@@ -943,16 +1164,20 @@ class TunnelManager: ObservableObject {
         }.resume()
     }
     
-    private func setupPipeReader(_ pipe: Pipe, process: Process) {
+    private func setupPipeReader(_ pipe: Pipe, process: Process, onEOF: @escaping () -> Void) {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             if data.isEmpty {
                 handle.readabilityHandler = nil
+                DispatchQueue.main.async(execute: onEOF)
                 return
             }
-            if let str = String(data: data, encoding: .utf8), !str.isEmpty {
+            // Pipe boundaries can split the CLI's emoji. Keep the ASCII status
+            // and URL text even when a chunk contains an incomplete UTF-8 scalar.
+            let str = String(decoding: data, as: UTF8.self)
+            if !str.isEmpty {
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self, self.process === process, self.status != .stopped else { return }
                     let visibleOutput = self.outputWithoutCLIHelp(str)
                     self.appendLog(visibleOutput)
                     self.parseProcessOutput(str, from: process)
@@ -976,10 +1201,7 @@ class TunnelManager: ObservableObject {
     }
 
     private func parseProcessOutput(_ text: String, from process: Process) {
-        // The termination callback and final stderr chunk can reach the main queue
-        // in either order. Accept the chunk while this process is current, or while
-        // its delayed retry is still pending.
-        guard self.process === process || (self.process == nil && retryWorkItem != nil) else { return }
+        guard self.process === process, self.status != .stopped else { return }
 
         processOutputBuffer.append(text.lowercased())
         if processOutputBuffer.count > 8192 {
@@ -993,6 +1215,7 @@ class TunnelManager: ObservableObject {
             "connection reset",
             "connection refused",
             "network is unreachable",
+            "no route to host",
             "temporary failure",
             "tls handshake timeout",
             "status code 429",
@@ -1001,9 +1224,12 @@ class TunnelManager: ObservableObject {
             "status code 503",
             "status code 504"
         ]
-        if processOutputBuffer.contains("failed to create tunnel"),
-           transientFailureMarkers.contains(where: processOutputBuffer.contains) {
+        if transientFailureMarkers.contains(where: processOutputBuffer.contains) {
             currentFailureAllowsExtendedRetry = true
+        }
+        if let subdomain = currentLaunchSubdomain {
+            currentFailureConfirmsMissingTunnel = processOutputBuffer.contains("tunnel with subdomain \(subdomain.lowercased()) not found")
+                || processOutputBuffer.contains("tunnel has expired")
         }
         if processOutputBuffer.contains("tunnel limit reached") {
             currentFailureIsTunnelLimit = true
@@ -1030,6 +1256,8 @@ class TunnelManager: ObservableObject {
 
         didAttemptAutomaticUpdate = true
         isAutomaticallyUpdating = true
+        let requestID = UUID()
+        binaryRepairRequestID = requestID
         retryWorkItem?.cancel()
         retryWorkItem = nil
         processBeingReplaced = staleProcess
@@ -1037,7 +1265,8 @@ class TunnelManager: ObservableObject {
         staleProcess.terminate()
 
         InstaTunnelDownloader.shared.downloadInstaTunnel { [weak self] success in
-            guard let self = self else { return }
+            guard let self, self.binaryRepairRequestID == requestID else { return }
+            self.binaryRepairRequestID = nil
             self.isAutomaticallyUpdating = false
 
             if success {
@@ -1054,18 +1283,6 @@ class TunnelManager: ObservableObject {
     }
 
     private func parseTunnelEvents(from text: String) {
-        if text.contains("subdomain already taken") {
-            DispatchQueue.main.async {
-                self.appendLog("Subdomain already taken. Will retry in 2 seconds...\n")
-                if self.process != nil {
-                    let port = self.lastStartPort
-                    self.stop()
-                    self.handleRetry(port: port)
-                }
-            }
-            return
-        }
-
         // `connect` never prints the full public URL ("Connecting to existing tunnel:
         // xxx.instatunnel.my"), so rebuild it from the subdomain once connected.
         if let reconnectSubdomain = currentLaunchSubdomain,
@@ -1105,14 +1322,11 @@ class TunnelManager: ObservableObject {
             self.status = .running(url: url)
             self.retryCount = 0
             self.consecutiveHealthCheckFailures = 0
-            self.consecutiveStartingChecks = 0
             self.isRetrying = false
             self.didAttemptAutomaticUpdate = false
 
             let subdomain = String(host.dropLast(".instatunnel.my".count))
-            if subdomain != currentLaunchSubdomain {
-                rememberTunnel(subdomain: subdomain)
-            }
+            rememberTunnel(subdomain: subdomain)
 
             // Sync to iCloud
             ICloudManager.shared.syncServer(url: url, isOffline: false)
@@ -1120,8 +1334,8 @@ class TunnelManager: ObservableObject {
             // Publish to MQTT for cross-network remote access
             MQTTRemoteSync.shared.publishURL(url)
 
-            // Schedule 24h restart
-            self.scheduleRestart()
+            // Keep working sessions connected. On an actual expiry/failure, try
+            // the saved subdomain first and let the server confirm its lifetime.
         }
     }
     

@@ -10,14 +10,18 @@ struct CloudServer: Codable, Identifiable {
     var username: String?
     var isOffline: Bool?
     var isLauncher: Bool?
+    // Preserve a reconnecting device's registration while its public URL is offline.
+    var tunnelReservationURL: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, url, username, isOffline, isLauncher
+        case id, name, url, username, isOffline, isLauncher, tunnelReservationURL
     }
 }
 
 class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
     static let shared = ICloudManager()
+    private var reservedTunnelURL: String?
+    private var syncRequestID = UUID()
     
     // NSFilePresenter requirements
     var presentedItemURL: URL? {
@@ -91,16 +95,33 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
             // If the file from cloud says we are offline but we are online, or has wrong URL
             // we re-assert our authority immediately.
             let needsCorrection = (cloudData.isOffline != isActuallyOffline) || 
-                                  (cloudData.url != (currentUrl ?? ""))
+                                  (cloudData.url != (currentUrl ?? "")) ||
+                                  (cloudData.tunnelReservationURL != self.reservedTunnelURL)
             
             if needsCorrection {
                 TunnelManager.shared.appendLog("[iCloud] External modification detected, re-asserting local authority...\n")
-                self.syncServer(url: currentUrl, isOffline: isActuallyOffline)
+                self.syncServer(url: currentUrl, isOffline: isActuallyOffline, preservingTunnelReservation: true)
             }
         }
     }
     
-    func syncServer(url: String?, isOffline: Bool = false, retryCount: Int = 0) {
+    func reserveTunnel(url: String) {
+        reservedTunnelURL = url
+        syncServer(url: nil, isOffline: true, preservingTunnelReservation: true)
+    }
+
+    func syncServer(url: String?, isOffline: Bool = false, preservingTunnelReservation: Bool = false) {
+        syncRequestID = UUID()
+        if let url, !url.isEmpty {
+            reservedTunnelURL = url
+        } else if !preservingTunnelReservation {
+            reservedTunnelURL = nil
+        }
+        writeServer(url: url, isOffline: isOffline, requestID: syncRequestID)
+    }
+
+    private func writeServer(url: String?, isOffline: Bool, requestID: UUID, retryCount: Int = 0) {
+        guard requestID == syncRequestID else { return }
         let i18n = I18N.shared
         guard UserDefaults.standard.bool(forKey: "icloudSyncEnabled") else { return }
         
@@ -110,7 +131,7 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
                 let nextRetry = retryCount + 1
                 TunnelManager.shared.appendLog("[iCloud] Container not ready, retrying (\(nextRetry)/3)...\n")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                    self.syncServer(url: url, isOffline: isOffline, retryCount: nextRetry)
+                    self.writeServer(url: url, isOffline: isOffline, requestID: requestID, retryCount: nextRetry)
                 }
             } else {
                 TunnelManager.shared.appendLog("[iCloud] \(i18n.t("icloud_unavailable"))\n")
@@ -134,7 +155,8 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
             url: url ?? "",
             username: username,
             isOffline: isOffline,
-            isLauncher: true
+            isLauncher: true,
+            tunnelReservationURL: reservedTunnelURL
         )
         
         coordinator.coordinate(writingItemAt: fileURL, options: [], error: nil) { writeURL in
@@ -143,6 +165,55 @@ class ICloudManager: NSObject, ObservableObject, NSFilePresenter {
                 TunnelManager.shared.appendLog("[iCloud] \(i18n.t("icloud_sync_success"))\n")
             }
         }
+    }
+
+    // An incomplete cloud snapshot must never authorize closing a remote tunnel.
+    func protectedTunnelSubdomains(now: Date = Date()) throws -> Set<String> {
+        guard UserDefaults.standard.bool(forKey: "icloudSyncEnabled"),
+              let directory = ubiquityURL else {
+            throw NSError(domain: "TunnelCleanup", code: 1, userInfo: [NSLocalizedDescriptionKey: "iCloud sync is unavailable or disabled"])
+        }
+        let keys: Set<URLResourceKey> = [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey, .contentModificationDateKey]
+        let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys))
+        guard files.contains(where: { $0.lastPathComponent == localFileName }) else {
+            throw NSError(domain: "TunnelCleanup", code: 2, userInfo: [NSLocalizedDescriptionKey: "this device's iCloud record is not ready"])
+        }
+        var protected = Set<String>()
+        for file in files {
+            let name = file.lastPathComponent
+            if name.hasPrefix(".server_"), name.hasSuffix(".icloud") {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: file)
+                throw NSError(domain: "TunnelCleanup", code: 3, userInfo: [NSLocalizedDescriptionKey: "device records are still downloading"])
+            }
+            guard name.hasPrefix("server_"), file.pathExtension == "json" else { continue }
+            let values = try file.resourceValues(forKeys: keys)
+            if values.isUbiquitousItem == true, values.ubiquitousItemDownloadingStatus != .current {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: file)
+                throw NSError(domain: "TunnelCleanup", code: 3, userInfo: [NSLocalizedDescriptionKey: "device records are still downloading"])
+            }
+            var record: CloudServer?
+            var readError: Error?
+            var coordinationError: NSError?
+            NSFileCoordinator(filePresenter: self).coordinate(readingItemAt: file, options: [], error: &coordinationError) { readURL in
+                do { record = try JSONDecoder().decode(CloudServer.self, from: Data(contentsOf: readURL)) }
+                catch { readError = error }
+            }
+            if let coordinationError { throw coordinationError }
+            if let readError { throw readError }
+            guard let record else { throw NSError(domain: "TunnelCleanup", code: 4) }
+            // Old clients have no reservation field. Give recent offline transitions
+            // time to settle instead of deleting a tunnel during their restart.
+            if record.isOffline == true, record.tunnelReservationURL == nil,
+               let modifiedAt = values.contentModificationDate, now.timeIntervalSince(modifiedAt) < 10 * 60 {
+                throw NSError(domain: "TunnelCleanup", code: 5, userInfo: [NSLocalizedDescriptionKey: "an offline device record is still settling"])
+            }
+            for url in [record.isOffline == true ? nil : record.url, record.tunnelReservationURL].compactMap({ $0 }) {
+                if let host = URL(string: url)?.host?.lowercased(), host.hasSuffix(".instatunnel.my") {
+                    protected.insert(String(host.dropLast(".instatunnel.my".count)))
+                }
+            }
+        }
+        return protected
     }
     
     func removeFromCloud() {
