@@ -234,9 +234,10 @@ if [ -d ".next/standalone/public" ]; then
     cp -R .next/standalone/public "$APP_DIR/Contents/Resources/public"
 fi
 
-if [ -f "config.json" ]; then
-    cp config.json "$APP_DIR/Contents/Resources/config.json"
-fi
+# Runtime credentials live in Application Support and are created by onboarding.
+# The standalone trace / Xcode resource sync may have copied the development
+# config already, so remove it even when this build does not explicitly copy it.
+rm -f "$APP_DIR/Contents/Resources/config.json"
 
 rm -rf "$APP_DIR/Contents/Resources/config.example.json"
 cp config.example.json "$APP_DIR/Contents/Resources/config.example.json"

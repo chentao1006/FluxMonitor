@@ -71,6 +71,35 @@ NEW_BUILD=$(defaults read "$PWD/$APP_PATH/Contents/Info.plist" CFBundleVersion)
 
 echo "📦 Version: $NEW_VERSION (Build $NEW_BUILD)"
 
+# Inspect the actual public artifact before committing a tag or uploading it.
+DMG_PATH=$(ls launcher/build/*.dmg 2>/dev/null | head -1)
+if [ -z "$DMG_PATH" ]; then
+    echo "❌ Error: Could not find the release DMG."
+    exit 1
+fi
+VERIFY_MOUNT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/flux-release-verify.XXXXXX")
+cleanup_release_mount() {
+    hdiutil detach "$VERIFY_MOUNT_DIR" >/dev/null 2>&1 || true
+    rmdir "$VERIFY_MOUNT_DIR" 2>/dev/null || true
+}
+trap cleanup_release_mount EXIT
+hdiutil attach "$DMG_PATH" -readonly -nobrowse -mountpoint "$VERIFY_MOUNT_DIR" >/dev/null
+PACKAGED_APP="$VERIFY_MOUNT_DIR/$(basename "$APP_PATH")"
+if [ ! -f "$PACKAGED_APP/Contents/Resources/config.example.json" ] ||
+   [ -e "$PACKAGED_APP/Contents/Resources/config.json" ]; then
+    echo "❌ Error: Release must contain the example config and must not contain local runtime credentials."
+    exit 1
+fi
+if [ "$(defaults read "$PACKAGED_APP/Contents/Info.plist" CFBundleShortVersionString)" != "$NEW_VERSION" ] ||
+   [ "$(defaults read "$PACKAGED_APP/Contents/Info.plist" CFBundleVersion)" != "$NEW_BUILD" ]; then
+    echo "❌ Error: DMG version does not match the built application."
+    exit 1
+fi
+codesign --verify --deep --strict "$PACKAGED_APP"
+cleanup_release_mount
+trap - EXIT
+echo "✅ DMG verified: matching version, valid signature, no local runtime config."
+
 # 2. Git Operations
 echo "📂 Committing and tagging..."
 git add .
