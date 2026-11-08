@@ -339,6 +339,7 @@ class TunnelManager: ObservableObject {
     private var currentFailureIsDailyRequestLimit = false
     private var currentFailureConfirmsMissingTunnel = false
     private var currentFailureIsReconnectUnauthorized = false
+    private var currentFailureNeedsAccountCleanup = false
     private var shouldUseAnonymousFallback = false
     private var currentLaunchUsedAPIKey = false
     private var currentLaunchSubdomain: String?
@@ -490,6 +491,7 @@ class TunnelManager: ObservableObject {
         currentFailureIsDailyRequestLimit = false
         currentFailureConfirmsMissingTunnel = false
         currentFailureIsReconnectUnauthorized = false
+        currentFailureNeedsAccountCleanup = false
 
         if let currentProcess = process, currentProcess.isRunning {
             pendingStartPort = port
@@ -628,7 +630,8 @@ class TunnelManager: ObservableObject {
                     isAnonymousLimit: self.currentFailureIsAnonymousLimit,
                     isDailyRequestLimit: self.currentFailureIsDailyRequestLimit,
                     switchingToAnonymous: switchingToAnonymous,
-                    switchingBackToAPIKey: switchingBackToAPIKey
+                    switchingBackToAPIKey: switchingBackToAPIKey,
+                    shouldCleanupAccountTunnels: self.currentFailureNeedsAccountCleanup
                 )
             } else {
                 self.status = .stopped
@@ -666,8 +669,8 @@ class TunnelManager: ObservableObject {
         }
     }
     
-    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, isDailyRequestLimit: Bool = false, switchingToAnonymous: Bool = false, switchingBackToAPIKey: Bool = false, didCheckUnusedTunnels: Bool = false) {
-        if isTunnelLimit, !isAnonymousLimit, currentLaunchUsedAPIKey, !didCheckUnusedTunnels,
+    private func handleRetry(port: Int, allowExtendedRecovery: Bool = false, isTunnelLimit: Bool = false, isAnonymousLimit: Bool = false, isDailyRequestLimit: Bool = false, switchingToAnonymous: Bool = false, switchingBackToAPIKey: Bool = false, shouldCleanupAccountTunnels: Bool = false, didCheckUnusedTunnels: Bool = false) {
+        if (isTunnelLimit || shouldCleanupAccountTunnels), !isAnonymousLimit, currentLaunchUsedAPIKey, !didCheckUnusedTunnels,
            lastTunnelCleanupAt.map({ Date().timeIntervalSince($0) >= tunnelLimitRetryDelay }) ?? true {
             status = .starting
             isRetrying = true
@@ -681,7 +684,9 @@ class TunnelManager: ObservableObject {
                                  isTunnelLimit: releasedSlot ? false : isTunnelLimit,
                                  isAnonymousLimit: isAnonymousLimit, isDailyRequestLimit: isDailyRequestLimit,
                                  switchingToAnonymous: releasedSlot ? false : switchingToAnonymous,
-                                 switchingBackToAPIKey: switchingBackToAPIKey, didCheckUnusedTunnels: true)
+                                 switchingBackToAPIKey: switchingBackToAPIKey,
+                                 shouldCleanupAccountTunnels: shouldCleanupAccountTunnels,
+                                 didCheckUnusedTunnels: true)
             }
             return
         }
@@ -780,7 +785,7 @@ class TunnelManager: ObservableObject {
         lastTunnelCleanupAt = Date()
         let requestID = UUID()
         cleanupRequestID = requestID
-        appendLog("Account tunnel limit reached. Checking iCloud device usage before releasing all unused registrations...\n")
+        appendLog("Checking account and iCloud device usage before releasing expired or unused tunnel registrations...\n")
         let finish: (Bool) -> Void = { [weak self] released in
             guard let self, self.cleanupRequestID == requestID else { return }
             self.cleanupRequestID = nil
@@ -1241,6 +1246,7 @@ class TunnelManager: ObservableObject {
             "no route to host",
             "temporary failure",
             "tls handshake timeout",
+            "websocket: bad handshake",
             "status code 429",
             "status code 500",
             "status code 502",
@@ -1249,6 +1255,12 @@ class TunnelManager: ObservableObject {
         ]
         if transientFailureMarkers.contains(where: processOutputBuffer.contains) {
             currentFailureAllowsExtendedRetry = true
+        }
+        if processOutputBuffer.contains("websocket: bad handshake") {
+            // The service can collapse account-limit and stale-registration
+            // responses into a generic failed WebSocket upgrade. Inspect the
+            // authenticated account before blindly retrying the same request.
+            currentFailureNeedsAccountCleanup = true
         }
         if processOutputBuffer.contains("failed to check tunnel existence"),
            processOutputBuffer.contains("unexpected status code: 401") {

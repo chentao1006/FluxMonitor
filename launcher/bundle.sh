@@ -104,15 +104,19 @@ echo "Version from package.json: $VERSION"
 # Auto-detect Identity and Team ID if not provided
 if [ "$SKIP_SIGN" = false ] && [ -z "$IDENTITY" ]; then
     echo "Scanning for signing identity..."
-    # Match the first "Developer ID Application" identity for distribution
-    IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+    # `security find-identity` legitimately returns no matching distribution
+    # certificate on some machines. Capture its output once and let the checks
+    # below report a useful error instead of letting `set -e -o pipefail` abort
+    # silently on an unmatched grep.
+    SIGNING_IDENTITIES=$(security find-identity -v -p codesigning || true)
+    # A public release must use Developer ID Application. Never fall back to an
+    # Apple Development identity: that produces an artifact which cannot be
+    # distributed and notarized as a real release.
+    IDENTITY=$(printf '%s\n' "$SIGNING_IDENTITIES" | sed -nE '/Developer ID Application/{s/.*"([^"]+)".*/\1/;p;q;}')
     if [ -z "$IDENTITY" ]; then
-        # Fallback to Apple Development if not found (though notarization will fail)
-        IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
-    fi
-    
-    if [ -z "$IDENTITY" ]; then
-        echo "Error: No signing identity found."
+        echo "❌ Error: No valid 'Developer ID Application' signing identity was found."
+        echo "A public release cannot use an Apple Development certificate."
+        echo "Install the Developer ID Application certificate (including its private key) in Keychain Access, then rerun the release."
         exit 1
     fi
     echo "Using Identity: $IDENTITY"

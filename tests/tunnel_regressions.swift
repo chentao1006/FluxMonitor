@@ -26,6 +26,7 @@ func reset() {
     manager.processOutputBuffer = ""
     manager.currentFailureAllowsExtendedRetry = false
     manager.currentFailureConfirmsMissingTunnel = false
+    manager.currentFailureNeedsAccountCleanup = false
     manager.lastTunnelCleanupAt = nil
     manager.shouldUseAnonymousFallback = false
     FakeHTTP.requests = []
@@ -68,6 +69,15 @@ manager.currentLaunchTunnelStorageKey = keyedStorage
 expect(manager.reusableSubdomain == "local-saved", "Fallback must not overwrite the keyed record")
 manager.currentLaunchTunnelStorageKey = manager.tunnelStorageKey(apiKey: "different-key")
 expect(manager.reusableSubdomain == nil, "Different keys must not share tunnel ownership")
+
+reset()
+let handshakeProcess = Process()
+manager.process = handshakeProcess
+manager.status = .starting
+manager.parseProcessOutput("failed to connect WebSocket: websocket: bad handshake", from: handshakeProcess)
+expect(manager.currentFailureAllowsExtendedRetry, "WebSocket handshake failures need extended retry")
+expect(manager.currentFailureNeedsAccountCleanup, "WebSocket handshake failures must inspect stale account registrations")
+manager.process = nil
 
 // Exercise actual Process stderr/EOF/exit coordination, including the reported bug.
 for (error, shouldForget) in [
