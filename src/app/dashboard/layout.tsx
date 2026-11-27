@@ -143,6 +143,7 @@ export default function DashboardLayout({
             {features?.monitor !== false && <NavLink href="/dashboard" icon="activity" onClick={() => setIsMenuOpen(false)}>{t.sidebar.monitor}</NavLink>}
             {features?.processes !== false && <NavLink href="/dashboard/processes" icon="layers" onClick={() => setIsMenuOpen(false)}>{t.sidebar.processes}</NavLink>}
             {features?.ports !== false && <NavLink href="/dashboard/ports" icon="network" onClick={() => setIsMenuOpen(false)}>{t.sidebar.ports}</NavLink>}
+            {features?.firewall !== false && <NavLink href="/dashboard/firewall" icon="shield" onClick={() => setIsMenuOpen(false)}>{t.sidebar.firewall}</NavLink>}
             {features?.logs !== false && <NavLink href="/dashboard/logs" icon="file-text" onClick={() => setIsMenuOpen(false)}>{t.sidebar.logs}</NavLink>}
             {features?.configs !== false && <NavLink href="/dashboard/configs" icon="settings" onClick={() => setIsMenuOpen(false)}>{t.sidebar.configs}</NavLink>}
             {features?.launchagent !== false && <NavLink href="/dashboard/launchagent" icon="rocket" onClick={() => setIsMenuOpen(false)}>{t.sidebar.launchagent}</NavLink>}
@@ -322,6 +323,7 @@ function NavLink({ href, children, icon, onClick, isIconOnly, title }: { href: s
         </>
       );
       case 'server': return <><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></>;
+      case 'shield': return <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>;
       case 'list': return <><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></>;
       case 'file-text': return <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></>;
       case 'activity': return <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>;

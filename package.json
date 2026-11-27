@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node tests/run_firewall_tests.mjs"
   },
   "dependencies": {
     "@aptabase/web": "^0.5.0",

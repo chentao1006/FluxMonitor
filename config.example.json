@@ -15,6 +15,7 @@
     "monitor": true,
     "processes": true,
     "ports": true,
+    "firewall": true,
     "logs": true,
     "configs": true,
     "launchagent": true,

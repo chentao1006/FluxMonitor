@@ -13,6 +13,7 @@ export interface FeaturesConfig {
   monitor?: boolean;
   processes?: boolean;
   ports?: boolean;
+  firewall?: boolean;
   logs?: boolean;
   configs?: boolean;
   launchagent?: boolean;

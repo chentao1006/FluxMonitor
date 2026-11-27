@@ -30,6 +30,7 @@ brew install --cask chentao1006/tap/flux-monitor
 - **自启服务管理**: 管理 macOS 的 LaunchAgents 与 LaunchDaemons 服务。
 - **Docker**: 管理容器与镜像。
 - **Nginx**: 管理站点及全局配置。
+- **PF 防火墙**: 管理按顺序匹配的 macOS PF 入站端口规则，支持 CIDR 允许与拒绝列表。
 - **选配 AI 助手**: 绑定 OpenAI API 密钥后，可使用日志诊断、参数配置审查及故障排查辅助功能。
 - **公网访问 (InstaTunnel)**: 一键开启公网访问，无需账号或复杂配置，安全便捷。
 
@@ -115,6 +116,47 @@ chmod +x deploy.sh
 - 若要更改存放目录，请修改 `config.json` 中的 `deploy.path` 字段.
 - 部署完成后，将生成 `start.sh` 并自动将面板挂载在后台相应的端口运行，默认为 `4210`。
 
+## PF 防火墙配置（可选）
+
+使用 **PF 防火墙** 页面前，需要在 macOS 上执行一次管理员安装。运行 `setup.sh install` 会安装 `/Library/PrivilegedHelperTools/com.ct106.flux-monitor-pf`，写入受限的 `/etc/sudoers.d/com_ct106_flux_monitor_pf` 规则，并注册用于开机恢复规则的 LaunchDaemon。针对入站拒绝规则覆盖的本机端口与远端地址，管理组件会自动生成非 quick 的 `pass out ... keep state` 规则，确保本机主动出站请求的回包不被拦截。
+
+从源码目录安装：
+
+```bash
+sudo ./scripts/pf/setup.sh install
+```
+
+从 `deploy.sh` 部署目录安装：
+
+```bash
+sudo ~/Applications/flux-monitor/pf/setup.sh install
+```
+
+从已安装的 macOS 应用包安装：
+
+```bash
+sudo "/Applications/Flux Monitor.app/Contents/Resources/pf/setup.sh" install
+```
+
+如需防止规则意外阻断指定管理地址的 SSH 与面板端口，可在安装时同时传入以下三个参数（重新安装时传入 `--clear-management` 可移除管理锁定配置）：
+
+```bash
+sudo ./scripts/pf/setup.sh install \
+  --management-address 192.0.2.10 \
+  --ssh-port 22 \
+  --panel-port 4210
+```
+
+查看状态或卸载：
+
+```bash
+sudo ./scripts/pf/setup.sh status
+sudo ./scripts/pf/setup.sh uninstall
+sudo ./scripts/pf/setup.sh uninstall --purge
+```
+
+传入 `--purge` 会一并删除 `/var/db/com.ct106.flux-monitor-pf` 中保存的策略文件。
+
 ## 配置文件说明 (`config.json`)
 
 系统通过 `config.json` 作为全局配置。初始时可复制 `config.example.json` 来创建。
@@ -137,6 +179,7 @@ chmod +x deploy.sh
     "monitor": true, // 开启/关闭侧边栏可见的功能模块
     "processes": true,
     "ports": true,
+    "firewall": true,
     "logs": true,
     "configs": true,
     "launchagent": true,
