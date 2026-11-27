@@ -9,7 +9,6 @@
 .heading,
 .actions,
 .buttons,
-.toggle,
 .titleGroup {
   display: flex;
   align-items: center;
@@ -56,6 +55,11 @@
   padding: 1.25rem;
 }
 
+.summary .summaryAction {
+  align-content: center;
+  justify-items: end;
+}
+
 .summary div,
 .dialog label {
   display: grid;
@@ -83,7 +87,6 @@
 }
 
 .hint,
-.toggle,
 .table {
   font-size: 0.875rem;
 }

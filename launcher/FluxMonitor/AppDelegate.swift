@@ -435,13 +435,40 @@ class ConfigManager {
     }
     
     func saveConfig(username: String, password: String, port: Int) {
-        let json: [String: Any] = [
-            "users": [["username": username, "password": password]],
-            "deploy": ["port": port]
-        ]
-        
+        updateConfig { json in
+            json["users"] = [["username": username, "password": password]]
+            var deploy = json["deploy"] as? [String: Any] ?? [:]
+            deploy["port"] = port
+            json["deploy"] = deploy
+        }
+    }
+
+    /// Same rule as the dashboard: a module is on unless config.json sets it to false.
+    func isFeatureEnabled(_ name: String) -> Bool {
+        guard let data = try? Data(contentsOf: configFileUrl),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let features = json["features"] as? [String: Any] else { return true }
+        return features[name] as? Bool != false
+    }
+
+    func setFeature(_ name: String, enabled: Bool) {
+        updateConfig { json in
+            var features = json["features"] as? [String: Any] ?? [:]
+            features[name] = enabled
+            json["features"] = features
+        }
+    }
+
+    /// Edits config.json in place so keys written by the dashboard (features, ai, jwtSecret, ...) survive.
+    private func updateConfig(_ change: (inout [String: Any]) -> Void) {
+        var json: [String: Any] = [:]
+        if let data = try? Data(contentsOf: configFileUrl),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            json = existing
+        }
+        change(&json)
         if let data = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted]) {
-            try? data.write(to: configFileUrl)
+            try? data.write(to: configFileUrl, options: .atomic)
         }
     }
     

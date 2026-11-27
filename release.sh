@@ -42,9 +42,8 @@ if [ "$UPLOAD_ONLY" = false ]; then
     echo "1. Cleaning up old build artifacts..."
     rm -rf .next/standalone
 
-    echo "2. Building Next.js project..."
+    echo "2. Installing Next.js dependencies..."
     npm install
-    npm run build
 
     echo "3. Bundling macOS application..."
     # Forward all arguments (like --release) to the bundle script

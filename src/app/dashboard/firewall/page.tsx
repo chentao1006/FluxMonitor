@@ -53,7 +53,6 @@ type FirewallPageAction =
   | { type: 'request_start' }
   | { type: 'load_success'; snapshot: FirewallStatus; applied: boolean }
   | { type: 'request_error'; error: FirewallErrorCode }
-  | { type: 'set_enabled'; enabled: boolean }
   | { type: 'toggle_rule'; id: number; enabled: boolean }
   | { type: 'move_rule'; id: number; offset: -1 | 1 }
   | { type: 'delete_rule'; id: number }
@@ -130,17 +129,6 @@ function firewallReducer(state: FirewallPageState, action: FirewallPageAction): 
         conflict: action.error === 'conflict' || state.conflict,
         applied: false,
       };
-    case 'set_enabled': {
-      if (!state.draft) {
-        return state;
-      }
-      return {
-        ...state,
-        draft: { ...state.draft, enabled: action.enabled },
-        applied: false,
-        error: state.conflict ? state.error : null,
-      };
-    }
     case 'toggle_rule': {
       if (!state.draft) {
         return state;
@@ -302,10 +290,10 @@ export default function FirewallPage() {
   const draftPolicy = state.draft ? toFirewallPolicy(state.draft) : null;
   const dirty = state.saved !== null && draftPolicy !== null && !policiesEqual(draftPolicy, state.saved.policy);
 
-  async function reloadStatus() {
+  async function reloadStatus(install = false) {
     dispatch({ type: 'request_start' });
     try {
-      const snapshot = await requestFirewallStatus();
+      const snapshot = await requestFirewallStatus({ method: install ? 'POST' : 'GET' });
       dispatch({ type: 'load_success', snapshot, applied: false });
     } catch (reason: unknown) {
       const code = reason instanceof FirewallRequestError ? reason.code : 'unavailable';
@@ -313,8 +301,8 @@ export default function FirewallPage() {
     }
   }
 
-  async function applyChanges() {
-    if (!state.saved || !draftPolicy) {
+  async function applyChanges(policy = draftPolicy) {
+    if (!state.saved || !policy) {
       return;
     }
     dispatch({ type: 'request_start' });
@@ -322,7 +310,7 @@ export default function FirewallPage() {
       const snapshot = await requestFirewallStatus({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ revision: state.saved.revision, policy: draftPolicy }),
+        body: JSON.stringify({ revision: state.saved.revision, policy }),
       });
       dispatch({ type: 'load_success', snapshot, applied: true });
     } catch (reason: unknown) {
@@ -411,7 +399,7 @@ export default function FirewallPage() {
     source_address: f.invalid,
   };
 
-  const showSetupCommand = state.error === 'setup_required' || state.error === 'permission_denied';
+  const showInstallButton = state.error === 'setup_required' || state.error === 'permission_denied' || state.error === 'upgrade_required';
 
   return (
     <div className={styles.page}>
@@ -436,11 +424,10 @@ export default function FirewallPage() {
       {state.error && (
         <div role="alert" className={styles.error}>
           <span>{errorMessages[state.error]}</span>
-          {showSetupCommand && (
-            <>
-              <code className={styles.command}>sudo &quot;/Applications/Flux Monitor.app/Contents/Resources/pf/setup.sh&quot; install</code>
-              <code className={styles.command}>sudo ./scripts/pf/setup.sh install</code>
-            </>
+          {showInstallButton && (
+            <button type="button" className="btn btn-primary" disabled={state.busy} onClick={() => void reloadStatus(true)}>
+              {f.install}
+            </button>
           )}
         </div>
       )}
@@ -461,6 +448,23 @@ export default function FirewallPage() {
                 {state.saved.inSync ? f.synced : f.drift}
               </strong>
             </div>
+            {draftPolicy && (
+              <div className={styles.summaryAction}>
+                {/* One click: switch the rules on or off (with any pending edits) and apply; PF follows. */}
+                <button
+                  type="button"
+                  className={state.saved.policy.enabled ? 'btn btn-danger' : 'btn btn-success'}
+                  disabled={state.busy || state.conflict || (!state.saved.policy.enabled && !state.saved.attached)}
+                  onClick={() => {
+                    const enabled = !state.saved!.policy.enabled;
+                    if (!enabled && !window.confirm(f.disableConfirm)) return;
+                    void applyChanges({ ...draftPolicy, enabled });
+                  }}
+                >
+                  {state.busy ? t.common.saving : state.saved.policy.enabled ? f.disableNow : f.enableNow}
+                </button>
+              </div>
+            )}
           </div>
 
           {!state.saved.attached && (
@@ -472,15 +476,6 @@ export default function FirewallPage() {
           <section className={`card glass-panel ${styles.panel}`}>
             <div className={styles.heading}>
               <h2>{f.rules}</h2>
-              <label className={styles.toggle}>
-                <input
-                  type="checkbox"
-                  checked={state.draft.enabled}
-                  disabled={state.busy || state.conflict}
-                  onChange={(event) => dispatch({ type: 'set_enabled', enabled: event.target.checked })}
-                />
-                {f.enable}
-              </label>
             </div>
 
             <p className={styles.hint}>{f.orderHint}</p>

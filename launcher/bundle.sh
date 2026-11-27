@@ -128,11 +128,11 @@ if [ "$SKIP_SIGN" = false ] && [ -z "$IDENTITY" ]; then
     fi
 fi
 
-# Ensure Next.js standalone is ready
-if [ ! -f ".next/standalone/server.js" ]; then
-    echo "Preparing Next.js standalone build..."
-    NEXT_TELEMETRY_DISABLED=1 npm install && NEXT_TELEMETRY_DISABLED=1 npm run build
+# Build the dashboard from the same checkout as the launcher and config.
+if [ ! -d node_modules ]; then
+    npm ci || exit 1
 fi
+NEXT_TELEMETRY_DISABLED=1 npm run build || exit 1
 
 # Always sync static and public files to standalone to ensure they are up to date
 echo "Syncing static and public assets to standalone..."

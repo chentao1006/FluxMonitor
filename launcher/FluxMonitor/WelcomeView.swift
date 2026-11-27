@@ -67,6 +67,8 @@ struct WelcomeView: View {
                     Spacer()
                 }
                 .padding(.top, 4)
+
+                FirewallSetupView(hidesWhenDeclined: true)
             }
             .padding(.horizontal, 50)
             
@@ -87,7 +89,7 @@ struct WelcomeView: View {
             .padding(.horizontal, 50)
             .padding(.bottom, 40)
         }
-        .frame(width: 420, height: 560)
+        .frame(width: 420, height: 610)
         .background(Color(NSColor.windowBackgroundColor))
     }
     

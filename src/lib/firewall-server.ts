@@ -1,4 +1,6 @@
-import { spawn } from 'child_process';
+import { userInfo } from 'node:os';
+import { promisify } from 'node:util';
+import { execFile, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { verifySessionToken } from './auth';
@@ -426,10 +428,36 @@ export function createFirewallHandlers(overrides?: Partial<FirewallServerRuntime
     return invokeHelper(helperPayload);
   }
 
-  return { GET, PUT };
+  let installation: Promise<unknown> | undefined;
+
+  async function POST(request: Request): Promise<Response> {
+    const denied = await authorize(request) ?? verifySameOrigin(request);
+    if (denied) return denied;
+
+    const directory = process.cwd();
+    const installer = [path.join(directory, 'pf/setup.sh'), path.join(directory, 'scripts/pf/setup.sh')]
+      .find(defaultHelperExists);
+    if (process.platform !== 'darwin' || !installer) return errorResponse('setup_required', 503);
+
+    try {
+      installation ??= promisify(execFile)('/usr/bin/osascript', [
+        '-e', 'on run argv',
+        '-e', 'do shell script (quoted form of (item 1 of argv) & " install --user " & quoted form of (item 2 of argv)) with administrator privileges with prompt "Install the Flux Monitor firewall component"',
+        '-e', 'end run', '--', installer, userInfo().username,
+      ], { timeout: 180_000 }).finally(() => { installation = undefined; });
+      await installation;
+    } catch {
+      return errorResponse('permission_denied', 503);
+    }
+    return invokeHelper({ action: 'status' });
+  }
+
+  return { GET, PUT, POST };
 }
 
 const defaultHandlers = createFirewallHandlers();
 
 export const handleFirewallGet = defaultHandlers.GET;
 export const handleFirewallPut = defaultHandlers.PUT;
+
+export const handleFirewallPost = defaultHandlers.POST;

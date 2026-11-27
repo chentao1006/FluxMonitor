@@ -46,7 +46,7 @@ class FirewallLocaleAndScriptTests(unittest.TestCase):
 
         reference = key_sets["en"]
         self.assertIn("permissionDenied", reference)
-        self.assertEqual(len(reference), 36)
+        self.assertIn("install", reference)
         for name, keys in key_sets.items():
             self.assertEqual(keys, reference, f"firewall key mismatch in {name}.ts")
 

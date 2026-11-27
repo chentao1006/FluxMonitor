@@ -48,17 +48,23 @@ struct MainView: View {
                 }
                 .tag(1)
             
+            ComponentsView()
+                .tabItem {
+                    Text(i18n.t("components"))
+                }
+                .tag(2)
+            
             SettingsView()
                 .tabItem {
                     Text(i18n.t("general"))
                 }
-                .tag(2)
+                .tag(3)
             
             AboutView(showingAppGuide: $showingAppGuide)
                 .tabItem {
                     Text(i18n.t("about"))
                 }
-                .tag(3)
+                .tag(4)
         }
         .frame(minWidth: 600, minHeight: 588)
         .padding()
