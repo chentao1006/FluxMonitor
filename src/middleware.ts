@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { verifySessionToken } from "@/lib/auth";
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Protect /dashboard routes and /api routes (except /api/auth/login and /api/info)
   const isProtectedRoute = path.startsWith('/dashboard') || (path.startsWith('/api') && !path.startsWith('/api/auth/login') && !path.startsWith('/api/info'));
 
   if (isProtectedRoute) {
@@ -17,31 +16,20 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    try {
-      const secret = process.env.JWT_SECRET || 'CHANGE_ME_TO_A_LONG_RANDOM_STRING';
-      const secretKey = new TextEncoder().encode(secret);
-      await jwtVerify(token, secretKey);
-      return NextResponse.next();
-    } catch {
+    const session = await verifySessionToken(token);
+    if (!session) {
       if (path.startsWith('/api')) {
         return NextResponse.json({ error: "Invalid token" }, { status: 401 });
       }
       return NextResponse.redirect(new URL('/login', request.url));
     }
+    return NextResponse.next();
   }
 
-  // Redirect authenticated users away from /login
   if (path === '/login') {
     const token = request.cookies.get('token')?.value;
-    if (token) {
-      try {
-        const secret = process.env.JWT_SECRET || 'CHANGE_ME_TO_A_LONG_RANDOM_STRING';
-        const secretKey = new TextEncoder().encode(secret);
-        await jwtVerify(token, secretKey);
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      } catch {
-        // Token invalid, let them stay on login page
-      }
+    if (token && (await verifySessionToken(token))) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 

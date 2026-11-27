@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { SignJWT } from 'jose';
+import { signSessionToken } from '@/lib/auth';
 import { getConfig } from '@/lib/config';
-import { cookies } from 'next/headers';
 import { UserConfig } from '@/lib/types';
 
 export async function POST(request: Request) {
@@ -14,14 +13,9 @@ export async function POST(request: Request) {
     );
 
     if (user) {
-      const secretKey = new TextEncoder().encode(process.env.JWT_SECRET || 'CHANGE_ME_TO_A_LONG_RANDOM_STRING');
       const expirationTime = autoLogin ? '365d' : '24h';
       const maxAge = autoLogin ? 60 * 60 * 24 * 365 : 60 * 60 * 24;
-
-      const token = await new SignJWT({ username: user.username })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setExpirationTime(expirationTime)
-        .sign(secretKey);
+      const token = await signSessionToken(user.username, expirationTime);
 
       const response = NextResponse.json({ success: true });
       response.headers.set(
