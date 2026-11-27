@@ -1,0 +1,468 @@
+#!/usr/bin/python3 -I
+import fcntl
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import socket
+import subprocess
+import sys
+import tempfile
+
+DATA = Path("/var/db/com.ct106.flux-monitor-pf")
+TOKEN = Path("/var/run/com.ct106.flux-monitor-pf.token")
+ANCHOR = "com.apple/000.ct106.flux-monitor"
+PFCTL = "/sbin/pfctl"
+EMPTY = {"version": 1, "enabled": False, "rules": []}
+LIMIT = 65536
+
+
+class Invalid(ValueError):
+    pass
+
+
+class Conflict(Exception):
+    pass
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def unwrap_ip(raw):
+    if not isinstance(raw, str):
+        raise ValueError("invalid address")
+    if "%" in raw:
+        text, zone = raw.split("%", 1)
+        if not zone or ":" not in text or not re.fullmatch(r"[A-Za-z0-9_.-]+", zone):
+            raise ValueError("invalid zone")
+    else:
+        text = raw
+    ip = ipaddress.ip_address(text)
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    return ip
+
+
+def port_ranges(text):
+    if text == "*":
+        return [(1, 65535)]
+    if not isinstance(text, str) or len(text) > 2048:
+        raise Invalid("port")
+    spans = []
+    for part in text.split(","):
+        match = re.fullmatch(r"([0-9]{1,5})(?:-([0-9]{1,5}))?", part.strip())
+        if not match:
+            raise Invalid("port")
+        low, high = int(match[1]), int(match[2] or match[1])
+        if not 1 <= low <= high <= 65535:
+            raise Invalid("port")
+        spans.append((low, high))
+    merged = []
+    for low, high in sorted(spans):
+        if merged and low <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], high))
+        else:
+            merged.append((low, high))
+    return merged
+
+
+def format_ports(spans):
+    if spans == [(1, 65535)]:
+        return "*"
+    return ",".join(str(a) if a == b else f"{a}-{b}" for a, b in spans)
+
+
+def normalize_sources(sources):
+    if sources == ["any"]:
+        return ["any"]
+    if not isinstance(sources, list) or not 1 <= len(sources) <= 128:
+        raise Invalid("sources")
+    networks = set()
+    for value in sources:
+        if not isinstance(value, str) or not re.fullmatch(r"[a-fA-F0-9:./]+", value):
+            raise Invalid("source_address")
+        try:
+            networks.add(ipaddress.ip_network(value, strict=True))
+        except ValueError:
+            raise Invalid("source_address") from None
+    return [str(n) for n in sorted(networks, key=lambda n: (n.version, int(n.network_address), n.prefixlen))]
+
+
+def load_management(data_dir):
+    path = data_dir / "management.json"
+    if not path.exists():
+        return None
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError, UnicodeError):
+        raise RuntimeError("invalid management.json") from None
+    if not isinstance(raw, dict) or set(raw) != {"address", "sshPort", "panelPort"}:
+        raise RuntimeError("invalid management.json")
+    try:
+        address = str(unwrap_ip(raw["address"]))
+    except ValueError:
+        raise RuntimeError("invalid management.json") from None
+    ssh_port, panel_port = raw["sshPort"], raw["panelPort"]
+    if type(ssh_port) is not int or not 1 <= ssh_port <= 65535:
+        raise RuntimeError("invalid management.json")
+    if type(panel_port) is not int or not 1 <= panel_port <= 65535:
+        raise RuntimeError("invalid management.json")
+    return {"address": address, "sshPort": ssh_port, "panelPort": panel_port}
+
+
+def matches_port(rule, protocol, port):
+    return rule["protocol"] in (protocol, "tcp/udp") and any(a <= port <= b for a, b in port_ranges(rule["ports"]))
+
+
+def allowed(value, address, protocol, port):
+    ip = unwrap_ip(address)
+    for rule in value["rules"]:
+        if rule.get("enabled", True) and matches_port(rule, protocol, port) and (
+            rule["sources"] == ["any"]
+            or any(ip in ipaddress.ip_network(net) for net in rule["sources"])
+        ):
+            return rule["action"] == "allow"
+    return True
+
+
+def policy(value, management=None, client=None):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"version", "enabled", "rules"}
+        or type(value["version"]) is not int
+        or value["version"] != 1
+        or type(value["enabled"]) is not bool
+        or not isinstance(value["rules"], list)
+    ):
+        raise Invalid("policy")
+    if len(value["rules"]) > 256:
+        raise Invalid("rule_limit")
+    rules = []
+    for rule in value["rules"]:
+        if (
+            not isinstance(rule, dict)
+            or not {"action", "protocol", "sources", "ports"} <= set(rule)
+            or set(rule) - {"action", "protocol", "sources", "ports", "enabled", "description"}
+        ):
+            raise Invalid("rule")
+        if rule["protocol"] not in ("tcp", "udp", "tcp/udp") or rule["action"] not in ("allow", "deny"):
+            raise Invalid("rule")
+        enabled, description = rule.get("enabled", True), rule.get("description", "")
+        if type(enabled) is not bool or not isinstance(description, str) or len(description) > 120:
+            raise Invalid("rule")
+        rules.append(
+            {
+                "enabled": enabled,
+                "description": description,
+                "action": rule["action"],
+                "protocol": rule["protocol"],
+                "sources": normalize_sources(rule["sources"]),
+                "ports": format_ports(port_ranges(rule["ports"])),
+            }
+        )
+    result = {"version": 1, "enabled": value["enabled"], "rules": rules}
+    if len(json.dumps(result, separators=(",", ":")).encode()) > LIMIT - 512:
+        raise Invalid("request_size")
+    if management is not None and result["enabled"]:
+        protected = [
+            (management["address"], management["sshPort"]),
+            (management["address"], management["panelPort"]),
+        ]
+        if client is not None:
+            client_ip = unwrap_ip(client)
+            if not client_ip.is_loopback:
+                protected.append((str(client_ip), management["panelPort"]))
+        if any(not allowed(result, address, "tcp", port) for address, port in protected):
+            raise Invalid("management_access")
+    return result
+
+
+def blocked_prefixes(rules):
+    """PF tables use longest-prefix lookup; each prefix inherits the earliest matching rule."""
+    priorities = {}
+    for index, rule in enumerate(rules):
+        sources = ["0.0.0.0/0", "::/0"] if rule["sources"] == ["any"] else rule["sources"]
+        for source in sources:
+            priorities.setdefault(ipaddress.ip_network(source), index)
+    inherited, entries = {}, []
+    default = len(rules)
+    for net in sorted(priorities, key=lambda n: (n.version, n.prefixlen, int(n.network_address))):
+        bits, length = net.max_prefixlen, net.prefixlen
+        address = int(net.network_address)
+        parent = default
+        for prefix in range(length - 1, -1, -1):
+            key = (net.version, prefix, address >> (bits - prefix))
+            if key in inherited:
+                parent = inherited[key]
+                break
+        winner = min(parent, priorities[net])
+        inherited[net.version, length, address >> (bits - length)] = winner
+        deny = rules[winner]["action"] == "deny"
+        parent_deny = parent != default and rules[parent]["action"] == "deny"
+        if deny != parent_deny:
+            entries.append(("" if deny else "!") + str(net))
+    return tuple(entries)
+
+
+def discover_interfaces():
+    interfaces = sorted(name for _, name in socket.if_nameindex() if not name.startswith("lo"))
+    if not all(re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_.-]{0,14}", name) for name in interfaces):
+        raise RuntimeError("unsupported PF destination interface")
+    return interfaces
+
+
+def render(value):
+    if not value["enabled"] or not value["rules"]:
+        return "\n", set()
+    interfaces = discover_interfaces()
+    if not interfaces:
+        return "\n", set()
+    # Allow rules fall through to other macOS filters; this anchor never emits pass quick.
+    tables, filters, labels, cache = {}, [], set(), {}
+    prefix_work = 0
+    for proto in ("tcp", "udp"):
+        events = {}
+        for i, rule in enumerate(value["rules"]):
+            if rule["enabled"] and rule["protocol"] in (proto, "tcp/udp"):
+                for low, high in port_ranges(rule["ports"]):
+                    events.setdefault(low, []).append((i, True))
+                    events.setdefault(high + 1, []).append((i, False))
+        active, spans = set(), []
+        cuts = sorted(events)
+        for low, stop in zip(cuts, cuts[1:]):
+            for i, add in events[low]:
+                if add:
+                    active.add(i)
+                else:
+                    active.remove(i)
+            key = tuple(sorted(active))
+            if key not in cache:
+                prefix_work += sum(len(value["rules"][i]["sources"]) for i in key)
+                if len(cache) >= 1024 or prefix_work > 65536:
+                    raise Invalid("rule_limit")
+                cache[key] = blocked_prefixes([value["rules"][i] for i in key])
+            entries = cache[key]
+            if not entries:
+                continue
+            name = "fm_" + digest(entries)[:20]
+            tables[name] = entries
+            if spans and spans[-1][2] == name and spans[-1][1] + 1 == low:
+                spans[-1] = (spans[-1][0], stop - 1, name)
+            else:
+                spans.append((low, stop - 1, name))
+        for low, high, name in spans:
+            port = str(low) if low == high else f"{low}:{high}"
+            for interface in interfaces:
+                local = f"({interface}) port {port}"
+                # Track local requests whose replies would hit this inbound block.
+                # Leaving out quick lets later system rules still decide on outgoing traffic.
+                for statement in (
+                    f"pass out on ! lo0 proto {proto} from {local} to <{name}> keep state",
+                    f"block drop in quick on ! lo0 proto {proto} from <{name}> to {local}",
+                ):
+                    label = "fm_" + digest(statement)[:20]
+                    filters.append(f'{statement} label "{label}"')
+                    labels.add(label)
+            if len(filters) > 2 * 16_000:
+                raise Invalid("rule_limit")
+    definitions = [f'table <{name}> const {{ {", ".join(entries)} }}' for name, entries in tables.items()]
+    return "\n".join(definitions + filters) + "\n", labels
+
+
+def pf(*args, body=None):
+    proc = subprocess.run(
+        [PFCTL, *args],
+        input=body,
+        text=True,
+        capture_output=True,
+        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LC_ALL": "C"},
+        timeout=8,
+    )
+    if proc.returncode:
+        raise RuntimeError(f"pfctl {args[0]} failed: {proc.stderr.strip()[-500:]}")
+    return proc.stdout + proc.stderr
+
+
+def write_atomic(path, data):
+    fd, name = tempfile.mkstemp(dir=path.parent)
+    try:
+        with os.fdopen(fd, "w") as out:
+            out.write(data + "\n")
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(name, path)
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
+def owned_token():
+    if TOKEN.exists():
+        token = TOKEN.read_text().strip()
+        if token.isdecimal() and any(
+            len(row) >= 3 and row[2] == token
+            for row in (line.split() for line in pf("-s", "References").splitlines())
+        ):
+            return token
+    return None
+
+
+def set_reference(enabled, token):
+    if enabled and not token:
+        reply = pf("-E")
+        match = re.search(r"^Token\s*:\s*(\d+)\s*$", reply, re.M)
+        if not match:
+            raise RuntimeError("pfctl did not return an enable reference")
+        try:
+            write_atomic(TOKEN, match[1])
+        except OSError:
+            pf("-X", match[1])
+            raise
+    elif not enabled and TOKEN.exists():
+        if token:
+            pf("-X", token)
+        TOKEN.unlink(missing_ok=True)
+
+
+def kernel():
+    running = bool(re.search(r"^Status:\s+Enabled\b", pf("-s", "info"), re.M))
+    attached = any(
+        line.strip() in ('anchor "com.apple/*" all', 'anchor "com.apple/*"')
+        for line in pf("-s", "rules").splitlines()
+    )
+    labels = set()
+    parents = {name.strip() for name in pf("-s", "Anchors").splitlines()}
+    if "com.apple" in parents:
+        children = {name.strip().split("/")[-1] for name in pf("-a", "com.apple", "-s", "Anchors").splitlines()}
+        if ANCHOR.split("/")[-1] in children:
+            for line in pf("-a", ANCHOR, "-s", "rules").splitlines():
+                if line.startswith(("block ", "pass ", "anchor ", "match ")):
+                    label = re.search(r'\blabel "(fm_[0-9a-f]{20})"', line)
+                    if not label:
+                        raise RuntimeError("unexpected filter in the dedicated anchor")
+                    labels.add(label[1])
+    return running, attached, labels
+
+
+def converge(value):
+    body, labels = render(value)
+    running, attached, installed = kernel()
+    if value["enabled"] and not attached:
+        raise RuntimeError("the macOS wildcard filter anchor is unavailable")
+    if labels != installed:
+        pf("-n", "-a", ANCHOR, "-f", "-", body=body)
+        pf("-a", ANCHOR, "-f", "-", body=body)
+    token = owned_token()
+    if value["enabled"] and not running and token:
+        pf("-X", token)
+        TOKEN.unlink(missing_ok=True)
+        token = None
+    set_reference(value["enabled"], token)
+
+
+def status(value):
+    running, attached, installed = kernel()
+    enabled = value["enabled"]
+    try:
+        expected_labels = render(value)[1]
+    except (Invalid, RuntimeError):
+        expected_labels = None
+    synced = expected_labels is not None and installed == expected_labels and bool(owned_token()) == enabled
+    return {
+        "policy": value,
+        "revision": digest(value),
+        "pfEnabled": running,
+        "attached": attached,
+        "inSync": synced and (not enabled or (running and attached)),
+    }
+
+
+def load_stored_policy(path):
+    if not path.exists():
+        return EMPTY, policy(EMPTY)
+    try:
+        stored = json.loads(path.read_text())
+        return stored, policy(stored)
+    except (OSError, Invalid, json.JSONDecodeError, UnicodeError):
+        raise RuntimeError("invalid stored policy.json") from None
+
+
+def handle(request, restore=False):
+    DATA.mkdir(parents=True, exist_ok=True)
+    os.chmod(DATA, 0o700)
+    with (DATA / "lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        path = DATA / "policy.json"
+        management = load_management(DATA)
+        stored, current = load_stored_policy(path)
+        if restore:
+            converge(policy(current, management))
+            return None
+        if request == {"action": "status"}:
+            return status(current)
+        if (
+            not isinstance(request, dict)
+            or request.get("action") != "apply"
+            or set(request) - {"action", "revision", "policy", "client"}
+        ):
+            raise Invalid("request")
+        client = request.get("client")
+        if client is not None:
+            try:
+                client = str(unwrap_ip(client))
+            except (TypeError, ValueError):
+                raise Invalid("source_address") from None
+        if request.get("revision") != digest(current):
+            raise Conflict()
+        candidate = policy(request.get("policy"), management, client)
+        try:
+            converge(candidate)
+            snapshot = status(candidate)
+            if not snapshot["inSync"]:
+                raise RuntimeError("installed filters differ from the requested policy")
+            if candidate != stored or not path.exists():
+                write_atomic(path, json.dumps(candidate, indent=2))
+            return snapshot
+        except Exception:
+            try:
+                converge(current)
+            except Exception as rollback_err:
+                print(f"rollback failed: {rollback_err}", file=sys.stderr)
+            raise
+
+
+def main():
+    restore = sys.argv[1:] == ["--restore"]
+    if sys.argv[1:] and not restore:
+        return 2
+    try:
+        request = None
+        if not restore:
+            data = sys.stdin.buffer.read(LIMIT + 1)
+            if len(data) > LIMIT:
+                raise Invalid("request_size")
+            request = json.loads(data)
+        result = handle(request, restore)
+        if not restore:
+            print(json.dumps(result))
+        return 0
+    except Conflict:
+        if restore:
+            print("restore conflict", file=sys.stderr)
+        error = {"error": "conflict"}
+    except (Invalid, json.JSONDecodeError, UnicodeError) as exc:
+        if restore:
+            print(str(exc), file=sys.stderr)
+        error = {"error": "invalid", "detail": str(exc) if isinstance(exc, Invalid) else "request"}
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        error = {"error": "unavailable"}
+    if not restore:
+        print(json.dumps(error))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
