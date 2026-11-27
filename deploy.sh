@@ -69,6 +69,11 @@ cp -a public/. "$APP_DIR/public/" 2>/dev/null || :
 mkdir -p "$APP_DIR/.next/static"
 cp -a .next/static/. "$APP_DIR/.next/static/"
 
+if [ -d "scripts/pf" ]; then
+    rm -rf "$APP_DIR/pf"
+    cp -a scripts/pf "$APP_DIR/pf"
+fi
+
 echo "6. Restoring config.json..."
 if [ "$HAS_BACKUP" = "1" ]; then
     echo "Restored existing config.json to protect destination config."

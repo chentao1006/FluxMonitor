@@ -30,6 +30,7 @@ brew install --cask chentao1006/tap/flux-monitor
 - **LaunchAgent**: Manage macOS LaunchAgents and LaunchDaemons.
 - **Docker**: Manage containers and images.
 - **Nginx**: Manage sites and global configurations.
+- **PF Firewall**: Manage ordered inbound macOS PF port rules with CIDR allow and deny lists.
 - **Optional AI Assistant**: Connect an OpenAI API key for log parsing, configuration auditing, and troubleshooting suggestions.
 - **Public Access (InstaTunnel)**: Expose your local monitor to the public internet securely with a single click, no account or complex config needed.
 
@@ -117,6 +118,47 @@ chmod +x deploy.sh
 - You can change the deployment folder by editing the `"deploy.path"` key in `config.json`.
 - After deployment, the script uses `start.sh` to run the app in the background on the configured port (default `4210`).
 
+## PF Firewall Setup (Optional)
+
+The **PF Firewall** dashboard page requires a one-time root setup on macOS. Running `setup.sh install` installs `/Library/PrivilegedHelperTools/com.ct106.flux-monitor-pf`, adds a scoped sudoers rule in `/etc/sudoers.d/com_ct106_flux_monitor_pf`, and registers a LaunchDaemon that restores saved rules after reboot. For every blocked inbound port and peer set, the helper also installs a non-quick `pass out ... keep state` rule so replies to outbound connections initiated by your Mac are not blocked.
+
+From a source checkout:
+
+```bash
+sudo ./scripts/pf/setup.sh install
+```
+
+From a `deploy.sh` installation:
+
+```bash
+sudo ~/Applications/flux-monitor/pf/setup.sh install
+```
+
+From the installed macOS app bundle:
+
+```bash
+sudo "/Applications/Flux Monitor.app/Contents/Resources/pf/setup.sh" install
+```
+
+To prevent rules from blocking your SSH and panel ports from a management address, pass all three lockout options during install (or pass `--clear-management` on reinstall to remove lockout protection):
+
+```bash
+sudo ./scripts/pf/setup.sh install \
+  --management-address 192.0.2.10 \
+  --ssh-port 22 \
+  --panel-port 4210
+```
+
+Inspect or remove the installation:
+
+```bash
+sudo ./scripts/pf/setup.sh status
+sudo ./scripts/pf/setup.sh uninstall
+sudo ./scripts/pf/setup.sh uninstall --purge
+```
+
+Use `--purge` to delete saved policy files under `/var/db/com.ct106.flux-monitor-pf`.
+
 ## Configuration (`config.json`)
 
 The system uses `config.json` for global settings. You can copy `config.example.json` to create one if it doesn't exist.
@@ -139,6 +181,7 @@ The system uses `config.json` for global settings. You can copy `config.example.
     "monitor": true,
     "processes": true,
     "ports": true,
+    "firewall": true,
     "logs": true,
     "configs": true,
     "launchagent": true,
