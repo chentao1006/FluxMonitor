@@ -494,7 +494,7 @@
 
         .feature-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 16px;
             max-width: 1220px;
             margin: 0 auto;
@@ -1047,9 +1047,9 @@
                     <span lang-zh><span class="gradient-text">监控、管理、远程控制你的 Mac。</span></span>
                 </h1>
                 <p class="hero-copy" lang-en>Flux pairs a native macOS launcher with a web dashboard and Flux Remote.
-                    Watch system health, manage ports, inspect logs, control Docker and Nginx, and keep your Mac
+                    Watch system health, manage ports and firewall rules, inspect logs, control Docker and Nginx, and keep your Mac
                     reachable from anywhere.</p>
-                <p class="hero-copy" lang-zh>浮光由 macOS 浮光启动器、Web 控制面板和浮光远控组成。你可以查看系统状态、管理端口、分析日志、控制 Docker 与 Nginx，并让
+                <p class="hero-copy" lang-zh>浮光由 macOS 浮光启动器、Web 控制面板和浮光远控组成。你可以查看系统状态、管理端口与防火墙规则、分析日志、控制 Docker 与 Nginx，并让
                     Mac 保持可访问。</p>
                 <div class="hero-actions">
                     <div class="hero-primary-action">
@@ -1196,56 +1196,63 @@
             </div>
             <div class="feature-grid">
                 <article class="feature-card">
-                    <div class="feature-icon">CPU</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
                     <h3 lang-en>System monitor</h3>
                     <h3 lang-zh>系统监控</h3>
                     <p lang-en>CPU, memory, disk, network, and terminal execution from the dashboard.</p>
                     <p lang-zh>查看 CPU、内存、磁盘、网络，并可在面板中执行终端命令。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">PID</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg></div>
                     <h3 lang-en>Process control</h3>
                     <h3 lang-zh>进程管理</h3>
                     <p lang-en>Find high-usage processes and inspect runtime behavior quickly.</p>
                     <p lang-zh>快速定位高占用进程，并查看运行状态。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">:80</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"></path><path d="M12 8v8"></path></svg></div>
                     <h3 lang-en>Port manager</h3>
                     <h3 lang-zh>端口管理</h3>
                     <p lang-en>Trace listening ports to owning processes and release occupied ports.</p>
                     <p lang-zh>查看监听端口、定位占用进程，并释放被占用端口。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">LOG</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+                    <h3 lang-en>Firewall</h3>
+                    <h3 lang-zh>防火墙</h3>
+                    <p lang-en>Allow or block inbound ports by address with ordered macOS PF rules, turned on or off in one click.</p>
+                    <p lang-zh>基于 macOS PF 按顺序放行或拦截入站端口与来源地址，一键启用或禁用。</p>
+                </article>
+                <article class="feature-card">
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
                     <h3 lang-en>Log analysis</h3>
                     <h3 lang-zh>日志分析</h3>
                     <p lang-en>Browse service logs and use optional AI assistance for explanations.</p>
                     <p lang-zh>查看服务日志，并可使用可选 AI 功能辅助解释问题。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">CFG</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
                     <h3 lang-en>Config audit</h3>
                     <h3 lang-zh>配置审计</h3>
                     <p lang-en>Edit configuration files with history and AI-assisted review.</p>
                     <p lang-zh>编辑配置文件，保留历史，并可进行 AI 辅助审查。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">LND</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-5a2 2 0 0 1 3-1"></path><path d="M12 15v5s3.03-.55 5-2a2 2 0 0 0 1-3"></path></svg></div>
                     <h3 lang-en>Launch services</h3>
                     <h3 lang-zh>启动服务</h3>
                     <p lang-en>Manage LaunchAgents and LaunchDaemons without leaving the dashboard.</p>
                     <p lang-zh>在面板中管理 LaunchAgents 和 LaunchDaemons。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">DKR</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></div>
                     <h3 lang-en>Docker</h3>
                     <h3 lang-zh>Docker</h3>
                     <p lang-en>Control containers and images, then inspect resource use and logs.</p>
                     <p lang-zh>管理容器与镜像，并查看资源占用和日志。</p>
                 </article>
                 <article class="feature-card">
-                    <div class="feature-icon">NGX</div>
+                    <div class="feature-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg></div>
                     <h3 lang-en>Nginx</h3>
                     <h3 lang-zh>Nginx</h3>
                     <p lang-en>Manage site configs and operational state for local web services.</p>

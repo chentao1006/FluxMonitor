@@ -25,12 +25,12 @@ brew install --cask chentao1006/tap/flux-monitor
 - **System Monitor**: Display CPU, memory, disk, and network usage, run terminal commands.
 - **Process Management**: View running processes and monitor resource consumption.
 - **Port Manager**: Inspect listening and active ports, trace owning processes, and release occupied ports.
+- **Firewall**: Allow or block inbound ports by source address (CIDR) with ordered macOS PF rules, and turn the firewall on or off in one click. Rules survive reboots, and outbound replies are never blocked.
 - **Log Analysis**: Browse system logs.
 - **Configuration Management**: Edit system configuration files.
 - **LaunchAgent**: Manage macOS LaunchAgents and LaunchDaemons.
 - **Docker**: Manage containers and images.
 - **Nginx**: Manage sites and global configurations.
-- **PF Firewall**: Manage ordered inbound macOS PF port rules with CIDR allow and deny lists.
 - **Optional AI Assistant**: Connect an OpenAI API key for log parsing, configuration auditing, and troubleshooting suggestions.
 - **Public Access (InstaTunnel)**: Expose your local monitor to the public internet securely with a single click, no account or complex config needed.
 
@@ -118,9 +118,25 @@ chmod +x deploy.sh
 - You can change the deployment folder by editing the `"deploy.path"` key in `config.json`.
 - After deployment, the script uses `start.sh` to run the app in the background on the configured port (default `4210`).
 
-## PF Firewall Setup (Optional)
+## Firewall Setup (Optional)
 
-The **PF Firewall** dashboard page requires a one-time root setup on macOS. Running `setup.sh install` installs `/Library/PrivilegedHelperTools/com.ct106.flux-monitor-pf`, adds a scoped sudoers rule in `/etc/sudoers.d/com_ct106_flux_monitor_pf`, and registers a LaunchDaemon that restores saved rules after reboot. For every blocked inbound port and peer set, the helper also installs a non-quick `pass out ... keep state` rule so replies to outbound connections initiated by your Mac are not blocked.
+The **Firewall** page manages macOS PF through a small privileged component, which needs one-time administrator approval to install. Choose whichever is convenient:
+
+- **Launcher (recommended)**: On first run, click **Enable firewall management**, or later open the **Components** tab and turn on **Firewall management**. Approve the macOS prompt once; after that the dashboard works remotely without further prompts.
+- **Dashboard**: If the component is missing, the Firewall page shows an **Install component** button. The approval prompt appears on the Mac running Flux Monitor, not in your browser.
+- **Not needed?** Click **Not now** in the launcher, or turn the switch off on the **Components** tab. The Firewall module is hidden from the dashboard (`features.firewall: false`) and you are not asked again. The launcher and the dashboard's module toggle stay in sync.
+
+Turning firewall management off only hides the module; rules that are already applied stay active. To remove them, use **Uninstall component** on the **Components** tab (saved rules are kept and restored if you reinstall).
+
+Once installed, use **Turn on firewall** / **Turn off firewall** at the top of the Firewall page, and edit inbound rules below it. Rules are matched top-down, first match wins.
+
+### What gets installed
+
+Installation places the helper at `/Library/PrivilegedHelperTools/com.ct106.flux-monitor-pf`, adds a scoped sudoers rule in `/etc/sudoers.d/com_ct106_flux_monitor_pf`, and registers a LaunchDaemon that restores saved rules after reboot. For every blocked inbound port and peer set, the helper also installs a non-quick `pass out ... keep state` rule so replies to outbound connections initiated by your Mac are not blocked.
+
+### Manual setup from the command line
+
+Useful over SSH or for scripted installs. The component is granted to the user who runs `sudo` (or the one passed with `--user`), which must be the account running Flux Monitor.
 
 From a source checkout:
 
